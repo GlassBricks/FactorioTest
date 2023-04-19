@@ -168,13 +168,13 @@ function createTestProgressGui(state: TestState): TestProgressGui {
     tooltip: ["gui.close"],
     mouse_button_filter: ["left"],
     tags: {
-      modName: "testorio",
+      modName: "factorio-test",
       on_gui_click: Misc.CloseProgressGui,
     },
     enabled: false,
   })
-  // the on_click handler is handled by testorio mod, not the mod under test
-  // this is so testorio does not need to "hack" into another event handler
+  // the on_click handler is handled by factorio-test mod, not the mod under test
+  // this is so factorio-test does not need to "hack" into another event handler
 
   const contentFrame = mainFrame.add({
     type: "frame",

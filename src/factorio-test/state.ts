@@ -3,9 +3,9 @@ import { TestStage } from "../shared-constants"
 import { createEmptyRunResults, RunResults } from "./result"
 import { _raiseTestEvent, TestEvent } from "./testEvents"
 import { createRootDescribeBlock, DescribeBlock, Test, TestTags } from "./tests"
-import Config = Testorio.Config
-import OnTickFn = Testorio.OnTickFn
-import HookFn = Testorio.HookFn
+import Config = FactorioTest.Config
+import OnTickFn = FactorioTest.OnTickFn
+import HookFn = FactorioTest.HookFn
 
 /** @noSelf */
 export interface TestState {
@@ -45,29 +45,29 @@ export interface TestRun {
   afterTestFuncs: HookFn[]
 }
 
-let TESTORIO_TEST_STATE: TestState | undefined
+let FACTORIO_TEST_TEST_STATE: TestState | undefined
 declare const global: {
-  __testorioTestStage?: TestStage
+  __factorio_testTestStage?: TestStage
 }
 
 export function getTestState(): TestState {
-  return TESTORIO_TEST_STATE ?? error("Tests are not configured to be run")
+  return FACTORIO_TEST_TEST_STATE ?? error("Tests are not configured to be run")
 }
 
 // internal, export for meta-test only
 export function _setTestState(state: TestState): void {
-  TESTORIO_TEST_STATE = state
+  FACTORIO_TEST_TEST_STATE = state
 }
 
 export function getGlobalTestStage(): TestStage {
-  return global.__testorioTestStage ?? TestStage.NotRun
+  return global.__factorio_testTestStage ?? TestStage.NotRun
 }
 
 const onTestStageChanged = script.generate_event_name<{ stage: TestStage }>()
 export { onTestStageChanged }
 
 function setGlobalTestStage(stage: TestStage): void {
-  global.__testorioTestStage = stage
+  global.__factorio_testTestStage = stage
   script.raise_event(onTestStageChanged, { stage })
 }
 

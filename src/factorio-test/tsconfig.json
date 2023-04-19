@@ -21,7 +21,7 @@
     "luaTarget": "5.2",
     "sourceMapTraceback": true,
     "noImplicitSelf": true,
-    "luaBundle": "../_testorio.lua",
+    "luaBundle": "../_factorio-test.lua",
     "luaBundleEntry": "loadTestorio.ts"
   },
   "include": [".", "../../node_modules/typed-factorio/runtime/index.d.ts", "../../index.d.ts"],

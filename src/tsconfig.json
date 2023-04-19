@@ -19,8 +19,8 @@
     "luaTarget": "5.2",
     "sourceMapTraceback": true,
     "noImplicitSelf": true,
-    "noResolvePaths": ["__testorio__/init"]
+    "noResolvePaths": ["__factorio-test__/init"]
   },
   "include": [".", "../node_modules/typed-factorio/runtime/index.d.ts", "../index.d.ts"],
-  "exclude": ["testorio/**/*"]
+  "exclude": ["factorio-test/**/*"]
 }

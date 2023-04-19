@@ -1,7 +1,6 @@
 // noinspection JSUnusedGlobalSymbols
 
 import * as util from "util"
-import { __testorio__pcallWithStacktrace } from "./_util"
 import { prepareReload } from "./resume"
 import { getCurrentBlock, getTestState, TestRun, TestState } from "./state"
 import {
@@ -15,13 +14,14 @@ import {
   TestMode,
   TestTags,
 } from "./tests"
-import DescribeCreator = Testorio.DescribeCreator
-import DescribeCreatorBase = Testorio.DescribeCreatorBase
-import HookFn = Testorio.HookFn
-import TestBuilder = Testorio.TestBuilder
-import TestCreator = Testorio.TestCreator
-import TestCreatorBase = Testorio.TestCreatorBase
-import TestFn = Testorio.TestFn
+import { __factorio_test__pcallWithStacktrace } from "./_util"
+import DescribeCreator = FactorioTest.DescribeCreator
+import DescribeCreatorBase = FactorioTest.DescribeCreatorBase
+import HookFn = FactorioTest.HookFn
+import TestBuilder = FactorioTest.TestBuilder
+import TestCreator = FactorioTest.TestCreator
+import TestCreatorBase = FactorioTest.TestCreatorBase
+import TestFn = FactorioTest.TestFn
 
 function getCallerSource(upStack: number = 1): Source {
   const info = debug.getinfo(upStack + 2, "Sl") || {}
@@ -148,7 +148,7 @@ function createDescribe(name: string, block: TestFn, mode: TestMode, upStack: nu
   const parent = getCurrentBlock()
   const describeBlock = addDescribeBlock(parent, name, source, mode, util.merge([parent.tags, consumeTags()]))
   state.currentBlock = describeBlock
-  const [success, msg] = __testorio__pcallWithStacktrace(block)
+  const [success, msg] = __factorio_test__pcallWithStacktrace(block)
   if (!success) {
     describeBlock.errors.push(`Error in definition: ${msg}`)
   }

@@ -15,7 +15,7 @@
   },
   "tstl": {
     "luaTarget": "5.2",
-    "noResolvePaths": ["__testorio__/init"],
+    "noResolvePaths": ["__factorio-test__/init"],
     "sourceMapTraceback": true,
     "noImplicitSelf": true
   },

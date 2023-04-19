@@ -5,7 +5,7 @@ import { GuiAction, guiAction } from "./guiAction"
 import { postLoadAction } from "./postLoadAction"
 import ConfigGui = Locale.ConfigGui
 
-const TestConfigName = "testorio:test-config"
+const TestConfigName = "factorio-test:test-config"
 const ModSelectWidth = 150
 const modName = script.mod_name
 
@@ -214,11 +214,11 @@ const ReloadMods = guiAction("refresh", () => {
 })
 
 const callRunTests = postLoadAction("runTests", () => {
-  if (!remote.interfaces[Remote.Testorio]) {
+  if (!remote.interfaces[Remote.FactorioTest]) {
     game.print([ConfigGui.ModNotRegisteredTests])
     return
   }
-  remote.call(Remote.Testorio, "runTests")
+  remote.call(Remote.FactorioTest, "runTests")
   updateConfigGui()
 })
 
@@ -272,8 +272,8 @@ function updateConfigGui() {
 
   const testModIsRegistered = remote.interfaces[Remote.TestsAvailableFor + getTestMod()] !== undefined
   const testModLoaded =
-    remote.interfaces[Remote.Testorio] !== undefined && remote.call(Remote.Testorio, "modName") === getTestMod()
-  const stage = testModLoaded ? (remote.call(Remote.Testorio, "getTestStage") as TestStage) : undefined
+    remote.interfaces[Remote.FactorioTest] !== undefined && remote.call(Remote.FactorioTest, "modName") === getTestMod()
+  const stage = testModLoaded ? (remote.call(Remote.FactorioTest, "getTestStage") as TestStage) : undefined
 
   const running = stage === TestStage.Running || stage === TestStage.ToReload
 
@@ -287,16 +287,16 @@ function updateConfigGui() {
 }
 
 script.on_load(() => {
-  const remoteExits = remote.interfaces[Remote.Testorio]?.onTestStageChanged
+  const remoteExits = remote.interfaces[Remote.FactorioTest]?.onTestStageChanged
   if (remoteExits) {
-    const eventId = remote.call(Remote.Testorio, "onTestStageChanged") as CustomEventId<table>
+    const eventId = remote.call(Remote.FactorioTest, "onTestStageChanged") as CustomEventId<table>
     script.on_event(eventId, updateConfigGui)
   }
 })
 
 function createConfigGui(player: LuaPlayer): FrameGuiElement {
   player.gui.screen[TestConfigName]?.destroy()
-  global.configGui = { player } as typeof global["configGui"]
+  global.configGui = { player } as (typeof global)["configGui"]
 
   const frame = player.gui.screen.add({
     type: "frame",
@@ -348,7 +348,7 @@ function createModButton(player: LuaPlayer) {
     name: TestConfigName,
     style: modGui.button_style,
     sprite: Prototypes.TestTubeSprite,
-    tooltip: [Locale.Testorio.Tests],
+    tooltip: [Locale.FactorioTest.Tests],
     tags: {
       modName,
       on_gui_click: ToggleConfigGui,

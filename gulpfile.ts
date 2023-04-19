@@ -1,10 +1,10 @@
 import * as child_process from "child_process"
-import del from "del"
+import { deleteAsync } from "del"
 import * as fs from "fs/promises"
-import globby from "globby"
 import { parallel, series, src, task } from "gulp"
 import * as path from "path"
 import * as ts from "typescript"
+import globby from "globby"
 
 function logDiagnostics(diagnostics: readonly ts.Diagnostic[]) {
   if (!diagnostics.length) return
@@ -31,7 +31,7 @@ function compileTstl(configFile: string) {
   })
 }
 
-// mod files, not including testorio lib itself
+// mod files, not including factorio-test lib itself
 function buildModfiles() {
   return compileTstl("src/tsconfig.json")
 }
@@ -46,7 +46,7 @@ async function copyLuassert() {
     const repoSrc = path.join(repo, "src")
     const destination = path.join(outDir, "luassert")
 
-    await del(["**/*", "!**/*.ts"], {
+    await deleteAsync(["**/*", "!**/*.ts"], {
       cwd: destination,
     })
     const licenseDest = path.join(destination, "LICENSE")
@@ -55,13 +55,13 @@ async function copyLuassert() {
     })
     await fs.copyFile(path.join(repo, "LICENSE"), licenseDest)
 
-    for await (const file of globby.stream("**/*.lua", {
+    for await (const file of globby.globbyStream("**/*.lua", {
       cwd: repoSrc,
     })) {
       const fileContents = await fs.readFile(path.join(repoSrc, file.toString()), "utf-8")
       const newContents = fileContents.replace(
         /((?:^|\s|;|=)require ?\(?['"])(.+?['"]\)?)/gm,
-        (str, first, second) => first + "__testorio__." + second,
+        (str, first, second) => first + "__factorio-test__." + second,
       )
       const outFile = path.join(destination, file.toString())
       await fs.mkdir(path.dirname(outFile), {
@@ -87,7 +87,7 @@ task(copyLuassert)
 async function buildDefs() {
   const outFile = "index.d.ts"
 
-  const fakeSrcDir = path.resolve(__dirname, "__testorio__")
+  const fakeSrcDir = path.resolve(__dirname, "__factorio-test__")
   try {
     await fs.unlink(fakeSrcDir)
   } catch (e) {}
@@ -109,7 +109,7 @@ async function buildDefs() {
       tstl: {
         noImplicitSelf: true,
       },
-      include: ["__testorio__/init.ts", "__testorio__/testUtil"],
+      include: ["__factorio-test__/init.ts", "__factorio-test__/testUtil"],
       stripInternal: true,
     },
     ts.sys,
@@ -140,38 +140,38 @@ async function buildDefs() {
 task(buildDefs)
 
 // files intended to be used by other mods.
-function compileTestorio() {
-  return compileTstl("src/testorio/tsconfig-release.json")
+function compileFactorioTest() {
+  return compileTstl("src/factorio-test/tsconfig-release.json")
 }
-task("buildTestorio", series(parallel(copyLuassert, buildDefs), compileTestorio))
+task("buildFactorioTest", series(parallel(copyLuassert, buildDefs), compileFactorioTest))
 
-function compileTestorioWithTests() {
-  return compileTstl("src/testorio/tsconfig.json")
+function compileFactorioTestWithTests() {
+  return compileTstl("src/factorio-test/tsconfig.json")
 }
-task("buildTestorioTest", series(parallel(copyLuassert, buildDefs), compileTestorioWithTests))
+task("buildFactorioTestTest", series(parallel(copyLuassert, buildDefs), compileFactorioTestWithTests))
 
 function cleanMod() {
-  return del(["src/**/*.lua", "!**/*.def.lua", "!**/{scenarios,node_modules}/**", "!luassert/**", "!say/**"])
+  return deleteAsync(["src/**/*.lua", "!**/*.def.lua", "!**/{scenarios,node_modules}/**", "!luassert/**", "!say/**"])
 }
 task("cleanMod", cleanMod)
 
-task("buildMod", series(cleanMod, parallel(buildModfiles, "buildTestorio")))
+task("buildMod", series(cleanMod, parallel(buildModfiles, "buildFactorioTest")))
 
 function compileTestMod() {
-  return compileTstl("testorio-test-mod/tsconfig.json")
+  return compileTstl("factorio-test-test-mod/tsconfig.json")
 }
 task("buildTestMod", series(buildDefs, compileTestMod))
 
 task("buildPackage", series(cleanAll, buildDefs))
 
 async function cleanAll() {
-  return del([
+  return deleteAsync([
     "**/*.{lua,js}",
     "!**/*.def.lua",
     "!**/{scenarios,node_modules}/**",
     "!luassert/**",
     "!say/**",
-    "!testorio-tools/**",
+    "!factorio-test-tools/**",
     "index.d.ts",
   ])
 }
@@ -182,13 +182,13 @@ task(
   series(
     cleanAll,
     parallel(
-      series(parallel(copyLuassert, buildDefs), parallel(compileTestorioWithTests, compileTestMod)),
+      series(parallel(copyLuassert, buildDefs), parallel(compileFactorioTestWithTests, compileTestMod)),
       buildModfiles,
     ),
   ),
 )
 function runFml() {
-  return child_process.spawn("node", ["testorio-tools/factorio-mod-linker.js"], {
+  return child_process.spawn("node", ["factorio-test-tools/factorio-mod-linker.js"], {
     stdio: "inherit",
     cwd: __dirname,
   })

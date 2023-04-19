@@ -5,7 +5,7 @@
     "luaTarget": "5.2",
     "sourceMapTraceback": false,
     "noImplicitSelf": true,
-    "luaBundle": "../_testorio.lua",
+    "luaBundle": "../_factorio-test.lua",
     "luaBundleEntry": "loadTestorio.ts"
   }
 }

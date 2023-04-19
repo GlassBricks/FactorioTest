@@ -1,4 +1,4 @@
-export function __testorio__pcallWithStacktrace<A extends any[], R>(
+export function __factorio_test__pcallWithStacktrace<A extends any[], R>(
   fn: (...args: A) => R,
   ...args: A
 ): LuaMultiReturn<[boolean, R | string]> {
@@ -13,7 +13,7 @@ function getErrorWithStacktrace(error: unknown) {
 
   const lines = stacktrace.split("\n")
   for (let i = 1, l = lines.length; i <= l; i++) {
-    if (lines[i - 1]!.endsWith(": in function '__testorio__pcallWithStacktrace'")) {
+    if (lines[i - 1]!.endsWith(": in function '__factorio-test__pcallWithStacktrace'")) {
       if (lines[i - 3] === "\t[C]: in function 'rawxpcall'") i-- // remove extra line from debugadapter
       return table.concat(lines, "\n", 1, i - 2)
     }

@@ -1,10 +1,10 @@
 /** @noSelfInFile */
 import { TestStage } from "../shared-constants"
-import { __testorio__pcallWithStacktrace, assertNever } from "./_util"
+import { __factorio_test__pcallWithStacktrace, assertNever } from "./_util"
 import { resumeAfterReload } from "./resume"
 import { setToLoadErrorState, TestRun, TestState } from "./state"
 import { DescribeBlock, formatSource, Hook, isSkippedTest, Test } from "./tests"
-import TestFn = Testorio.TestFn
+import TestFn = FactorioTest.TestFn
 
 export interface TestRunner {
   tick(): void
@@ -148,7 +148,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     if (this.hasAnyTest(block)) {
       const hooks = block.hooks.filter((x) => x.type === "beforeAll")
       for (const hook of hooks) {
-        const [success, message] = __testorio__pcallWithStacktrace(hook.func)
+        const [success, message] = __factorio_test__pcallWithStacktrace(hook.func)
         if (!success) {
           block.errors.push(`Error running ${hook.type}: ${message}`)
         }
@@ -202,7 +202,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     const beforeEach = collectHooks(test.parent, [])
     for (const hook of beforeEach) {
       if (test.errors.length !== 0) break
-      const [success, error] = __testorio__pcallWithStacktrace(hook.func)
+      const [success, error] = __factorio_test__pcallWithStacktrace(hook.func)
       if (!success) {
         test.errors.push(error as string)
       }
@@ -218,7 +218,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     const part = test.parts[partIndex]!
     this.state.currentTestRun = testRun
     if (test.errors.length === 0) {
-      const [success, error] = __testorio__pcallWithStacktrace(part.func)
+      const [success, error] = __factorio_test__pcallWithStacktrace(part.func)
       if (!success) {
         test.errors.push(error as string)
       }
@@ -237,7 +237,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
 
     if (test.errors.length === 0) {
       for (const func of Object.keys(testRun.onTickFuncs)) {
-        const [success, result] = __testorio__pcallWithStacktrace(func, tickNumber)
+        const [success, result] = __factorio_test__pcallWithStacktrace(func, tickNumber)
         if (!success) {
           test.errors.push(result as string)
           break
@@ -260,7 +260,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     const afterEach = collectHooks(test.parent, [...afterTestFuncs])
 
     for (const hook of afterEach) {
-      const [success, error] = __testorio__pcallWithStacktrace(hook)
+      const [success, error] = __factorio_test__pcallWithStacktrace(hook)
       if (!success) {
         test.errors.push(error as string)
       }
@@ -287,7 +287,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     if (hasTests) {
       const hooks = block.hooks.filter((x) => x.type === "afterAll")
       for (const hook of hooks) {
-        const [success, message] = __testorio__pcallWithStacktrace(hook.func)
+        const [success, message] = __factorio_test__pcallWithStacktrace(hook.func)
         if (!success) {
           block.errors.push(`Error running ${hook.type}: ${message}`)
         }

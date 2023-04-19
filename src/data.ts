@@ -1,5 +1,4 @@
 import { Data } from "typed-factorio/data/types"
-import { Graphics } from "./constants"
 import { Prototypes } from "./shared-constants"
 
 declare const data: Data
@@ -8,7 +7,7 @@ data.extend([
   {
     type: "sprite",
     name: Prototypes.TestTubeSprite,
-    filename: Graphics.TestTube,
+    filename: "__factorio-test__/graphics/test-tube.png",
     priority: "extra-high-no-scale",
     size: 48,
   },

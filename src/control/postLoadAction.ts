@@ -1,7 +1,7 @@
 // a hacky way to send an event that will only fire at a later time --
 // after game.reload_mods(), and won't be present in game.auto_save() fired on the same tick
 
-const lsId = "testorio.fake-translation"
+const lsId = "factorio-test.fake-translation"
 function fireFakeTranslation(data: string) {
   const ls: LocalisedString = [lsId, data]
   for (const player of game.connected_players) {

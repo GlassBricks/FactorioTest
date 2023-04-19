@@ -151,7 +151,7 @@ Date: 2021-12-7
     - The default ticks_between_tests is now 1 instead of 0.
     - The test progress gui shows the current running test before the test wait period, not after. This should make the gui more up to date in the event of a long-test.
     - Small improvements to locale
-    - The factorio-mod-linker tool has been moved to a separate npm package testorio-tools. Please update if you are using it.
+    - The factorio-mod-linker tool has been moved to a separate npm package factorio-test-tools. Please update if you are using it.
   Bugfixes:
     - The test config window is now properly disabled after tests have already began running.
     - Internally, Testorio lib is now bundled into one lua file. This should fix problems relating to module name conflicts

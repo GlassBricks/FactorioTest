@@ -6,7 +6,7 @@
     "import/resolver": "typescript"
   },
   "parserOptions": {
-    "project": ["src/tsconfig.json", "src/testorio/tsconfig.json", "testorio-test-mod/tsconfig.json"]
+    "project": ["src/tsconfig.json", "src/factorio-test/tsconfig.json", "factorio-test-test-mod/tsconfig.json"]
   },
   "extends": [
     "eslint:recommended",

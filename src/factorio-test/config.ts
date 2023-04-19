@@ -1,4 +1,4 @@
-import Config = Testorio.Config
+import Config = FactorioTest.Config
 
 export function fillConfig(config: Partial<Config>): Config {
   const showProgressGui = config.show_progress_gui !== false

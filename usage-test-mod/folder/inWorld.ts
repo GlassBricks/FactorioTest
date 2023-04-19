@@ -1,4 +1,4 @@
-import { disable_all, test_area } from "__testorio__/testUtil/areas"
+import { disable_all, test_area } from "__factorio-test__/testUtil/areas"
 
 test("inWorld", () => {
   const [surface, area] = test_area(1, "Test1")

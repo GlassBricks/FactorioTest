@@ -1,23 +1,23 @@
 /** @noSelfInFile */
 /// <reference types="luassert-tstl" />
 
-declare var test: Testorio.TestCreator
-declare var it: Testorio.TestCreator
-declare var describe: Testorio.DescribeCreator
-declare var before_all: Testorio.Lifecycle
-declare var after_all: Testorio.Lifecycle
-declare var before_each: Testorio.Lifecycle
-declare var after_each: Testorio.Lifecycle
-declare var after_test: Testorio.Lifecycle
+declare var test: FactorioTest.TestCreator
+declare var it: FactorioTest.TestCreator
+declare var describe: FactorioTest.DescribeCreator
+declare var before_all: FactorioTest.Lifecycle
+declare var after_all: FactorioTest.Lifecycle
+declare var before_each: FactorioTest.Lifecycle
+declare var after_each: FactorioTest.Lifecycle
+declare var after_test: FactorioTest.Lifecycle
 declare function async(timeout?: number): void
 declare function done(): void
-declare function on_tick(func: Testorio.OnTickFn): void
-declare function after_ticks(ticks: number, func: Testorio.TestFn): void
+declare function on_tick(func: FactorioTest.OnTickFn): void
+declare function after_ticks(ticks: number, func: FactorioTest.TestFn): void
 declare function ticks_between_tests(ticks: number): void
 declare function tags(...tags: string[]): void
 
 /** @noSelf */
-declare namespace Testorio {
+declare namespace FactorioTest {
   interface Config {
     show_progress_gui: boolean
 

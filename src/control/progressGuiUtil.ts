@@ -9,8 +9,8 @@ function getPlayer(): LuaPlayer | undefined {
 }
 
 guiAction(Misc.CloseProgressGui, () => {
-  if (remote.interfaces[Remote.Testorio]) {
-    remote.call(Remote.Testorio, "fireCustomEvent", "closeProgressGui")
+  if (remote.interfaces[Remote.FactorioTest]) {
+    remote.call(Remote.FactorioTest, "fireCustomEvent", "closeProgressGui")
   }
   getPlayer()?.gui.screen[Misc.TestProgressGui]?.destroy()
 })

@@ -1,4 +1,4 @@
-import "__testorio__/luassert/init"
+import "__factorio-test__/luassert/init"
 import { Remote, TestStage } from "../shared-constants"
 import { debugAdapterEnabled } from "./_util"
 import { builtinTestListeners } from "./builtinTestListeners"
@@ -9,7 +9,7 @@ import { createTestRunner, TestRunner } from "./runner"
 import { globals } from "./setup"
 import { getTestState, onTestStageChanged, resetTestState, TestState } from "./state"
 import { addTestListener, clearTestListeners } from "./testEvents"
-import Config = Testorio.Config
+import Config = FactorioTest.Config
 
 declare const ____originalRequire: typeof require
 
@@ -21,7 +21,7 @@ function isRunning(state: TestState) {
 // noinspection JSUnusedGlobalSymbols
 export = function (files: string[], config: Partial<Config>): void {
   loadTests(files, config)
-  remote.add_interface(Remote.Testorio, {
+  remote.add_interface(Remote.FactorioTest, {
     runTests,
     modName: () => script.mod_name,
     getTestStage: () => getTestState().getTestStage(),
@@ -54,7 +54,7 @@ function loadTests(files: string[], partialConfig: Partial<Config>): void {
   const state = getTestState()
 
   // load files
-  const _require = settings.global["testorio:test-mod"]!.value === "testorio" ? require : ____originalRequire
+  const _require = settings.global["factorio-test:test-mod"]!.value === "factorio-test" ? require : ____originalRequire
   for (const file of files) {
     describe(file, () => _require(file))
   }

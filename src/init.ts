@@ -1,6 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
-/// <reference path="../testorio.d.ts" />
-import Config = Testorio.Config
+/// <reference path="../factorio-test.d.ts" />
+import Config = FactorioTest.Config
 
 let initCalled = false
 function init(this: void, files: string[], config?: Partial<Config>): void
@@ -17,9 +17,9 @@ function init(
     error("Duplicate call to test init")
   }
   initCalled = true
-  remote.add_interface("testorio-tests-available-for-" + script.mod_name, {})
-  if (script.mod_name === settings.global["testorio:test-mod"]!.value) {
-    require("@NoResolution:__testorio__/_testorio")(files, config)
+  remote.add_interface("factorio-test-tests-available-for-" + script.mod_name, {})
+  if (script.mod_name === settings.global["factorio-test:test-mod"]!.value) {
+    require("@NoResolution:__factorio-test__/_factorio-test")(files, config)
   }
 }
 

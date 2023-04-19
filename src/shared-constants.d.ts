@@ -1,42 +1,42 @@
 export const enum Remote {
-  TestsAvailableFor = "testorio-tests-available-for-",
-  Testorio = "testorio",
+  TestsAvailableFor = "factorio-test-tests-available-for-",
+  FactorioTest = "factorio-test",
 }
 
 export const enum Prototypes {
-  TestTubeSprite = "testorio:test-tube-sprite",
-  TestOutputBoxStyle = "testorio:test-output-box-style",
+  TestTubeSprite = "factorio-test:test-tube-sprite",
+  TestOutputBoxStyle = "factorio-test:test-output-box-style",
 }
 
 export namespace Locale {
-  export const enum Testorio {
-    Tests = "testorio.tests",
+  export const enum FactorioTest {
+    Tests = "factorio-test.tests",
   }
   export const enum ConfigGui {
-    Title = "testorio.config-gui.title",
-    LoadTestsFor = "testorio.config-gui.load-tests-for",
-    NoMod = "testorio.config-gui.none",
-    OtherMod = "testorio.config-gui.other",
-    ReloadMods = "testorio.config-gui.reload-mods",
-    ModNotRegisteredTests = "testorio.config-gui.mod-not-registered",
-    TestsNotRun = "testorio.config-gui.tests-not-run",
-    TestsRunning = "testorio.config-gui.tests-running",
-    TestsFinished = "testorio.config-gui.tests-finished",
-    TestsLoadError = "testorio.config-gui.tests-load-error",
-    RunTests = "testorio.config-gui.run-tests",
+    Title = "factorio-test.config-gui.title",
+    LoadTestsFor = "factorio-test.config-gui.load-tests-for",
+    NoMod = "factorio-test.config-gui.none",
+    OtherMod = "factorio-test.config-gui.other",
+    ReloadMods = "factorio-test.config-gui.reload-mods",
+    ModNotRegisteredTests = "factorio-test.config-gui.mod-not-registered",
+    TestsNotRun = "factorio-test.config-gui.tests-not-run",
+    TestsRunning = "factorio-test.config-gui.tests-running",
+    TestsFinished = "factorio-test.config-gui.tests-finished",
+    TestsLoadError = "factorio-test.config-gui.tests-load-error",
+    RunTests = "factorio-test.config-gui.run-tests",
   }
   export const enum ProgressGui {
-    Title = "testorio.progress-gui.title",
-    TitleRerun = "testorio.progress-gui.title-rerun",
-    RunningTest = "testorio.progress-gui.running-test",
-    NPassed = "testorio.progress-gui.n-passed",
-    NFailed = "testorio.progress-gui.n-failed",
-    NErrors = "testorio.progress-gui.n-errors",
-    NSkipped = "testorio.progress-gui.n-skipped",
-    NTodo = "testorio.progress-gui.n-todo",
-    TestsFinished = "testorio.progress-gui.tests-finished",
-    TestsFinishedRerun = "testorio.progress-gui.tests-finished-rerun",
-    LoadError = "testorio.progress-gui.load-error",
+    Title = "factorio-test.progress-gui.title",
+    TitleRerun = "factorio-test.progress-gui.title-rerun",
+    RunningTest = "factorio-test.progress-gui.running-test",
+    NPassed = "factorio-test.progress-gui.n-passed",
+    NFailed = "factorio-test.progress-gui.n-failed",
+    NErrors = "factorio-test.progress-gui.n-errors",
+    NSkipped = "factorio-test.progress-gui.n-skipped",
+    NTodo = "factorio-test.progress-gui.n-todo",
+    TestsFinished = "factorio-test.progress-gui.tests-finished",
+    TestsFinishedRerun = "factorio-test.progress-gui.tests-finished-rerun",
+    LoadError = "factorio-test.progress-gui.load-error",
   }
 }
 
@@ -51,5 +51,5 @@ export const enum TestStage {
 
 export const enum Misc {
   CloseProgressGui = "close-progress-gui",
-  TestProgressGui = "testorio:test-progress",
+  TestProgressGui = "factorio-test:test-progress",
 }
