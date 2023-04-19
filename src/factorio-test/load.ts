@@ -1,20 +1,20 @@
 import "__factorio-test__/luassert/init"
-import { Remote, TestStage } from "../shared-constants"
+import { Remote, TestStage } from "../constants"
 import { debugAdapterEnabled } from "./_util"
-import { builtinTestListeners } from "./builtinTestListeners"
+import { builtinTestEventListeners } from "./builtin-test-event-listeners"
 import { fillConfig } from "./config"
 import { addLogHandler, debugAdapterLogger, logLogger } from "./output"
-import { progressGuiListener, progressGuiLogger } from "./progressGui"
+import { progressGuiListener, progressGuiLogger } from "./test-gui"
 import { createTestRunner, TestRunner } from "./runner"
-import { globals } from "./setup"
-import { getTestState, onTestStageChanged, resetTestState, TestState } from "./state"
-import { addTestListener, clearTestListeners } from "./testEvents"
+import { globals } from "./setup-globals"
+import { getTestState, onTestStageChanged, resetTestState } from "./state"
+import { addTestListener, clearTestListeners } from "./test-events"
 import Config = FactorioTest.Config
 
 declare const ____originalRequire: typeof require
 
-function isRunning(state: TestState) {
-  const stage = state.getTestStage()
+function isRunning() {
+  const stage = getTestState().getTestStage()
   return !(stage === TestStage.NotRun || stage === TestStage.LoadError || stage === TestStage.Finished)
 }
 
@@ -25,7 +25,7 @@ export = function (files: string[], config: Partial<Config>): void {
     runTests,
     modName: () => script.mod_name,
     getTestStage: () => getTestState().getTestStage(),
-    isRunning: () => isRunning(getTestState()),
+    isRunning,
     fireCustomEvent: (name, data) => {
       getTestState().raiseTestEvent({
         type: "customEvent",
@@ -65,7 +65,7 @@ function loadTests(files: string[], partialConfig: Partial<Config>): void {
 
 function tryContinueTests() {
   const testStage = getTestState().getTestStage()
-  if (testStage === TestStage.Running || testStage === TestStage.ToReload) {
+  if (testStage === TestStage.Running || testStage === TestStage.ReloadingMods) {
     doRunTests()
   } else {
     revertTappedEvents()
@@ -73,18 +73,17 @@ function tryContinueTests() {
 }
 
 function runTests() {
-  const state = getTestState()
-  if (isRunning(state)) return
+  if (isRunning()) return
 
   log(`Running tests for ${script.mod_name}`)
-  state.setTestStage(TestStage.Ready)
+  getTestState().setTestStage(TestStage.Ready)
   doRunTests()
 }
 
 function doRunTests() {
   const state = getTestState()
   clearTestListeners()
-  builtinTestListeners.forEach(addTestListener)
+  builtinTestEventListeners.forEach(addTestListener)
   if (game !== undefined) game.tick_paused = false
   addTestListener(progressGuiListener)
   addLogHandler(progressGuiLogger)

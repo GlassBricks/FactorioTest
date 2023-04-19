@@ -1,9 +1,9 @@
 import { logListener } from "./output"
-import { resultCollector } from "./result"
-import { TestListener } from "./testEvents"
+import { resultCollector } from "./results"
+import { TesteEventListener } from "./test-events"
 import { cleanupTestState } from "./state"
 
-const setupListener: TestListener = (event, state) => {
+const setupListener: TesteEventListener = (event, state) => {
   if (event.type === "testRunStarted") {
     game.speed = state.config.game_speed
     game.autosave_enabled = false
@@ -26,4 +26,4 @@ const setupListener: TestListener = (event, state) => {
   }
 }
 
-export const builtinTestListeners: TestListener[] = [resultCollector, setupListener, logListener]
+export const builtinTestEventListeners: TesteEventListener[] = [resultCollector, setupListener, logListener]

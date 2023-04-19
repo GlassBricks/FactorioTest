@@ -1,61 +1,34 @@
 import * as modGui from "mod-gui"
-import { Settings } from "../constants"
-import { Locale, Prototypes, Remote, TestStage } from "../shared-constants"
-import { GuiAction, guiAction } from "./guiAction"
-import { postLoadAction } from "./postLoadAction"
+import { Locale, Prototypes, Remote, Settings, TestStage } from "../constants"
+import { guiAction } from "./guiAction"
+import { postLoadAction } from "./post-load-action"
 import ConfigGui = Locale.ConfigGui
 
-const TestConfigName = "factorio-test:test-config"
+const ModSelectGuiName = "factorio-test:mod-select"
 const ModSelectWidth = 150
-const modName = script.mod_name
 
-// there can only be one gui
+const thisModName = script.mod_name
+
+// there can only be one mod select gui
 declare const global: {
-  configGui:
-    | {
-        player: LuaPlayer
-        modSelect: DropDownGuiElement
-        refreshButton: SpriteButtonGuiElement
-        modTextField: TextFieldGuiElement | undefined
-        testStageLabel: LabelGuiElement
-        runButton: ButtonGuiElement
-      }
-    | undefined
-}
-function configGuiValid(): boolean {
-  return global.configGui !== undefined && global.configGui.player.valid
+  modSelectGui?: {
+    player: LuaPlayer
+    mainFrame: FrameGuiElement
+    modSelect: DropDownGuiElement
+    refreshButton: SpriteButtonGuiElement
+    modTextField: TextFieldGuiElement | undefined
+    testStageLabel: LabelGuiElement
+    runButton: ButtonGuiElement
+  }
 }
 
-function getModSelectItems(): LocalisedString[] {
+function modSelectGuiValid(): boolean {
+  return global.modSelectGui?.mainFrame?.valid ?? false
+}
+
+function getModDropdownItems(): LocalisedString[] {
   const mods = Object.keys(script.active_mods).filter((mod) => remote.interfaces[Remote.TestsAvailableFor + mod])
   return [[ConfigGui.NoMod], ...mods, [ConfigGui.OtherMod]]
-}
-
-function DragHandle(parent: LuaGuiElement) {
-  const element = parent.add({
-    type: "empty-widget",
-    ignored_by_interaction: true,
-    style: "draggable_space",
-  })
-  const style = element.style
-  style.horizontally_stretchable = true
-  style.height = 24
-}
-
-function CloseButton(parent: LuaGuiElement, action: GuiAction) {
-  parent.add({
-    type: "sprite-button",
-    style: "frame_action_button",
-    sprite: "utility/close_white",
-    hovered_sprite: "utility/close_black",
-    clicked_sprite: "utility/close_black",
-    tooltip: ["gui.close"],
-    mouse_button_filter: ["left"],
-    tags: {
-      modName,
-      on_gui_click: action,
-    },
-  })
 }
 
 function TitleBar(parent: FrameGuiElement, title: LocalisedString) {
@@ -74,8 +47,34 @@ function TitleBar(parent: FrameGuiElement, title: LocalisedString) {
     style: "frame_title",
     ignored_by_interaction: true,
   })
-  DragHandle(titleBar)
-  CloseButton(titleBar, DestroyConfigGui)
+
+  // drag handle
+  {
+    const element = titleBar.add({
+      type: "empty-widget",
+      ignored_by_interaction: true,
+      style: "draggable_space",
+    })
+    const style = element.style
+    style.horizontally_stretchable = true
+    style.height = 24
+  }
+  // close button
+  {
+    titleBar.add({
+      type: "sprite-button",
+      style: "frame_action_button",
+      sprite: "utility/close_white",
+      hovered_sprite: "utility/close_black",
+      clicked_sprite: "utility/close_black",
+      tooltip: ["gui.close"],
+      mouse_button_filter: ["left"],
+      tags: {
+        modName: thisModName,
+        on_gui_click: DestroyConfigGui,
+      },
+    })
+  }
 }
 
 function setTestMod(mod: string) {
@@ -103,19 +102,19 @@ function ModSelect(parent: LuaGuiElement) {
     direction: "vertical",
   })
 
-  const modSelectItems = getModSelectItems()
+  const modSelectItems = getModDropdownItems()
 
   const modSelect = selectFlow.add({
     type: "drop-down",
     items: modSelectItems,
     tags: {
-      modName,
+      modName: thisModName,
       on_gui_selection_state_changed: OnModSelectionChanged,
     },
   })
   modSelect.style.minimal_width = ModSelectWidth
 
-  const configGui = global.configGui!
+  const configGui = global.modSelectGui!
   configGui.modSelect = modSelect
 
   configGui.refreshButton = mainFlow.add({
@@ -124,7 +123,7 @@ function ModSelect(parent: LuaGuiElement) {
     sprite: "utility/refresh",
     tooltip: [ConfigGui.ReloadMods],
     tags: {
-      modName,
+      modName: thisModName,
       on_gui_click: ReloadMods,
     },
   })
@@ -151,7 +150,7 @@ function ModSelect(parent: LuaGuiElement) {
 }
 
 const OnModSelectionChanged = guiAction("OnModSelectionChanged", () => {
-  const { modSelect } = global.configGui!
+  const { modSelect } = global.modSelectGui!
   const modSelectItems = modSelect.items
 
   const selectedIndex = modSelect.selected_index
@@ -176,22 +175,22 @@ const OnModSelectionChanged = guiAction("OnModSelectionChanged", () => {
 })
 
 function createModTextField(): TextFieldGuiElement {
-  if (global.configGui!.modTextField?.valid) {
-    return global.configGui!.modTextField
+  if (global.modSelectGui!.modTextField?.valid) {
+    return global.modSelectGui!.modTextField
   }
-  const modSelect = global.configGui!.modSelect
+  const modSelect = global.modSelectGui!.modSelect
   const textfield = modSelect.parent!.add({
     type: "textfield",
     lose_focus_on_confirm: true,
     tags: {
-      modName,
+      modName: thisModName,
       on_gui_text_changed: OnModTextfieldChanged,
     },
     index: 2,
   })
   textfield.style.width = ModSelectWidth
 
-  global.configGui!.modTextField = textfield
+  global.modSelectGui!.modTextField = textfield
   return textfield
 }
 
@@ -201,7 +200,7 @@ const OnModTextfieldChanged = guiAction("OnModTextfieldChanged", (e: OnGuiTextCh
 })
 
 function destroyModTextField() {
-  const configGui = global.configGui!
+  const configGui = global.modSelectGui!
   if (!configGui.modTextField) return
   configGui.modTextField.destroy()
   configGui.modTextField = undefined
@@ -229,7 +228,7 @@ const RunTests = guiAction("startTests", () => {
 })
 
 function TestStageBar(parent: LuaGuiElement) {
-  const configGui = global.configGui!
+  const configGui = global.modSelectGui!
 
   const mainFlow = parent.add({
     type: "flow",
@@ -254,7 +253,7 @@ function TestStageBar(parent: LuaGuiElement) {
     name: "runTests",
     style: "green_button",
     caption: [ConfigGui.RunTests],
-    tags: { modName, on_gui_click: RunTests },
+    tags: { modName: thisModName, on_gui_click: RunTests },
   })
 }
 
@@ -262,20 +261,20 @@ const stageToMessage = {
   [TestStage.NotRun]: ConfigGui.TestsNotRun,
   [TestStage.Ready]: ConfigGui.TestsRunning,
   [TestStage.Running]: ConfigGui.TestsRunning,
-  [TestStage.ToReload]: ConfigGui.TestsRunning,
+  [TestStage.ReloadingMods]: ConfigGui.TestsRunning,
   [TestStage.Finished]: ConfigGui.TestsFinished,
   [TestStage.LoadError]: ConfigGui.TestsLoadError,
 }
 function updateConfigGui() {
-  if (!configGuiValid()) return
-  const configGui = global.configGui!
+  if (!modSelectGuiValid()) return
+  const configGui = global.modSelectGui!
 
   const testModIsRegistered = remote.interfaces[Remote.TestsAvailableFor + getTestMod()] !== undefined
   const testModLoaded =
     remote.interfaces[Remote.FactorioTest] !== undefined && remote.call(Remote.FactorioTest, "modName") === getTestMod()
   const stage = testModLoaded ? (remote.call(Remote.FactorioTest, "getTestStage") as TestStage) : undefined
 
-  const running = stage === TestStage.Running || stage === TestStage.ToReload
+  const running = stage === TestStage.Running || stage === TestStage.ReloadingMods
 
   configGui.modSelect.enabled = !running
   configGui.refreshButton.enabled = !running
@@ -294,13 +293,17 @@ script.on_load(() => {
   }
 })
 
-function createConfigGui(player: LuaPlayer): FrameGuiElement {
-  player.gui.screen[TestConfigName]?.destroy()
-  global.configGui = { player } as (typeof global)["configGui"]
+function createConfigGui(player: LuaPlayer): FrameGuiElement | undefined {
+  if (game.is_multiplayer()) {
+    game.print("Cannot run tests in multiplayer")
+    return undefined
+  }
+  player.gui.screen[ModSelectGuiName]?.destroy()
+  global.modSelectGui = { player } as typeof global.modSelectGui
 
   const frame = player.gui.screen.add({
     type: "frame",
-    name: TestConfigName,
+    name: ModSelectGuiName,
     direction: "vertical",
   })
   frame.auto_center = true
@@ -312,17 +315,15 @@ function createConfigGui(player: LuaPlayer): FrameGuiElement {
     direction: "horizontal",
   })
   TestStageBar(frame)
-
   updateConfigGui()
-
   return frame
 }
 
 function destroyConfigGui() {
-  if (!configGuiValid()) return
-  const configGui = global.configGui!
-  global.configGui = undefined
-  const element = configGui.player.gui.screen[TestConfigName]
+  if (!modSelectGuiValid()) return
+  const configGui = global.modSelectGui!
+  global.modSelectGui = undefined
+  const element = configGui.player.gui.screen[ModSelectGuiName]
   if (element && element.valid) {
     element.destroy()
   }
@@ -330,10 +331,7 @@ function destroyConfigGui() {
 const DestroyConfigGui = guiAction("destroyConfigGui", destroyConfigGui)
 
 const ToggleConfigGui = guiAction("toggleConfigGui", (e) => {
-  if (game.is_multiplayer()) {
-    destroyConfigGui()
-    game.players[e.player_index]!.print("Tests cannot be run in multiplayer")
-  } else if (configGuiValid()) {
+  if (modSelectGuiValid()) {
     destroyConfigGui()
   } else {
     createConfigGui(game.players[e.player_index]!)
@@ -342,28 +340,25 @@ const ToggleConfigGui = guiAction("toggleConfigGui", (e) => {
 
 function createModButton(player: LuaPlayer) {
   const flow = modGui.get_button_flow(player)
-  flow[TestConfigName]?.destroy()
+  flow[ModSelectGuiName]?.destroy()
   modGui.get_button_flow(player).add({
     type: "sprite-button",
-    name: TestConfigName,
+    name: ModSelectGuiName,
     style: modGui.button_style,
     sprite: Prototypes.TestTubeSprite,
     tooltip: [Locale.FactorioTest.Tests],
     tags: {
-      modName,
+      modName: thisModName,
       on_gui_click: ToggleConfigGui,
     },
   })
 }
 
 function refreshConfigGui() {
-  if (!configGuiValid()) return
-  const previousPlayer = global.configGui!.player
+  if (!modSelectGuiValid()) return
+  const previousPlayer = global.modSelectGui!.player
   destroyConfigGui()
-  if (!game.is_multiplayer()) {
-    const gui = createConfigGui(previousPlayer)
-    gui.bring_to_front()
-  }
+  createConfigGui(previousPlayer)?.bring_to_front()
 }
 
 function createModButtonForAllPlayers() {
@@ -374,16 +369,4 @@ function createModButtonForAllPlayers() {
 
 script.on_init(createModButtonForAllPlayers)
 script.on_configuration_changed(refreshConfigGui)
-
-script.on_event([defines.events.on_player_removed, defines.events.on_player_left_game], (e) => {
-  if (global.configGui && global.configGui.player.valid && global.configGui.player.index === e.player_index) {
-    destroyConfigGui()
-  }
-})
-
-script.on_event([defines.events.on_player_created, defines.events.on_player_joined_game], (e) => {
-  createModButton(game.players[e.player_index]!)
-  if (game.is_multiplayer() || game.connected_players.length > 1) {
-    destroyConfigGui()
-  }
-})
+script.on_event([defines.events.on_player_created], (e) => createModButton(game.players[e.player_index]!))

@@ -1,5 +1,5 @@
 import { debugAdapterEnabled } from "./_util"
-import { TestListener } from "./testEvents"
+import { TesteEventListener } from "./test-events"
 import { Source } from "./tests"
 
 export const enum MessageColor {
@@ -72,7 +72,7 @@ function m(
     if (typeof item === "object" && !(item as LuaProfiler).object_name) {
       result.push(item as MessagePart)
     } else {
-      result.push({ text: item as string })
+      result.push({ text: item as string | LuaProfiler })
     }
   }
   return result
@@ -192,7 +192,7 @@ export const logLogger: LogHandler = (message) => {
   log(joinToPlainText(message))
 }
 
-export const logListener: TestListener = (event, state) => {
+export const logListener: TesteEventListener = (event, state) => {
   switch (event.type) {
     case "testPassed": {
       if (state.config.log_passed_tests) {

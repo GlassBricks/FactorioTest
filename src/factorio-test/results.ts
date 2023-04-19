@@ -1,6 +1,6 @@
-import { TestListener } from "./testEvents"
+import { TesteEventListener } from "./test-events"
 
-export interface RunResults {
+export interface TestRunResults {
   ran: number
   passed: number
   failed: number
@@ -18,7 +18,7 @@ export interface RunResults {
   status?: "passed" | "failed" | "todo"
 }
 
-export function createEmptyRunResults(): RunResults {
+export function createEmptyRunResults(): TestRunResults {
   return {
     failed: 0,
     passed: 0,
@@ -30,7 +30,7 @@ export function createEmptyRunResults(): RunResults {
   }
 }
 
-export const resultCollector: TestListener = (event, state) => {
+export const resultCollector: TesteEventListener = (event, state) => {
   if (event.type === "testRunStarted") {
     state.results = createEmptyRunResults()
     return

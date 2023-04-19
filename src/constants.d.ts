@@ -7,6 +7,9 @@ export const enum Prototypes {
   TestTubeSprite = "factorio-test:test-tube-sprite",
   TestOutputBoxStyle = "factorio-test:test-output-box-style",
 }
+export const enum Settings {
+  TestMod = "factorio-test:mod-to-test",
+}
 
 export namespace Locale {
   export const enum FactorioTest {
@@ -44,12 +47,12 @@ export const enum TestStage {
   NotRun = "NotRun",
   Ready = "Ready",
   Running = "Running",
-  ToReload = "ToReload",
+  ReloadingMods = "ReloadingMods",
   LoadError = "LoadError",
   Finished = "Finished",
 }
 
 export const enum Misc {
-  CloseProgressGui = "close-progress-gui",
-  TestProgressGui = "factorio-test:test-progress",
+  CloseTestGui = "close-test-gui",
+  TestGui = "factorio-test:test-gui",
 }

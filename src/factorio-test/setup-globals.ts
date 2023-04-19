@@ -1,7 +1,7 @@
 // noinspection JSUnusedGlobalSymbols
 
 import * as util from "util"
-import { prepareReload } from "./resume"
+import { prepareReload } from "./reload-resume"
 import { getCurrentBlock, getTestState, TestRun, TestState } from "./state"
 import {
   addDescribeBlock,
@@ -260,7 +260,7 @@ function tags(...tags: string[]) {
   state.currentTags = util.list_to_map(tags)
 }
 
-type Globals =
+type SetupGlobals =
   | `${"before" | "after"}_${"each" | "all"}`
   | "after_test"
   | "async"
@@ -295,7 +295,7 @@ function async(timeout?: number) {
   testRun.async = true
 }
 
-export const globals: Pick<typeof globalThis, Globals> = {
+export const globals: Pick<typeof globalThis, SetupGlobals> = {
   test,
   it: test,
   describe,

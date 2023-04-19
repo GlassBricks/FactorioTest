@@ -1,4 +1,4 @@
-import { TestStage } from "../../shared-constants"
+import { TestStage } from "../../constants"
 import { getTestState } from "../state"
 
 declare const global: {

@@ -1,12 +1,12 @@
-import { Locale, Misc, Prototypes } from "../shared-constants"
+import { Locale, Misc, Prototypes } from "../constants"
 import { Colors, joinToRichText, LogHandler, MessageColor } from "./output"
-import { RunResults } from "./result"
+import { TestRunResults } from "./results"
 import { TestState } from "./state"
-import { TestListener } from "./testEvents"
+import { TesteEventListener } from "./test-events"
 import { countActiveTests } from "./tests"
 import ProgressGui = Locale.ProgressGui
 
-interface TestProgressGui {
+interface TestGui {
   player: LuaPlayer
   mainFrame: FrameGuiElement
   closeButton: SpriteButtonGuiElement
@@ -20,7 +20,7 @@ interface TestProgressGui {
 }
 
 declare const global: {
-  __testProgressGui: TestProgressGui
+  __testGui: TestGui
 }
 
 function StatusText(parent: LuaGuiElement) {
@@ -110,20 +110,20 @@ function closeTestProgressGui(): void {
   const player = getPlayer()
 
   const screen = player.gui.screen
-  screen[Misc.TestProgressGui]?.destroy()
-  global.__testProgressGui = undefined!
+  screen[Misc.TestGui]?.destroy()
+  global.__testGui = undefined!
 }
 
-function createTestProgressGui(state: TestState): TestProgressGui {
+function createTestProgressGui(state: TestState): TestGui {
   const player = getPlayer()
 
   const screen = player.gui.screen
-  screen[Misc.TestProgressGui]?.destroy()
+  screen[Misc.TestGui]?.destroy()
 
   const totalTests = countActiveTests(state.rootBlock, state)
   const mainFrame = screen.add<"frame">({
     type: "frame",
-    name: Misc.TestProgressGui,
+    name: Misc.TestGui,
     direction: "vertical",
   })
   mainFrame.auto_center = true
@@ -169,7 +169,7 @@ function createTestProgressGui(state: TestState): TestProgressGui {
     mouse_button_filter: ["left"],
     tags: {
       modName: "factorio-test",
-      on_gui_click: Misc.CloseProgressGui,
+      on_gui_click: Misc.CloseTestGui,
     },
     enabled: false,
   })
@@ -181,7 +181,7 @@ function createTestProgressGui(state: TestState): TestProgressGui {
     style: "inside_shallow_frame_with_padding",
     direction: "vertical",
   })
-  const gui: TestProgressGui = {
+  const gui: TestGui = {
     player,
     mainFrame,
     totalTests,
@@ -197,15 +197,15 @@ function createTestProgressGui(state: TestState): TestProgressGui {
 }
 
 function getTestProgressGui() {
-  const gui = global.__testProgressGui
+  const gui = global.__testGui
   if (!gui?.mainFrame.valid) {
-    global.__testProgressGui = undefined!
+    global.__testGui = undefined!
     return undefined
   }
   return gui
 }
 
-function updateTestCounts(gui: TestProgressGui, results: RunResults) {
+function updateTestCounts(gui: TestGui, results: TestRunResults) {
   gui.progressBar.value = gui.totalTests === 0 ? 1 : results.ran / gui.totalTests
   gui.progressLabel.caption = ["", results.ran, "/", gui.totalTests]
 
@@ -218,9 +218,9 @@ function updateTestCounts(gui: TestProgressGui, results: RunResults) {
   if (results.passed > 0) testCounts[4]!.caption = [ProgressGui.NPassed, results.passed]
 }
 
-export const progressGuiListener: TestListener = (event, state) => {
+export const progressGuiListener: TesteEventListener = (event, state) => {
   if (event.type === "testRunStarted") {
-    global.__testProgressGui = createTestProgressGui(state)
+    global.__testGui = createTestProgressGui(state)
     return
   }
   const gui = getTestProgressGui()
@@ -287,7 +287,7 @@ export const progressGuiListener: TestListener = (event, state) => {
 }
 
 export const progressGuiLogger: LogHandler = (message) => {
-  const gui = global.__testProgressGui
+  const gui = global.__testGui
   if (!gui || !gui.progressBar.valid) return
   const textBox = gui.testOutput.add({
     type: "text-box",

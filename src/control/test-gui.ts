@@ -1,5 +1,5 @@
 import { guiAction } from "./guiAction"
-import { Misc, Remote } from "../shared-constants"
+import { Misc, Remote } from "../constants"
 
 function getPlayer(): LuaPlayer | undefined {
   // noinspection LoopStatementThatDoesntLoopJS
@@ -8,9 +8,9 @@ function getPlayer(): LuaPlayer | undefined {
   }
 }
 
-guiAction(Misc.CloseProgressGui, () => {
+guiAction(Misc.CloseTestGui, () => {
   if (remote.interfaces[Remote.FactorioTest]) {
     remote.call(Remote.FactorioTest, "fireCustomEvent", "closeProgressGui")
   }
-  getPlayer()?.gui.screen[Misc.TestProgressGui]?.destroy()
+  getPlayer()?.gui.screen[Misc.TestGui]?.destroy()
 })

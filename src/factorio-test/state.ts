@@ -1,7 +1,7 @@
 /** @noSelfInFile */
-import { TestStage } from "../shared-constants"
-import { createEmptyRunResults, RunResults } from "./result"
-import { _raiseTestEvent, TestEvent } from "./testEvents"
+import { TestStage } from "../constants"
+import { createEmptyRunResults, TestRunResults } from "./results"
+import { _raiseTestEvent, TestEvent } from "./test-events"
 import { createRootDescribeBlock, DescribeBlock, Test, TestTags } from "./tests"
 import Config = FactorioTest.Config
 import OnTickFn = FactorioTest.OnTickFn
@@ -19,7 +19,7 @@ export interface TestState {
   // run
   currentTestRun?: TestRun | undefined
 
-  results: RunResults
+  results: TestRunResults
   profiler?: LuaProfiler
   isRerun: boolean
 
@@ -45,18 +45,18 @@ export interface TestRun {
   afterTestFuncs: HookFn[]
 }
 
-let FACTORIO_TEST_TEST_STATE: TestState | undefined
+let TestState: TestState | undefined
 declare const global: {
   __factorio_testTestStage?: TestStage
 }
 
 export function getTestState(): TestState {
-  return FACTORIO_TEST_TEST_STATE ?? error("Tests are not configured to be run")
+  return TestState ?? error("Tests are not configured to be run")
 }
 
 // internal, export for meta-test only
 export function _setTestState(state: TestState): void {
-  FACTORIO_TEST_TEST_STATE = state
+  TestState = state
 }
 
 export function getGlobalTestStage(): TestStage {

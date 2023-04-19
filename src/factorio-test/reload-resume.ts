@@ -1,5 +1,5 @@
-import { TestStage } from "../shared-constants"
-import { RunResults } from "./result"
+import { TestStage } from "../constants"
+import { TestRunResults } from "./results"
 import type { TestState } from "./state"
 import { DescribeBlock, HookType, Source, Test, TestMode, TestTags } from "./tests"
 import { table } from "util"
@@ -31,7 +31,7 @@ interface SavedDescribeBlockData {
   readonly errors: string[]
 }
 
-function copyTest(test: Test): SavedTestData {
+function saveTest(test: Test): SavedTestData {
   const result: SavedTestData = {
     type: "test",
     path: test.path,
@@ -47,13 +47,13 @@ function copyTest(test: Test): SavedTestData {
   return result
 }
 
-function copyDescribeBlock(block: DescribeBlock): SavedDescribeBlockData {
+function saveDescribeBlock(block: DescribeBlock): SavedDescribeBlockData {
   const result: SavedDescribeBlockData = {
     type: "describeBlock",
     path: block.path,
     tags: block.tags,
     source: block.source,
-    children: block.children.map((child) => (child.type === "test" ? copyTest(child) : copyDescribeBlock(child))),
+    children: block.children.map((child) => (child.type === "test" ? saveTest(child) : saveDescribeBlock(child))),
     hookTypes: block.hooks.map((hook) => hook.type),
     mode: block.mode,
     ticksBetweenTests: block.ticksBetweenTests,
@@ -109,7 +109,7 @@ function compareToSavedDescribeBlock(saved: SavedDescribeBlockData, current: Des
 
 interface ResumeData {
   rootBlock: SavedDescribeBlockData
-  results: RunResults
+  results: TestRunResults
   isRerun: boolean
   profiler: LuaProfiler
   resumeTestPath: string
@@ -122,7 +122,7 @@ declare const global: {
 export function prepareReload(testState: TestState): void {
   const currentRun = testState.currentTestRun!
   global.__testResume = {
-    rootBlock: copyDescribeBlock(testState.rootBlock),
+    rootBlock: saveDescribeBlock(testState.rootBlock),
     results: testState.results,
     isRerun: testState.isRerun,
     resumeTestPath: currentRun.test.path,
@@ -131,7 +131,7 @@ export function prepareReload(testState: TestState): void {
   }
   testState.rootBlock = undefined!
   testState.currentTestRun = undefined!
-  testState.setTestStage(TestStage.ToReload)
+  testState.setTestStage(TestStage.ReloadingMods)
   // collectgarbage()
   // game.print(serpent.block(findRefValue()))
 }
@@ -141,10 +141,7 @@ export function resumeAfterReload(state: TestState):
       test: Test
       partIndex: number
     }
-  | {
-      test?: never
-      partIndex?: never
-    } {
+  | undefined {
   const testResume = global.__testResume ?? error("attempting to resume after reload without resume data saved")
 
   global.__testResume = undefined
@@ -169,5 +166,4 @@ export function resumeAfterReload(state: TestState):
       partIndex: testResume.resumePartIndex,
     }
   }
-  return {}
 }

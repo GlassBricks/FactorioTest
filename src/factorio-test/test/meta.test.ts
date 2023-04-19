@@ -1,12 +1,12 @@
 import * as util from "util"
-import { TestStage } from "../../shared-constants"
+import { TestStage } from "../../constants"
 import { fillConfig } from "../config"
-import { resultCollector } from "../result"
+import { resultCollector } from "../results"
 import { createTestRunner } from "../runner"
 import { _setTestState, getTestState, resetTestState, TestState } from "../state"
-import { TestEvent } from "../testEvents"
+import { TestEvent } from "../test-events"
 import { DescribeBlock, Test } from "../tests"
-import { propagateTestMode } from "../setup"
+import { propagateTestMode } from "../setup-globals"
 
 // simulated test environment
 let actions: unknown[] = []

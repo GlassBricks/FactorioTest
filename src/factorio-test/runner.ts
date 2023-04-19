@@ -1,7 +1,7 @@
 /** @noSelfInFile */
-import { TestStage } from "../shared-constants"
+import { TestStage } from "../constants"
 import { __factorio_test__pcallWithStacktrace, assertNever } from "./_util"
-import { resumeAfterReload } from "./resume"
+import { resumeAfterReload } from "./reload-resume"
 import { setToLoadErrorState, TestRun, TestState } from "./state"
 import { DescribeBlock, formatSource, Hook, isSkippedTest, Test } from "./tests"
 import TestFn = FactorioTest.TestFn
@@ -20,7 +20,7 @@ interface TestTasks {
   runTestPart(testRun: TestRun): void
   waitForTestPart(testRun: TestRun): void
   leaveTest(testRun: TestRun): void
-  leaveDescribe(block: DescribeBlock): void
+  leaveDescribeBlock(block: DescribeBlock): void
   finishTestRun(): void
 }
 type Task =
@@ -87,8 +87,8 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     const stage = this.state.getTestStage()
     if (stage === TestStage.NotRun || stage === TestStage.Ready) {
       return this.startTestRun()
-    } else if (stage === TestStage.ToReload) {
-      return this.attemptReload()
+    } else if (stage === TestStage.ReloadingMods) {
+      return this.attemptResumeAfterReload()
     } else if (stage === TestStage.Running) {
       return this.createLoadError(
         `Save was unexpectedly reloaded while tests were running. This will cause tests to break. Aborting test run.`,
@@ -107,17 +107,17 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     return { task: "enterDescribe", data: state.rootBlock }
   }
 
-  private attemptReload(): Task | undefined {
-    const { test, partIndex } = resumeAfterReload(this.state)
-    const resumedSuccessfully = partIndex !== undefined
-    if (resumedSuccessfully) {
-      this.state.setTestStage(TestStage.Running)
-      return {
-        task: "runTestPart",
-        data: TestRunnerImpl.newTestRun(test!, partIndex),
-      }
+  private attemptResumeAfterReload(): Task | undefined {
+    const resumePoint = resumeAfterReload(this.state)
+    if (!resumePoint) {
+      return this.createLoadError(`Mod files were changed after reload. Aborting test run.`)
     }
-    return this.createLoadError(`Mods files/tests were changed during reload. Aborting test run.`)
+    const { test, partIndex } = resumePoint
+    this.state.setTestStage(TestStage.Running)
+    return {
+      task: "runTestPart",
+      data: TestRunnerImpl.newTestRun(test!, partIndex),
+    }
   }
   private rerun(): Task {
     const { state } = this
@@ -137,7 +137,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
 
     if (block.errors.length !== 0) {
       return {
-        task: "leaveDescribe",
+        task: "leaveDescribeBlock",
         data: block,
       }
     }
@@ -282,7 +282,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     return TestRunnerImpl.getNextDescribeBlockTask(test.parent, test.indexInParent + 1)
   }
 
-  leaveDescribe(block: DescribeBlock): Task | undefined {
+  leaveDescribeBlock(block: DescribeBlock): Task | undefined {
     const hasTests = this.hasAnyTest(block)
     if (hasTests) {
       const hooks = block.hooks.filter((x) => x.type === "afterAll")
@@ -324,7 +324,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
   private static getNextDescribeBlockTask(block: DescribeBlock, index: number): Task {
     if (block.errors.length > 0) {
       return {
-        task: "leaveDescribe",
+        task: "leaveDescribeBlock",
         data: block,
       }
     }
@@ -342,7 +342,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
           }
     }
     return {
-      task: "leaveDescribe",
+      task: "leaveDescribeBlock",
       data: block,
     }
   }
