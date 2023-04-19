@@ -45,18 +45,18 @@ export interface TestRun {
   afterTestFuncs: HookFn[]
 }
 
-let TestState: TestState | undefined
+let TheTestState: TestState | undefined
 declare const global: {
   __factorio_testTestStage?: TestStage
 }
 
 export function getTestState(): TestState {
-  return TestState ?? error("Tests are not configured to be run")
+  return TheTestState ?? error("Tests are not configured to be run")
 }
 
 // internal, export for meta-test only
 export function _setTestState(state: TestState): void {
-  TestState = state
+  TheTestState = state
 }
 
 export function getGlobalTestStage(): TestStage {

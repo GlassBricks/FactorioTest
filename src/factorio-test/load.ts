@@ -1,5 +1,5 @@
 import "__factorio-test__/luassert/init"
-import { Remote, TestStage } from "../constants"
+import { Remote, Settings, TestStage } from "../constants"
 import { debugAdapterEnabled } from "./_util"
 import { builtinTestEventListeners } from "./builtin-test-event-listeners"
 import { fillConfig } from "./config"
@@ -56,7 +56,7 @@ function loadTests(files: string[], partialConfig: Partial<Config>): void {
   const state = getTestState()
 
   // load files
-  const _require = settings.global["factorio-test:test-mod"]!.value === "factorio-test" ? require : ____originalRequire
+  const _require = settings.global[Settings.ModToTest]!.value === "factorio-test" ? require : ____originalRequire
   for (const file of files) {
     describe(file, () => _require(file))
   }

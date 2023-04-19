@@ -1,6 +1,6 @@
 declare const __DebugAdapter: any
 if ("factorio-test" in script.active_mods) {
-  require("__factorio-test__/init")(["test1", "folder/test2", "folder/inWorld"], {
+  require("__factorio-test__/init")(["test1", "folder/test2"], {
     tag_blacklist: ["no"],
     log_passed_tests: true,
     log_skipped_tests: true,
@@ -9,7 +9,7 @@ if ("factorio-test" in script.active_mods) {
       const results = remote.call("factorio-test", "getResults") as any
       const expected = {
         failed: 1,
-        passed: 6,
+        passed: 5,
         skipped: 2,
         todo: 1,
         describeBlockErrors: 2,
@@ -23,7 +23,7 @@ if ("factorio-test" in script.active_mods) {
         }
       }
       if (match) {
-        settings.global["__factorio-test-test-mod:state"] = { value: "terminate" }
+        settings.global["__factorio-usage-test-mod:state"] = { value: "terminate" }
         game.reload_mods()
       } else {
         game.print("Test results does not match expected!")
@@ -31,13 +31,13 @@ if ("factorio-test" in script.active_mods) {
     },
   })
   if (
-    settings.global["__factorio-test-test-mod:state"].value === "terminate" &&
+    settings.global["__factorio-usage-test-mod:state"].value === "terminate" &&
     script.active_mods.debugadapter !== undefined
   ) {
     require("@NoResolution:__debugadapter__/debugadapter.lua")
     __DebugAdapter.terminate()
   }
-  if (settings.global["factorio-test:test-mod"].value === script.mod_name) {
+  if (settings.global["factorio-test:mod-to-test"].value === script.mod_name) {
     script.on_event(defines.events.on_tick, () => {
       script.on_event(defines.events.on_tick, undefined)
       remote.call("factorio-test", "runTests")

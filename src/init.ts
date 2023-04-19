@@ -1,4 +1,5 @@
 import Config = FactorioTest.Config
+import { Settings } from "./constants"
 
 let initCalled = false
 function init(this: void, files: string[], config?: Partial<Config>): void
@@ -16,7 +17,7 @@ function init(
   }
   initCalled = true
   remote.add_interface("factorio-test-tests-available-for-" + script.mod_name, {})
-  if (script.mod_name === settings.global["factorio-test:test-mod"]!.value) {
+  if (script.mod_name === settings.global[Settings.ModToTest]!.value) {
     require("@NoResolution:__factorio-test__/_factorio-test")(files, config)
   }
 }

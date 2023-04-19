@@ -7,7 +7,7 @@ data.extend([
   {
     type: "string-setting",
     setting_type: "runtime-global",
-    name: Settings.TestMod,
+    name: Settings.ModToTest,
     default_value: "",
     allow_blank: true,
   },

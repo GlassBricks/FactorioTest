@@ -78,12 +78,12 @@ function TitleBar(parent: FrameGuiElement, title: LocalisedString) {
 }
 
 function setTestMod(mod: string) {
-  settings.global[Settings.TestMod] = { value: mod }
+  settings.global[Settings.ModToTest] = { value: mod }
   updateConfigGui()
 }
 
 function getTestMod(): string {
-  return settings.global[Settings.TestMod]!.value as string
+  return settings.global[Settings.ModToTest]!.value as string
 }
 
 function ModSelect(parent: LuaGuiElement) {

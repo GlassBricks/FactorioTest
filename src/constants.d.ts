@@ -8,7 +8,7 @@ export const enum Prototypes {
   TestOutputBoxStyle = "factorio-test:test-output-box-style",
 }
 export const enum Settings {
-  TestMod = "factorio-test:mod-to-test",
+  ModToTest = "factorio-test:mod-to-test",
 }
 
 export namespace Locale {

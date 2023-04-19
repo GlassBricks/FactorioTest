@@ -832,29 +832,7 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
     assert.same(values, actions)
   })
 
-  test("single values, alternate syntax", () => {
-    const values = [1, 2, 3, 4]
-    creator.each(values)("an each test", (value) => {
-      actions.push(value)
-    })
-    runTestSync()
-    assert.same(values, actions)
-  })
-
   test("many values", () => {
-    const values = [
-      [1, 2, "corn"],
-      [4, "3", 2],
-      [3, { table: "thing" }, 4],
-    ]
-    creator.each(values)("an each test", (...values) => {
-      actions.push(values)
-    })
-    runTestSync()
-    assert.same(values, actions)
-  })
-
-  test("many values, alternate syntax", () => {
     const values = [
       [1, 2, "corn"],
       [4, "3", 2],

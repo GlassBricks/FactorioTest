@@ -171,9 +171,9 @@ function createEachItems(
 }[] {
   if (values.length === 0) error(".each called with no data")
 
-  const valuesAsRows = values.every((v) => Array.isArray(v)) ? (values as unknown[][]) : values.map((v) => [v])
+  const valuesAsRows: unknown[][] = values.every((v): v is any[] => Array.isArray(v)) ? values : values.map((v) => [v])
   return valuesAsRows.map((row) => {
-    const rowValues = (row as unknown[]).map((v) => (typeof v === "object" ? serpent.line(v) : v))
+    const rowValues = row.map((v) => (typeof v === "object" ? serpent.line(v) : v))
     const itemName = string.format(name, ...rowValues)
 
     return {
@@ -192,46 +192,42 @@ function createTestEach(mode: TestMode): TestCreatorBase {
     )
   }
 
-  result.each =
-    (...values: unknown[]) =>
-    (name: string, func: (...values: any[]) => void) => {
-      const items = createEachItems(values, name)
-      const testBuilders = items.map((item) => {
-        const test = createTest(item.name, () => func(...item.row), mode, 3)
-        return { test, row: item.row }
-      })
-      return createTestBuilder<(...args: unknown[]) => void>(
-        (func) => {
-          for (const { test, row } of testBuilders) {
-            addPart(
-              test,
-              () => {
-                func(...row)
-              },
-              func,
-            )
-          }
-        },
-        (tag) => {
-          for (const { test } of testBuilders) {
-            test.tags.add(tag)
-          }
-        },
-      )
-    }
+  result.each = (values: unknown[]) => (name: string, func: (...values: any[]) => void) => {
+    const items = createEachItems(values, name)
+    const testBuilders = items.map((item) => {
+      const test = createTest(item.name, () => func(...item.row), mode, 3)
+      return { test, row: item.row }
+    })
+    return createTestBuilder<(...args: unknown[]) => void>(
+      (func) => {
+        for (const { test, row } of testBuilders) {
+          addPart(
+            test,
+            () => {
+              func(...row)
+            },
+            func,
+          )
+        }
+      },
+      (tag) => {
+        for (const { test } of testBuilders) {
+          test.tags.add(tag)
+        }
+      },
+    )
+  }
 
   return result
 }
 function createDescribeEach(mode: TestMode): DescribeCreatorBase {
   const result: DescribeCreatorBase = (name, func) => createDescribe(name, func, mode)
-  result.each =
-    (...values: unknown[]) =>
-    (name: string, func: (...values: any[]) => void) => {
-      const items = createEachItems(values, name)
-      for (const { row, name } of items) {
-        createDescribe(name, () => func(...row), mode, 2)
-      }
+  result.each = (values: unknown[]) => (name: string, func: (...values: any[]) => void) => {
+    const items = createEachItems(values, name)
+    for (const { row, name } of items) {
+      createDescribe(name, () => func(...row), mode, 2)
     }
+  }
   return result
 }
 
