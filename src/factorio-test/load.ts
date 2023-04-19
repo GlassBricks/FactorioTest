@@ -3,7 +3,7 @@ import { Remote, TestStage } from "../shared-constants"
 import { debugAdapterEnabled } from "./_util"
 import { builtinTestListeners } from "./builtinTestListeners"
 import { fillConfig } from "./config"
-import { addLogHandler, debugAdapterLogger, gameLogger, logLogger } from "./output"
+import { addLogHandler, debugAdapterLogger, logLogger } from "./output"
 import { progressGuiListener, progressGuiLogger } from "./progressGui"
 import { createTestRunner, TestRunner } from "./runner"
 import { globals } from "./setup"
@@ -45,8 +45,10 @@ function loadTests(files: string[], partialConfig: Partial<Config>): void {
 
   // load globals
   const defineGlobal = __DebugAdapter?.defineGlobal
+  if (defineGlobal) {
+    for (const key in globals) defineGlobal(key)
+  }
   for (const [key, value] of pairs(globals)) {
-    defineGlobal?.(key)
     ;(globalThis as any)[key] = value
   }
 
@@ -84,18 +86,11 @@ function doRunTests() {
   clearTestListeners()
   builtinTestListeners.forEach(addTestListener)
   if (game !== undefined) game.tick_paused = false
-  const { config } = state
-  if (config.show_progress_gui) {
-    addTestListener(progressGuiListener)
-    addLogHandler(progressGuiLogger)
-  }
-  if (config.log_to_game) {
-    addLogHandler(gameLogger)
-  }
-  if (config.log_to_DA && debugAdapterEnabled) {
+  addTestListener(progressGuiListener)
+  addLogHandler(progressGuiLogger)
+  if (debugAdapterEnabled) {
     addLogHandler(debugAdapterLogger)
-  }
-  if (config.log_to_log || (config.log_to_DA && !debugAdapterEnabled)) {
+  } else {
     addLogHandler(logLogger)
   }
 

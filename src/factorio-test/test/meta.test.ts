@@ -500,7 +500,7 @@ describe("async tests", () => {
       })
     })
 
-    it.each([0, -1], "does not accept invalid timeout", (value) => {
+    it.each([0, -1])("does not accept invalid timeout", (value) => {
       test("Something", () => {
         async(value)
         done()
@@ -821,11 +821,11 @@ describe("ticks between tests", () => {
   })
 })
 
-describe.each(["test", "describe"], "%s.each", (funcName) => {
+describe.each(["test", "describe"])("%s.each", (funcName) => {
   const creator = funcName === "test" ? test : describe
   test("single values", () => {
     const values = [1, 2, 3, 4]
-    creator.each(values, "an each test", (value) => {
+    creator.each(values)("an each test", (value) => {
       actions.push(value)
     })
     runTestSync()
@@ -847,7 +847,7 @@ describe.each(["test", "describe"], "%s.each", (funcName) => {
       [4, "3", 2],
       [3, { table: "thing" }, 4],
     ]
-    creator.each(values, "an each test", (...values) => {
+    creator.each(values)("an each test", (...values) => {
       actions.push(values)
     })
     runTestSync()

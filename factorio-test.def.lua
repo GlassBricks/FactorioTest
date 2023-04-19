@@ -4,15 +4,15 @@ test = nil
 it = nil
 ---@type DescribeCreator
 describe = nil
----@type Lifecycle
+---@type LifecycleFn
 before_all = nil
----@type Lifecycle
+---@type LifecycleFn
 after_all = nil
----@type Lifecycle
+---@type LifecycleFn
 before_each = nil
----@type Lifecycle
+---@type LifecycleFn
 after_each = nil
----@type Lifecycle
+---@type LifecycleFn
 after_test = nil
 
 ---@vararg string
@@ -93,7 +93,7 @@ function TestBuilder.after_script_reload(func) end
 ---@return TestBuilder<T>
 function TestBuilder.after_mod_reload(func) end
 
----@class DescribeCreatorBase
+---@class DescribeBlockCreatorBase
 ---@overload fun(name: string, func: TestFn): void
 local DescribeCreatorBase = {}
 
@@ -111,4 +111,4 @@ function DescribeCreatorBase.each(values, name, func) end
 ---@field skip DescribeCreator
 ---@field only DescribeCreator
 
----@alias Lifecycle fun(func: HookFn): void
+---@alias LifecycleFn fun(func: HookFn): void

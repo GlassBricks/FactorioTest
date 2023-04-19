@@ -1,5 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/triple-slash-reference
-/// <reference path="../factorio-test.d.ts" />
 import Config = FactorioTest.Config
 
 let initCalled = false

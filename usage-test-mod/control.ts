@@ -1,5 +1,5 @@
 declare const __DebugAdapter: any
-if (script.active_mods.factorio - test !== undefined) {
+if ("factorio-test" in script.active_mods) {
   require("__factorio-test__/init")(["test1", "folder/test2", "folder/inWorld"], {
     tag_blacklist: ["no"],
     log_passed_tests: true,
@@ -30,7 +30,10 @@ if (script.active_mods.factorio - test !== undefined) {
       }
     },
   })
-  if (settings.global["__factorio-test-test-mod:state"].value === "terminate" && script.active_mods.debugadapter) {
+  if (
+    settings.global["__factorio-test-test-mod:state"].value === "terminate" &&
+    script.active_mods.debugadapter !== undefined
+  ) {
     require("@NoResolution:__debugadapter__/debugadapter.lua")
     __DebugAdapter.terminate()
   }

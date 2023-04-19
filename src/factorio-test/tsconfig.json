@@ -22,7 +22,7 @@
     "sourceMapTraceback": true,
     "noImplicitSelf": true,
     "luaBundle": "../_factorio-test.lua",
-    "luaBundleEntry": "loadTestorio.ts"
+    "luaBundleEntry": "load.ts"
   },
   "include": [".", "../../node_modules/typed-factorio/runtime/index.d.ts", "../../index.d.ts"],
   "exclude": []

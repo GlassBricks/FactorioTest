@@ -192,10 +192,6 @@ export const logLogger: LogHandler = (message) => {
   log(joinToPlainText(message))
 }
 
-export const gameLogger: LogHandler = (message) => {
-  game?.print(joinToRichText(message))
-}
-
 export const logListener: TestListener = (event, state) => {
   switch (event.type) {
     case "testPassed": {

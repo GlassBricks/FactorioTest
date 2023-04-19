@@ -9,11 +9,11 @@ export function __factorio_test__pcallWithStacktrace<A extends any[], R>(
 
 function getErrorWithStacktrace(error: unknown) {
   // level: 1 = here, 2 = getErrorWithStackTrace(), 3 = error location
-  const stacktrace = error instanceof Error ? error.toString() : debug.traceback(tostring(error), 3)
+  const stacktrace = debug.traceback(tostring(error), 3)
 
   const lines = stacktrace.split("\n")
   for (let i = 1, l = lines.length; i <= l; i++) {
-    if (lines[i - 1]!.endsWith(": in function '__factorio-test__pcallWithStacktrace'")) {
+    if (lines[i - 1]!.endsWith(": in function '__factorio_test__pcallWithStacktrace'")) {
       if (lines[i - 3] === "\t[C]: in function 'rawxpcall'") i-- // remove extra line from debugadapter
       return table.concat(lines, "\n", 1, i - 2)
     }

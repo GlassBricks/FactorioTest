@@ -5,7 +5,7 @@ test.skip("Skip", () => {
   error("Uh oh")
 })
 test.todo("TODO")
-test.each([1, 2], "each %d", (v) => {
+test.each([1, 2])("each %d", (v) => {
   assert.are_equal(1, v) // meant to fail on the second time
 })
 test("In world", () => {

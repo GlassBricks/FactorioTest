@@ -4,11 +4,11 @@
 declare var test: FactorioTest.TestCreator
 declare var it: FactorioTest.TestCreator
 declare var describe: FactorioTest.DescribeCreator
-declare var before_all: FactorioTest.Lifecycle
-declare var after_all: FactorioTest.Lifecycle
-declare var before_each: FactorioTest.Lifecycle
-declare var after_each: FactorioTest.Lifecycle
-declare var after_test: FactorioTest.Lifecycle
+declare var before_all: FactorioTest.LifecycleFn
+declare var after_all: FactorioTest.LifecycleFn
+declare var before_each: FactorioTest.LifecycleFn
+declare var after_each: FactorioTest.LifecycleFn
+declare var after_test: FactorioTest.LifecycleFn
 declare function async(timeout?: number): void
 declare function done(): void
 declare function on_tick(func: FactorioTest.OnTickFn): void
@@ -19,16 +19,10 @@ declare function tags(...tags: string[]): void
 /** @noSelf */
 declare namespace FactorioTest {
   interface Config {
-    show_progress_gui: boolean
-
     default_timeout: number
     default_ticks_between_tests: number
 
     game_speed: number
-
-    log_to_game: boolean
-    log_to_DA: boolean
-    log_to_log: boolean
 
     log_passed_tests: boolean
     log_skipped_tests: boolean
@@ -51,13 +45,10 @@ declare namespace FactorioTest {
   interface TestCreatorBase {
     (name: string, func: TestFn): TestBuilder
 
-    each<V extends any[]>(
+    each<const V extends readonly any[]>(
       values: readonly V[],
     ): (name: string, func: (...values: V) => void) => TestBuilder<typeof func>
-    each<T>(values: readonly T[]): (name: string, func: (value: T) => void) => TestBuilder<typeof func>
-
-    each<V extends any[]>(values: readonly V[], name: string, func: (...values: V) => void): TestBuilder<typeof func>
-    each<T>(values: readonly T[], name: string, func: (value: T) => void): TestBuilder<typeof func>
+    each<const T>(values: readonly T[]): (name: string, func: (value: T) => void) => TestBuilder<typeof func>
   }
 
   /** @noSelf */
@@ -74,21 +65,24 @@ declare namespace FactorioTest {
   }
 
   /** @noSelf */
-  interface DescribeCreatorBase {
+  interface DescribeBlockCreatorBase {
     (name: string, func: TestFn): void
 
-    each<V extends any[]>(values: readonly V[]): (name: string, func: (...values: V) => void) => void
-    each<T>(values: readonly T[]): (name: string, func: (value: T) => void) => void
-
-    each<V extends any[]>(values: readonly V[], name: string, func: (...values: V) => void): void
-    each<T>(values: readonly T[], name: string, func: (value: T) => void): void
+    each<const V extends readonly any[]>(values: readonly V[]): (name: string, func: (...values: V) => void) => void
+    each<const T>(values: readonly T[]): (name: string, func: (value: T) => void) => void
   }
 
   /** @noSelf */
-  interface DescribeCreator extends DescribeCreatorBase {
-    skip: DescribeCreatorBase
-    only: DescribeCreatorBase
+  interface DescribeCreator extends DescribeBlockCreatorBase {
+    skip: DescribeBlockCreatorBase
+    only: DescribeBlockCreatorBase
   }
 
-  type Lifecycle = (func: HookFn) => void
+  type LifecycleFn = (func: HookFn) => void
+}
+
+/** @noResolution */
+declare module "__factorio-test__/init" {
+  function init(this: void, files: string[], config?: Partial<FactorioTest.Config>): void
+  export = init
 }

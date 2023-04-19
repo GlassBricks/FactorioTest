@@ -6,6 +6,6 @@
     "sourceMapTraceback": false,
     "noImplicitSelf": true,
     "luaBundle": "../_factorio-test.lua",
-    "luaBundleEntry": "loadTestorio.ts"
+    "luaBundleEntry": "load.ts"
   }
 }

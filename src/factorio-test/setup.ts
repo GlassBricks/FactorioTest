@@ -16,7 +16,7 @@ import {
 } from "./tests"
 import { __factorio_test__pcallWithStacktrace } from "./_util"
 import DescribeCreator = FactorioTest.DescribeCreator
-import DescribeCreatorBase = FactorioTest.DescribeCreatorBase
+import DescribeCreatorBase = FactorioTest.DescribeBlockCreatorBase
 import HookFn = FactorioTest.HookFn
 import TestBuilder = FactorioTest.TestBuilder
 import TestCreator = FactorioTest.TestCreator
@@ -163,17 +163,16 @@ function createDescribe(name: string, block: TestFn, mode: TestMode, upStack: nu
 }
 
 function createEachItems(
-  values: unknown[][],
+  values: unknown[],
   name: string,
 ): {
   name: string
   row: unknown[]
 }[] {
   if (values.length === 0) error(".each called with no data")
-  if (!values.every((v) => Array.isArray(v))) {
-    values = (values as unknown[]).map((v) => [v])
-  }
-  return values.map((row) => {
+
+  const valuesAsRows = values.every((v) => Array.isArray(v)) ? (values as unknown[][]) : values.map((v) => [v])
+  return valuesAsRows.map((row) => {
     const rowValues = (row as unknown[]).map((v) => (typeof v === "object" ? serpent.line(v) : v))
     const itemName = string.format(name, ...rowValues)
 
@@ -184,18 +183,6 @@ function createEachItems(
   })
 }
 
-function createAltEach<R>(doEach: (values: unknown[][], name: string, func: (row: unknown[]) => void) => R) {
-  return (...args: [values: unknown[][], name?: string, func?: (...values: any[]) => void]): any => {
-    const nargs = select<any>("#", ...args)
-    if (nargs <= 1) {
-      const [values] = args
-      return (name: string, func: (...values: any[]) => void) => doEach(values, name, func)
-    }
-    const [values, name, func] = args
-    doEach(values, name!, func!)
-  }
-}
-
 function createTestEach(mode: TestMode): TestCreatorBase {
   const result: TestCreatorBase = (name, func) => {
     const test = createTest(name, func, mode)
@@ -204,51 +191,47 @@ function createTestEach(mode: TestMode): TestCreatorBase {
       (tag) => test.tags.add(tag),
     )
   }
-  function doTestEach(values: unknown[][], name: string, func: (...values: any[]) => void): TestBuilder<typeof func> {
-    const items = createEachItems(values, name)
-    const testBuilders = items.map((item) => {
-      const test = createTest(
-        item.name,
-        () => {
-          func(...item.row)
-        },
-        mode,
-        3,
-      )
-      return { test, row: item.row }
-    })
-    return createTestBuilder<(...args: unknown[]) => void>(
-      (func) => {
-        for (const { test, row } of testBuilders) {
-          addPart(
-            test,
-            () => {
-              func(...row)
-            },
-            func,
-          )
-        }
-      },
-      (tag) => {
-        for (const { test } of testBuilders) {
-          test.tags.add(tag)
-        }
-      },
-    )
-  }
 
-  result.each = createAltEach(doTestEach)
+  result.each =
+    (...values: unknown[]) =>
+    (name: string, func: (...values: any[]) => void) => {
+      const items = createEachItems(values, name)
+      const testBuilders = items.map((item) => {
+        const test = createTest(item.name, () => func(...item.row), mode, 3)
+        return { test, row: item.row }
+      })
+      return createTestBuilder<(...args: unknown[]) => void>(
+        (func) => {
+          for (const { test, row } of testBuilders) {
+            addPart(
+              test,
+              () => {
+                func(...row)
+              },
+              func,
+            )
+          }
+        },
+        (tag) => {
+          for (const { test } of testBuilders) {
+            test.tags.add(tag)
+          }
+        },
+      )
+    }
+
   return result
 }
 function createDescribeEach(mode: TestMode): DescribeCreatorBase {
   const result: DescribeCreatorBase = (name, func) => createDescribe(name, func, mode)
-  function doDescribeEach(values: unknown[][], name: string, func: (...values: any[]) => void): void {
-    const items = createEachItems(values, name)
-    for (const { row, name } of items) {
-      createDescribe(name, () => func(...row), mode, 2)
+  result.each =
+    (...values: unknown[]) =>
+    (name: string, func: (...values: any[]) => void) => {
+      const items = createEachItems(values, name)
+      for (const { row, name } of items) {
+        createDescribe(name, () => func(...row), mode, 2)
+      }
     }
-  }
-  result.each = createAltEach(doDescribeEach)
   return result
 }
 

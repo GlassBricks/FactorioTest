@@ -6,55 +6,22 @@
     "import/resolver": "typescript"
   },
   "parserOptions": {
-    "project": ["src/tsconfig.json", "src/factorio-test/tsconfig.json", "factorio-test-test-mod/tsconfig.json"]
+    "project": [
+      "tsconfig.json", "src/tsconfig.json", "src/factorio-test/tsconfig.json", "usage-test-mod/tsconfig.json"
+    ]
   },
   "extends": [
-    "eslint:recommended",
-    "plugin:eslint-comments/recommended",
-    "plugin:prettier/recommended",
-    "plugin:import/recommended",
-    "plugin:import/typescript",
-    "esnext",
-    "plugin:@typescript-eslint/recommended"
+    "eslint:recommended", "plugin:eslint-comments/recommended", "plugin:@typescript-eslint/recommended", "prettier"
   ],
   "rules": {
-    // fixes
-    "no-useless-constructor": "off",
-    "@typescript-eslint/no-useless-constructor": "error",
-    "dot-notation": "off",
-    "@typescript-eslint/dot-notation": "error",
     // off
-    "no-inner-declarations": "off",
-    "no-use-before-define": "off",
-    "@typescript-eslint/no-extra-semi": "off",
-    "import/namespace": "off",
-    "import/no-namespace": "off",
-    "import/prefer-default-export": "off",
-    "import/no-unresolved": "off",
-    "no-undef": "off",
-    "@typescript-eslint/no-non-null-assertion": "off",
     "@typescript-eslint/no-explicit-any": "off",
-    "@typescript-eslint/no-namespace": "off",
     "@typescript-eslint/no-var-requires": "off",
-    "import/no-commonjs": "off",
-    "class-methods-use-this": "off",
-    // gives false positives
-    "import/named": "off",
-    // modifications/weakening
+    "@typescript-eslint/no-non-null-assertion": "off",
     "@typescript-eslint/no-inferrable-types": [
       "warn", {
         "ignoreProperties": true,
         "ignoreParameters": true
-      }
-    ],
-    "prettier/prettier": "warn",
-    // modifications/weakening
-    "@typescript-eslint/ban-types": [
-      "error", {
-        "extendDefaults": true,
-        "types": {
-          "object": false
-        }
       }
     ],
     // on
@@ -63,11 +30,6 @@
     "eslint-comments/disable-enable-pair": [
       "error", {
         "allowWholeFile": true
-      }
-    ],
-    "import/no-nodejs-modules": [
-      "error", {
-        "allow": ["util"]
       }
     ]
   }
