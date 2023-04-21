@@ -37,7 +37,7 @@ if ("factorio-test" in script.active_mods) {
     require("@NoResolution:__debugadapter__/debugadapter.lua")
     __DebugAdapter.terminate()
   }
-  if (settings.global["factorio-test:mod-to-test"].value === script.mod_name) {
+  if (settings.global["factorio-test-mod-to-test"].value === script.mod_name) {
     script.on_event(defines.events.on_tick, () => {
       script.on_event(defines.events.on_tick, undefined)
       remote.call("factorio-test", "runTests")

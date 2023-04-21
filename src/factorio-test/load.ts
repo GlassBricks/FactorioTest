@@ -36,7 +36,6 @@ export = function (files: string[], config: Partial<Config>): void {
     onTestStageChanged: () => onTestStageChanged,
     getResults: () => getTestState().results,
   })
-  tapEvent(defines.events.on_game_created_from_scenario, runTests)
   tapEvent(defines.events.on_tick, tryContinueTests)
 }
 

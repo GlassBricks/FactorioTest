@@ -10,5 +10,13 @@ data.extend([
     name: Settings.ModToTest,
     default_value: "",
     allow_blank: true,
+    order: "a",
+  },
+  {
+    type: "bool-setting",
+    setting_type: "startup",
+    name: Settings.AutoStart,
+    default_value: false,
+    order: "b",
   },
 ])

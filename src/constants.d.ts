@@ -4,11 +4,12 @@ export const enum Remote {
 }
 
 export const enum Prototypes {
-  TestTubeSprite = "factorio-test:test-tube-sprite",
-  TestOutputBoxStyle = "factorio-test:test-output-box-style",
+  TestTubeSprite = "factorio-test-test-tube-sprite",
+  TestOutputBoxStyle = "factorio-test-test-output-box-style",
 }
 export const enum Settings {
-  ModToTest = "factorio-test:mod-to-test",
+  ModToTest = "factorio-test-mod-to-test",
+  AutoStart = "factorio-test-auto-start",
 }
 
 export namespace Locale {
@@ -54,5 +55,5 @@ export const enum TestStage {
 
 export const enum Misc {
   CloseTestGui = "close-test-gui",
-  TestGui = "factorio-test:test-gui",
+  TestGui = "factorio-test-test-gui",
 }
