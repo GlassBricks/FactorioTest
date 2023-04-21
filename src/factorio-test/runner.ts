@@ -125,7 +125,6 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     if (tagBlacklist.indexOf("no_rerun") === -1) {
       tagBlacklist.push("no_rerun")
     }
-    state.isRerun = true
     return this.startTestRun()
   }
 

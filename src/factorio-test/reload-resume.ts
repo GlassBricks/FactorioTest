@@ -110,7 +110,6 @@ function compareToSavedDescribeBlock(saved: SavedDescribeBlockData, current: Des
 interface ResumeData {
   rootBlock: SavedDescribeBlockData
   results: TestRunResults
-  isRerun: boolean
   profiler: LuaProfiler
   resumeTestPath: string
   resumePartIndex: number
@@ -124,7 +123,6 @@ export function prepareReload(testState: TestState): void {
   global.__testResume = {
     rootBlock: saveDescribeBlock(testState.rootBlock),
     results: testState.results,
-    isRerun: testState.isRerun,
     resumeTestPath: currentRun.test.path,
     resumePartIndex: currentRun.partIndex + 1,
     profiler: testState.profiler!,
@@ -148,7 +146,6 @@ export function resumeAfterReload(state: TestState):
 
   state.results = testResume.results
   state.profiler = testResume.profiler
-  state.isRerun = testResume.isRerun
   state.reloaded = true
 
   const saved = testResume.rootBlock

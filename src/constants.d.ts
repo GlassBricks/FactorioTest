@@ -30,15 +30,15 @@ export namespace Locale {
   }
   export const enum ProgressGui {
     Title = "factorio-test.progress-gui.title",
-    TitleRerun = "factorio-test.progress-gui.title-rerun",
     RunningTest = "factorio-test.progress-gui.running-test",
     NPassed = "factorio-test.progress-gui.n-passed",
     NFailed = "factorio-test.progress-gui.n-failed",
     NErrors = "factorio-test.progress-gui.n-errors",
     NSkipped = "factorio-test.progress-gui.n-skipped",
     NTodo = "factorio-test.progress-gui.n-todo",
-    TestsFinished = "factorio-test.progress-gui.tests-finished",
-    TestsFinishedRerun = "factorio-test.progress-gui.tests-finished-rerun",
+    TestsPassed = "factorio-test.progress-gui.tests-passed",
+    TestsFailed = "factorio-test.progress-gui.tests-failed",
+    TestsPassedWithTodo = "factorio-test.progress-gui.tests-passed-with-todo",
     LoadError = "factorio-test.progress-gui.load-error",
   }
 }

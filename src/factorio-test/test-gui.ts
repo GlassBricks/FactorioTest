@@ -14,7 +14,7 @@ interface TestGui {
   progressBar: ProgressBarGuiElement
   progressLabel: LabelGuiElement
   testCounts: TableGuiElement
-  testOutput: ScrollPaneGuiElement
+  output: ScrollPaneGuiElement
 
   totalTests: number
 }
@@ -70,6 +70,8 @@ function TestCount(parent: LuaGuiElement) {
     const style: LuaStyle = result.style
     style.horizontally_stretchable = true
     style.horizontal_align = "center"
+    style.font = "default-bold"
+    style.width = 80
     return result
   }
   const colors = [MessageColor.Red, MessageColor.Red, MessageColor.Yellow, MessageColor.Purple, MessageColor.Green]
@@ -136,11 +138,9 @@ function createTestProgressGui(state: TestState): TestGui {
   const style = titleBar.style
   style.horizontal_spacing = 8
   style.height = 28
-  const titleLocale = !state.isRerun ? ProgressGui.Title : ProgressGui.TitleRerun
-
   titleBar.add({
     type: "label",
-    caption: [titleLocale, script.mod_name],
+    caption: [ProgressGui.Title, script.mod_name],
     style: "frame_title",
     ignored_by_interaction: true,
   })
@@ -174,7 +174,12 @@ function createTestProgressGui(state: TestState): TestGui {
   // the on_click handler is handled by factorio-test mod, not the mod under test
   // this is so factorio-test does not need to "hack" into another event handler
 
-  const contentFrame = mainFrame.add({
+  const contentFlow = mainFrame.add({
+    type: "flow",
+    direction: "vertical",
+  })
+  contentFlow.style.vertical_spacing = 15
+  const topFrame = contentFlow.add({
     type: "frame",
     style: "inside_shallow_frame_with_padding",
     direction: "vertical",
@@ -184,10 +189,10 @@ function createTestProgressGui(state: TestState): TestGui {
     mainFrame,
     totalTests,
     closeButton,
-    statusText: StatusText(contentFrame),
-    ...ProgressBar(contentFrame),
-    testCounts: TestCount(contentFrame),
-    testOutput: TestOutput(contentFrame),
+    statusText: StatusText(topFrame),
+    ...ProgressBar(topFrame),
+    testCounts: TestCount(topFrame),
+    output: TestOutput(contentFlow),
   }
 
   updateTestCounts(gui, state.results)
@@ -266,7 +271,14 @@ export const progressGuiListener: TesteEventListener = (event, state) => {
       break
     }
     case "testRunFinished": {
-      gui.statusText.caption = [!state.isRerun ? ProgressGui.TestsFinished : ProgressGui.TestsFinishedRerun]
+      const statusLocale =
+        state.results.status == "passed"
+          ? ProgressGui.TestsPassed
+          : state.results.status == "todo"
+          ? ProgressGui.TestsPassedWithTodo
+          : ProgressGui.TestsFailed
+
+      gui.statusText.caption = [statusLocale]
       gui.closeButton.enabled = true
       break
     }
@@ -287,7 +299,7 @@ export const progressGuiListener: TesteEventListener = (event, state) => {
 export const progressGuiLogger: MessageHandler = (message) => {
   const gui = global.__testGui
   if (!gui || !gui.progressBar.valid) return
-  const textBox = gui.testOutput.add({
+  const textBox = gui.output.add({
     type: "text-box",
     style: Prototypes.TestOutputBoxStyle,
   })

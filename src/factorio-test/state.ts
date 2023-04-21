@@ -21,7 +21,6 @@ export interface TestState {
 
   results: TestRunResults
   profiler?: LuaProfiler
-  isRerun: boolean
 
   reloaded?: boolean
 
@@ -78,7 +77,6 @@ export function resetTestState(config: Config): void {
     rootBlock,
     currentBlock: rootBlock,
     hasFocusedTests: false,
-    isRerun: false,
     results: createEmptyRunResults(),
     getTestStage: getGlobalTestStage,
     setTestStage: setGlobalTestStage,
