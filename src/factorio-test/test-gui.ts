@@ -1,5 +1,5 @@
 import { Locale, Misc, Prototypes } from "../constants"
-import { Colors, joinToRichText, LogHandler, MessageColor } from "./output"
+import { Colors, MessageColor, MessageHandler } from "./output"
 import { TestRunResults } from "./results"
 import { TestState } from "./state"
 import { TesteEventListener } from "./test-events"
@@ -14,7 +14,7 @@ interface TestGui {
   progressBar: ProgressBarGuiElement
   progressLabel: LabelGuiElement
   testCounts: TableGuiElement
-  testOutput: LuaGuiElement
+  testOutput: ScrollPaneGuiElement
 
   totalTests: number
 }
@@ -66,10 +66,8 @@ function TestCount(parent: LuaGuiElement) {
   })
 
   function addLabel() {
-    const result = table.add({
-      type: "label",
-    })
-    const style = result.style
+    const result = table.add({ type: "label" })
+    const style: LuaStyle = result.style
     style.horizontally_stretchable = true
     style.horizontal_align = "center"
     return result
@@ -82,7 +80,7 @@ function TestCount(parent: LuaGuiElement) {
   return table
 }
 
-function TestOutput(parent: LuaGuiElement) {
+function TestOutput(parent: LuaGuiElement): ScrollPaneGuiElement {
   const frame = parent.add({
     type: "frame",
     style: "inside_shallow_frame",
@@ -286,7 +284,7 @@ export const progressGuiListener: TesteEventListener = (event, state) => {
   }
 }
 
-export const progressGuiLogger: LogHandler = (message) => {
+export const progressGuiLogger: MessageHandler = (message) => {
   const gui = global.__testGui
   if (!gui || !gui.progressBar.valid) return
   const textBox = gui.testOutput.add({
@@ -294,13 +292,18 @@ export const progressGuiLogger: LogHandler = (message) => {
     style: Prototypes.TestOutputBoxStyle,
   })
   textBox.read_only = true
-  const caption = joinToRichText(message)
-  let newLineCount: number
-  if (typeof caption === "string") {
-    ;[, newLineCount] = string.gsub(caption, "\n", "")
+  let newLineCount = 0
+  if (typeof message.richText === "string") {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for (const [_] of string.gmatch(message.richText, "\n")) newLineCount++
   } else {
-    newLineCount = 0
+    for (const part of message.richText as readonly unknown[]) {
+      if (typeof part === "string") {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        for (const [_] of string.gmatch(part, "\n")) newLineCount++
+      }
+    }
   }
   textBox.style.height = (newLineCount + 1) * 20
-  textBox.caption = caption
+  textBox.caption = message.richText
 }

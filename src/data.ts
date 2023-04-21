@@ -21,4 +21,15 @@ data.raw["gui-style"]!.default[Prototypes.TestOutputBoxStyle] = {
   horizontally_stretchable: "on",
   default_background: {},
   font_color: [1, 1, 1],
+  font: "factorio-test-mono",
 }
+
+data.extend([
+  {
+    type: "font",
+    name: "factorio-test-mono",
+    from: "default-mono",
+    size: 14,
+    spacing: -0.5,
+  },
+])

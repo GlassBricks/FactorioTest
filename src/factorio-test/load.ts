@@ -3,7 +3,7 @@ import { Remote, Settings, TestStage } from "../constants"
 import { debugAdapterEnabled } from "./_util"
 import { builtinTestEventListeners } from "./builtin-test-event-listeners"
 import { fillConfig } from "./config"
-import { addLogHandler, debugAdapterLogger, logLogger } from "./output"
+import { addMessageHandler, debugAdapterLogger, logLogger } from "./output"
 import { progressGuiListener, progressGuiLogger } from "./test-gui"
 import { createTestRunner, TestRunner } from "./runner"
 import { globals } from "./setup-globals"
@@ -86,11 +86,11 @@ function doRunTests() {
   builtinTestEventListeners.forEach(addTestListener)
   if (game !== undefined) game.tick_paused = false
   addTestListener(progressGuiListener)
-  addLogHandler(progressGuiLogger)
+  addMessageHandler(progressGuiLogger)
   if (debugAdapterEnabled) {
-    addLogHandler(debugAdapterLogger)
+    addMessageHandler(debugAdapterLogger)
   } else {
-    addLogHandler(logLogger)
+    addMessageHandler(logLogger)
   }
 
   let runner: TestRunner | undefined

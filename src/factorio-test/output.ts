@@ -13,7 +13,7 @@ export const Colors: Record<MessageColor, ColorArray> = {
   [MessageColor.White]: [1, 1, 1],
   [MessageColor.Green]: [71, 221, 37],
   [MessageColor.Yellow]: [252, 237, 50],
-  [MessageColor.Red]: [200, 50, 50],
+  [MessageColor.Red]: [230, 60, 60],
   [MessageColor.Purple]: [177, 156, 220],
 }
 const ColorFormat: Record<MessageColor, string> = {} as any
@@ -24,14 +24,28 @@ for (const [code, color] of pairs(Colors)) {
 interface MessagePart {
   text: string | LuaProfiler
   color?: MessageColor
-  bold?: boolean
 }
 
-function bold(text: string): MessagePart {
-  return {
-    text,
-    bold: true,
+const MAX_LINE_LENGTH = 110
+const PREFIX_LEN = 5
+const SUFFIX_LEN = 23
+function formatTestPath(text: string): MessagePart {
+  let curStart = 0
+  let curLineLen = PREFIX_LEN
+  const result: string[] = []
+  while (text.length - curStart + curLineLen > MAX_LINE_LENGTH) {
+    const length = MAX_LINE_LENGTH - curLineLen
+    result.push(string.sub(text, curStart + 1, curStart + length))
+    curStart += length
+    curLineLen = 8 // 8 spaces in indent
   }
+  if (text.length - curStart + curLineLen > MAX_LINE_LENGTH - SUFFIX_LEN) {
+    const length = MAX_LINE_LENGTH - curLineLen - SUFFIX_LEN
+    result.push(string.sub(text, curStart + 1, curStart + length))
+    curStart += length
+  }
+  result.push(string.sub(text, curStart + 1))
+  return { text: result.join("\n        ") }
 }
 
 function red(text: string): MessagePart {
@@ -62,67 +76,80 @@ function purple(text: string): MessagePart {
   }
 }
 
-function m(
-  strings: TemplateStringsArray,
-  ...substitutions: (string | number | LuaProfiler | MessagePart)[]
-): MessagePart[] {
-  const result: MessagePart[] = []
+interface RichAndPlainText {
+  richText: LocalisedString
+  plainText: LocalisedString
+  firstColor?: MessageColor | undefined
+}
+function formatError(text: string): RichAndPlainText {
+  // replace tabs with 4 spaces in rich text
+  const withSpaces = string.gsub(text, "\t", "    ")[0]
+  // indent all lines by 4 spaces
+  const withIndent = string.gsub(withSpaces, "\n", "\n    ")[0]
+  return {
+    richText: "    " + withIndent,
+    plainText: text,
+    firstColor: MessageColor.Red,
+  }
+}
+
+function m(strings: TemplateStringsArray, ...substitutions: (string | LuaProfiler | MessagePart)[]): RichAndPlainText {
+  let plainResult: ["", ...(string | LuaProfiler)[]] = [""]
+  let richResult: ["", ...(string | LuaProfiler)[]] = [""]
+  let firstColor: MessageColor | undefined = undefined
+
+  let isString = true
+
   for (const i of $range(1, strings.length * 2 - 1)) {
-    const item = i % 2 === 0 ? strings[i / 2] : substitutions[(i - 1) / 2]
-    if (typeof item === "object" && !(item as LuaProfiler).object_name) {
-      result.push(item as MessagePart)
-    } else {
-      result.push({ text: item as string | LuaProfiler })
-    }
-  }
-  return result
-}
+    const element = i % 2 === 0 ? strings[i / 2] : substitutions[(i - 1) / 2]
+    if (element === undefined) continue
 
-export function joinToPlainText(parts: MessagePart[]): LocalisedString {
-  let isString = true
-  let result: ["", ...string[]] = [""]
-  for (const part of parts) {
-    if (typeof part.text !== "object") {
-      result.push(part.text)
+    let color: MessageColor | undefined
+    let text: string | LuaProfiler
+    if (typeof element === "object") {
+      if ("object_name" in element) {
+        text = element
+      } else {
+        text = element.text
+        color = element.color
+        firstColor ??= color
+      }
     } else {
-      if (isString) result = ["", table.concat(result), part.text as never]
+      text = element
+    }
+
+    if (color) richResult.push(ColorFormat[color])
+    if (typeof text !== "string" && isString) {
+      plainResult = ["", table.concat(plainResult as string[])]
+      richResult = ["", table.concat(richResult as string[])]
       isString = false
     }
+    plainResult.push(text)
+    richResult.push(text)
+    if (color) richResult.push("[/color]")
   }
-  return isString ? table.concat(result) : result
-}
 
-export function joinToRichText(parts: MessagePart[]): LocalisedString {
-  let isString = true
-  let result: ["", ...string[]] = [""]
-  for (const part of parts) {
-    if (part.bold) result.push("[font=default-bold]")
-    if (part.color) result.push(ColorFormat[part.color])
-    if (typeof part.text !== "object") {
-      result.push(part.text)
-    } else {
-      if (isString) result = ["", table.concat(result), part.text as never]
-      isString = false
-    }
-    if (part.color) result.push("[/color]")
-    if (part.bold) result.push("[/font]")
+  return {
+    richText: richResult,
+    plainText: plainResult,
+    firstColor,
   }
-  return isString ? table.concat(result) : result
 }
 
-export type LogHandler = (message: MessagePart[], source: Source | undefined) => void
+export type MessageHandler = (message: RichAndPlainText, source: Source | undefined) => void
 
-const logHandlers: LogHandler[] = []
+const messageHandlers: MessageHandler[] = []
 
-export function addLogHandler(handler: LogHandler): void {
-  logHandlers.push(handler)
+export function addMessageHandler(handler: MessageHandler): void {
+  messageHandlers.push(handler)
 }
 
-function testLog(message: MessagePart[], source?: Source): void {
-  for (const logHandler of logHandlers) {
+function output(message: RichAndPlainText, source?: Source): void {
+  for (const logHandler of messageHandlers) {
     logHandler(message, source)
   }
 }
+
 const jsonEncode: typeof import("__debugadapter__/json").encode = !debugAdapterEnabled
   ? undefined
   : require("@NoResolution:__debugadapter__/json").encode
@@ -180,16 +207,16 @@ function printDebugAdapterText(text: string, source: Source | undefined, categor
     print("DBGprint: " + jsonEncode!(body))
   }
 }
-export const debugAdapterLogger: LogHandler = (message, source) => {
-  const color = message.find((x) => x.color)?.color ?? MessageColor.White
+export const debugAdapterLogger: MessageHandler = (message, source) => {
+  const color = message.firstColor ?? MessageColor.White
   const category = DebugAdapterCategories[color]
-  const text = joinToPlainText(message)
+  const text = message.plainText
   const output = typeof text === "string" ? text : `{LocalisedString ${daTranslate(text)}}`
   printDebugAdapterText(output, source, category)
 }
 
-export const logLogger: LogHandler = (message) => {
-  log(joinToPlainText(message))
+export const logLogger: MessageHandler = (message) => {
+  log(message.plainText)
 }
 
 export const logListener: TesteEventListener = (event, state) => {
@@ -197,8 +224,8 @@ export const logListener: TesteEventListener = (event, state) => {
     case "testPassed": {
       if (state.config.log_passed_tests) {
         const { test } = event
-        testLog(
-          m`${bold(test.path)} ${green("passed")} (${test.profiler!}${
+        output(
+          m`${green("PASS")} ${formatTestPath(test.path)} (${test.profiler!}${
             test.tags.has("after_mod_reload") || test.tags.has("after_script_reload") ? " after reload" : ""
           })`,
           test.source,
@@ -208,29 +235,30 @@ export const logListener: TesteEventListener = (event, state) => {
     }
     case "testFailed": {
       const { test } = event
-      testLog(m`${bold(test.path)} ${red("failed")}`, test.source)
+      output(m`${red("FAIL")} ${formatTestPath(test.path)}`, test.source)
       for (const error of test.errors) {
-        testLog([red(error)])
+        output(formatError(error))
       }
       break
     }
     case "testTodo": {
       const { test } = event
-      testLog(m`${bold(test.path)}: ${purple("todo")}`, test.source)
+      output(m`${purple("TODO")} ${formatTestPath(test.path)}`, test.source)
       break
     }
     case "testSkipped": {
       if (state.config.log_skipped_tests) {
         const { test } = event
-        testLog(m`${bold(test.path)}: ${yellow("skipped")}`, test.source)
+        output(m`${yellow("SKIP")} ${formatTestPath(test.path)}`, test.source)
       }
       break
     }
     case "describeBlockFailed": {
       const { block } = event
-      testLog(m`${bold(block.path)} ${red("error")}`, block.source)
+      // output(m`${bold(block.path)} ${red("error")}`, block.source)
+      output(m`${red("ERROR")} ${formatTestPath(block.path)}`, block.source)
       for (const error of block.errors) {
-        testLog([red(error)])
+        output(formatError(error))
       }
       break
     }
@@ -238,10 +266,9 @@ export const logListener: TesteEventListener = (event, state) => {
       const results = state.results
       const status = results.status
 
-      testLog([
-        {
+      output(
+        m`${{
           text: `\nTest run finished: ${status === "todo" ? "passed with todo tests" : status}`,
-          bold: true,
           color:
             status === "passed"
               ? MessageColor.Green
@@ -250,44 +277,14 @@ export const logListener: TesteEventListener = (event, state) => {
               : status === "todo"
               ? MessageColor.Purple
               : MessageColor.White,
-        },
-      ])
-      testLog(m`${state.profiler!}${state.reloaded ? " since last reload" : ""}`)
-
-      const runSummary: MessagePart[] = []
-
-      if (results.describeBlockErrors > 0) {
-        runSummary.push({
-          text: `${results.describeBlockErrors} describe block errors\n`,
-          color: MessageColor.Red,
-          bold: true,
-        })
-      }
-      runSummary.push(bold(`Ran ${results.ran} tests total\n`))
-      if (results.failed > 0) {
-        runSummary.push(red(`${results.failed} failed\n`))
-      }
-      if (results.skipped > 0) {
-        runSummary.push(yellow(`${results.skipped} skipped\n`))
-      }
-      if (results.todo > 0) {
-        runSummary.push(purple(`${results.todo} todo\n`))
-      }
-      if (results.passed > 0) {
-        runSummary.push(green(`${results.passed} passed\n`))
-      }
-      testLog(runSummary)
+        }}`,
+      )
+      output(m`${state.profiler!}${state.reloaded ? " since last reload" : ""}`)
       break
     }
     case "loadError": {
-      testLog([
-        {
-          text: "There was an load error:",
-          bold: true,
-          color: MessageColor.Red,
-        },
-      ])
-      testLog([red(state.rootBlock.errors[0]!)])
+      output(m`${red("ERROR")} There was an load error:`)
+      output(formatError(state.rootBlock.errors[0]!))
       break
     }
   }

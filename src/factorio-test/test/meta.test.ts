@@ -1309,3 +1309,7 @@ describe("after_test", () => {
     assert.same(["foo", "after_foo", "after_foo2"], actions)
   })
 })
+
+test("a test with a really, really, incredibly long name such that it might extend pass the length of the output window, and this text needs to be even longer for that to happen", () => {
+  assert.True(true)
+})
