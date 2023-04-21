@@ -17,7 +17,6 @@ declare const global: {
     modSelect: DropDownGuiElement
     refreshButton: SpriteButtonGuiElement
     modTextField: TextFieldGuiElement | undefined
-    testStageLabel: LabelGuiElement
     runButton: ButtonGuiElement
   }
 }
@@ -240,10 +239,6 @@ function TestStageBar(parent: LuaGuiElement) {
     direction: "horizontal",
   })
 
-  configGui.testStageLabel = buttonFlow.add({
-    type: "label",
-  })
-
   buttonFlow.add({
     type: "empty-widget",
   }).style.horizontally_stretchable = true
@@ -257,14 +252,6 @@ function TestStageBar(parent: LuaGuiElement) {
   })
 }
 
-const stageToMessage = {
-  [TestStage.NotRun]: ConfigGui.TestsNotRun,
-  [TestStage.Ready]: ConfigGui.TestsRunning,
-  [TestStage.Running]: ConfigGui.TestsRunning,
-  [TestStage.ReloadingMods]: ConfigGui.TestsRunning,
-  [TestStage.Finished]: ConfigGui.TestsFinished,
-  [TestStage.LoadError]: ConfigGui.TestsLoadError,
-}
 function updateConfigGui() {
   if (!modSelectGuiValid()) return
   const configGui = global.modSelectGui!
@@ -278,8 +265,6 @@ function updateConfigGui() {
 
   configGui.modSelect.enabled = !running
   configGui.refreshButton.enabled = !running
-
-  configGui.testStageLabel.caption = [stageToMessage[stage ?? TestStage.NotRun]]
 
   configGui.runButton.enabled = testModIsRegistered && !running
   configGui.runButton.tooltip = testModIsRegistered ? "" : [ConfigGui.ModNotRegisteredTests]
@@ -308,12 +293,10 @@ function createConfigGui(player: LuaPlayer): FrameGuiElement | undefined {
   })
   frame.auto_center = true
 
+  global.modSelectGui!.mainFrame = frame
+
   TitleBar(frame, [ConfigGui.Title])
   ModSelect(frame)
-  frame.add({
-    type: "line",
-    direction: "horizontal",
-  })
   TestStageBar(frame)
   updateConfigGui()
   return frame
@@ -330,12 +313,11 @@ function destroyConfigGui() {
 }
 const DestroyConfigGui = guiAction("destroyConfigGui", destroyConfigGui)
 
-const ToggleConfigGui = guiAction("toggleConfigGui", (e) => {
+const CreateConfigGui = guiAction("createConfigGui", (e) => {
   if (modSelectGuiValid()) {
     destroyConfigGui()
-  } else {
-    createConfigGui(game.players[e.player_index]!)
   }
+  createConfigGui(game.players[e.player_index]!)
 })
 
 function createModButton(player: LuaPlayer) {
@@ -349,7 +331,7 @@ function createModButton(player: LuaPlayer) {
     tooltip: [Locale.FactorioTest.Tests],
     tags: {
       modName: thisModName,
-      on_gui_click: ToggleConfigGui,
+      on_gui_click: CreateConfigGui,
     },
   })
 }

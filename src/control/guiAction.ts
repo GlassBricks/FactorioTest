@@ -1,6 +1,6 @@
 export type GuiAction = string & { _guiActionBrand: unknown }
 type FilterByGui<T> = T extends `on_gui_${string}` ? T : never
-type GuiEvents = typeof defines.events[FilterByGui<keyof typeof defines.events>]["_eventData"]
+type GuiEvents = (typeof defines.events)[FilterByGui<keyof typeof defines.events>]["_eventData"]
 
 const guiActions: Record<GuiAction, (this: void, event: any) => void> = {}
 export function guiAction<T extends GuiEvents>(name: string, func: (this: void, data: T) => void): GuiAction {
