@@ -38,7 +38,7 @@ function ticks_between_tests(ticks) end
 function part(func) end
 
 
----@class TestorioConfig
+---@class FactorioTestConfig
 ---@field show_progress_gui boolean | nil
 ---@field default_timeout number | nil
 ---@field default_ticks_between_tests number | nil
