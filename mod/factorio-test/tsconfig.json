@@ -3,8 +3,14 @@
     "target": "esnext",
     "module": "none",
     "moduleResolution": "node",
-    "types": ["typed-factorio/runtime"],
-    "lib": ["esnext"],
+    "types": [
+      "typed-factorio/runtime",
+      "luassert-tstl",
+      "factorio-test"
+    ],
+    "lib": [
+      "esnext"
+    ],
     "plugins": [
       {
         "name": "typescript-tstl-plugin"
@@ -12,6 +18,8 @@
     ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": true,
     "experimentalDecorators": true,
     "rootDir": "."
   },
@@ -19,8 +27,11 @@
     "luaTarget": "5.2",
     "sourceMapTraceback": true,
     "noImplicitSelf": true,
-    "noResolvePaths": ["__factorio-test__/init"]
+    "luaBundle": "../_factorio-test.lua",
+    "luaBundleEntry": "load.ts"
   },
-  "include": [".", "../node_modules/typed-factorio/runtime/index.d.ts", "../index.d.ts"],
-  "exclude": ["factorio-test/**/*"]
+  "include": [
+    "./",
+  ],
+  "exclude": []
 }

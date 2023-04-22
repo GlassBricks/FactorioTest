@@ -1,0 +1,8 @@
+{
+  "parserOptions": {
+    "project": [
+      "tsconfig.json",
+      "factorio-test/tsconfig.json",
+    ]
+  }
+}

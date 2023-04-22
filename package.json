@@ -1,66 +1,23 @@
 {
   "name": "factorio-test",
   "private": true,
-  "description": "A test framework for Factorio mods",
-  "license": "MIT",
-  "type": "module",
-  "peerDependencies": {
-    "luassert-tstl": ">=0.2.3",
-    "typed-factorio": "^1.14.0"
-  },
-  "bin": {
-    "factorio-test": "./cli/cli.js"
-  },
-  "files": [
-    "cli/*.js",
-    "index.d.ts"
+  "workspaces": [
+    "cli",
+    "types",
+    "mod"
   ],
+  "type": "module",
   "devDependencies": {
-    "@commander-js/extra-typings": "^10.0.3",
     "@types/node": "^18.15.11",
+    "typescript": "^5.0.4",
     "@typescript-eslint/eslint-plugin": "^5.59.0",
     "@typescript-eslint/parser": "^5.59.0",
-    "concurrently": "^8.0.1",
-    "del-cli": "^5.0.0",
     "eslint": "^8.38.0",
     "eslint-config-prettier": "^8.8.0",
     "eslint-import-resolver-typescript": "^3.5.5",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-prettier": "^4.2.1",
-    "factoriomod-debug": "^1.1.28",
-    "lua-types": "^2.13.1",
-    "luassert-tstl": "^0.3.0",
-    "prettier": "^2.8.7",
-    "ts-node": "^10.9.1",
-    "typed-factorio": "^1.14.0",
-    "typescript": "^5.0.4",
-    "typescript-to-lua": "^1.14.0",
-    "typescript-tstl-plugin": "^0.3.2"
-  },
-  "scripts": {
-    "clean-mod": "del-cli \"**/*.lua\" \"!**/*.def.lua\" \"!**/{scenarios,node_modules}/**\" \"!{luassert,say}/**\"",
-    "build:copy-luassert": "ts-node --esm scripts/copy-luassert.ts",
-    "build:mod-runtime": "tstl -p src/tsconfig.json",
-    "build:factorio-test-meta-test": "tstl -p src/factorio-test/tsconfig.json",
-    "build:factorio-test-release": "tstl -p src/factorio-test/tsconfig.json",
-    "build:meta-test-mod": "tstl -p usage-test-mod/tsconfig.json",
-    "build-mod": "npm run clean-mod && conc \"npm:build:*(!meta-test)\"",
-    "watch:mod-runtime": "tstl -p src/tsconfig.json --watch",
-    "watch:factorio-test": "tstl -p src/factorio-test/tsconfig.json --watch",
-    "watch:usage-test-mod": "tstl -p usage-test-mod/tsconfig.json --watch",
-    "watch-all": "conc \"npm:watch:*\"",
-    "pretest": "npm run clean-mod && conc \"npm:build:*(!release)\"",
-    "test:self": "ts-node --esm cli/cli.ts run ./src -- --cache-sprite-atlas true --disable-audio --fullscreen false",
-    "test:usage-test": "ts-node --esm scripts/test-usage-test-mod.ts -- --cache-sprite-atlas true --disable-audio --fullscreen false",
-    "test": "npm run test:self && npm run test:usage-test",
-    "lint": "eslint .",
-    "check": "npm run lint && npm run test",
-    "build-cli": "tsc -p cli/tsconfig.json"
-  },
-  "dependencies": {
-    "chalk": "^5.2.0",
-    "commander": "^10.0.1",
-    "ini": "^4.1.0"
+    "prettier": "^2.8.7"
   }
 }

@@ -1,0 +1,25 @@
+{
+  "name": "factorio-test-cli",
+  "version": "1.0.0",
+  "description": "A CLI to run FactorioTest.",
+  "author": "GlassBricks",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "factorio-test": "./cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "chalk": "^5.2.0",
+    "commander": "^10.0.1",
+    "ini": "^4.1.0",
+    "factoriomod-debug": "^1.1.28"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.4",
+    "@commander-js/extra-typings": "^10.0.3"
+  }
+}

@@ -19,6 +19,8 @@
     "sourceMapTraceback": true,
     "noImplicitSelf": true
   },
-  "include": [".", "../node_modules/typed-factorio/runtime/index.d.ts", "../index.d.ts"],
+  "include": [".", "../node_modules/typed-factorio/runtime/index.d.ts",
+    "../types/index.d.ts"
+  ],
   "exclude": []
 }

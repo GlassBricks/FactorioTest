@@ -125,9 +125,9 @@ dist
 **/*.lua
 !**/*.def.lua
 
-src/luassert
-src/say-LICENSE
+mod/luassert
+mod/say-LICENSE
 
-factorio-test/
+factorio-test-data/
 
 cli/*.js

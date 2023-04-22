@@ -7,15 +7,6 @@
   "settings": {
     "import/resolver": "typescript"
   },
-  "parserOptions": {
-    "project": [
-      "tsconfig.json",
-      "src/tsconfig.json",
-      "src/factorio-test/tsconfig.json",
-      "usage-test-mod/tsconfig.json",
-      "cli/tsconfig.json"
-    ]
-  },
   "extends": [
     "eslint:recommended",
     "plugin:eslint-comments/recommended",

@@ -1,6 +1,8 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["test"],
+  "exclude": [
+    "test"
+  ],
   "tstl": {
     "luaTarget": "5.2",
     "sourceMapTraceback": false,

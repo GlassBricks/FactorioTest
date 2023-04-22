@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const root = path.resolve(__dirname, "..")
 
-const outDir = path.resolve(root, "src")
+const outDir = path.resolve(root, "mod")
 
 async function copyLuassert() {
   const repo = path.join(root, "luassert")

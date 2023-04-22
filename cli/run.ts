@@ -29,7 +29,7 @@ const thisCommand = program
   .option(
     "-d --data-directory <path>",
     'The path to the data directory. The "config.ini" file and the "mods" folder will be in this directory.',
-    "./factorio-test",
+    "./factorio-test-data",
   )
   .option("--show-output", "Prints test output to stdout.", true)
   .option(
@@ -181,7 +181,7 @@ async function setSettingsForAutorun(factorioPath: string, dataDir: string, mods
   if (!fs.existsSync(settingsDat)) {
     if (thisCommand.opts().verbose) console.log("Creating mod-settings.dat file by running factorio")
     // run factorio once to create it
-    const dummySaveFile = path.join(dataDir, "____dummy_save_file")
+    const dummySaveFile = path.join(dataDir, "____dummy_save_file.zip")
     await runProcess(
       false,
       factorioPath,

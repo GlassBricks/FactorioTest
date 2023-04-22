@@ -1,0 +1,12 @@
+{
+  "name": "factorio-test",
+  "version": "1.0.0",
+  "description": "Type definitions for using Factorio Test with TypescriptToLua",
+  "files": [
+    "index.d.ts"
+  ],
+  "peerDependencies": {
+    "luassert-tstl": ">=0.2.3",
+    "typed-factorio": "^1.14.0"
+  }
+}
