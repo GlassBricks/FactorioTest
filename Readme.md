@@ -20,4 +20,4 @@ end)
 
 ## Getting started
 
-For setting up your mod, see the wiki page on [getting started]().
+For setting up your mod, see the wiki page on [getting started](https://github.com/GlassBricks/FactorioTest/wiki/Getting-Started).
