@@ -24,6 +24,6 @@
     "luaBundle": "../_factorio-test.lua",
     "luaBundleEntry": "load.ts"
   },
-  "include": [".", "../../node_modules/typed-factorio/runtime/index.d.ts", "../../index.d.ts"],
+  "include": [".", "../../index.d.ts"],
   "exclude": []
 }

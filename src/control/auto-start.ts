@@ -6,22 +6,24 @@ script.on_event(defines.events.on_game_created_from_scenario, () => {
 
   const modToTest = settings.global[Settings.ModToTest]!.value as string
 
-  function errorMessage(message: LocalisedString) {
+  function autoStartError(message: LocalisedString) {
     game.print(message)
+    print("FACTORIO-TEST-MESSAGE-START")
     log(message)
+    print("FACTORIO-TEST-MESSAGE-END")
     print("FACTORIO-TEST-RESULT:could not auto start")
   }
 
   if (modToTest == "") {
-    return errorMessage("Cannot auto-start tests: no mod selected.")
+    return autoStartError("Cannot auto-start tests: no mod selected.")
   }
 
   if (!(modToTest in script.active_mods)) {
-    return errorMessage(`Cannot auto-start tests: mod ${modToTest} is not active.`)
+    return autoStartError(`Cannot auto-start tests: mod ${modToTest} is not active.`)
   }
 
   if (remote.interfaces[Remote.FactorioTest] == undefined) {
-    return errorMessage("Cannot auto-start tests: the selected mod is not registered with Factorio Test.")
+    return autoStartError("Cannot auto-start tests: the selected mod is not registered with Factorio Test.")
   }
 
   remote.call(Remote.FactorioTest, "runTests", modToTest)

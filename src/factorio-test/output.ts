@@ -9,6 +9,7 @@ export const enum MessageColor {
   Red,
   Purple,
 }
+
 export const Colors: Record<MessageColor, ColorArray> = {
   [MessageColor.White]: [1, 1, 1],
   [MessageColor.Green]: [71, 221, 37],
@@ -29,6 +30,7 @@ interface MessagePart {
 const MAX_LINE_LENGTH = 110
 const PREFIX_LEN = 5
 const SUFFIX_LEN = 23
+
 function formatTestPath(text: string): MessagePart {
   let curStart = 0
   let curLineLen = PREFIX_LEN
@@ -81,6 +83,7 @@ interface RichAndPlainText {
   plainText: LocalisedString
   firstColor?: MessageColor | undefined
 }
+
 function formatError(text: string): RichAndPlainText {
   // replace tabs with 4 spaces in rich text
   const withSpaces = string.gsub(text, "\t", "    ")[0]
@@ -180,6 +183,7 @@ const DebugAdapterCategories: Record<MessageColor, string> = {
   [MessageColor.Red]: "stderr",
   [MessageColor.Purple]: "console",
 }
+
 function printDebugAdapterText(text: string, source: Source | undefined, category: string) {
   const lines = text.split("\n")
   for (const line of lines) {
@@ -207,6 +211,7 @@ function printDebugAdapterText(text: string, source: Source | undefined, categor
     print("DBGprint: " + jsonEncode!(body))
   }
 }
+
 export const debugAdapterLogger: MessageHandler = (message, source) => {
   const color = message.firstColor ?? MessageColor.White
   const category = DebugAdapterCategories[color]
@@ -216,11 +221,17 @@ export const debugAdapterLogger: MessageHandler = (message, source) => {
 }
 
 export const logLogger: MessageHandler = (message) => {
+  print("FACTORIO-TEST-MESSAGE-START")
   log(message.plainText)
+  print("FACTORIO-TEST-MESSAGE-END")
 }
 
 export const logListener: TesteEventListener = (event, state) => {
   switch (event.type) {
+    case "testRunStarted": {
+      output(m`Starting test run...`)
+      break
+    }
     case "testPassed": {
       if (state.config.log_passed_tests) {
         const { test } = event
@@ -268,7 +279,7 @@ export const logListener: TesteEventListener = (event, state) => {
 
       output(
         m`${{
-          text: `\nTest run finished: ${status === "todo" ? "passed with todo tests" : status}`,
+          text: `Test run finished: ${status === "todo" ? "passed with todo tests" : status}`,
           color:
             status === "passed"
               ? MessageColor.Green

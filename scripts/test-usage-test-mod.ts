@@ -31,6 +31,7 @@ export default class BufferLineSplitter extends EventEmitter {
       }
     })
   }
+
   on(event: "line", listener: (line: string) => void): this {
     return super.on(event, listener)
   }
@@ -40,10 +41,22 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const root = path.resolve(__dirname, "..")
 
-const child = child_process.spawn("npx", ["ts-node", "--esm", "cli/cli.ts", "run", "--mod-path", "./usage-test-mod"], {
-  stdio: ["inherit", "pipe", "inherit"],
-  cwd: root,
-})
+const child = child_process.spawn(
+  "npx",
+  [
+    "ts-node",
+    "--esm",
+    "cli/cli.ts",
+    "run",
+    "--mod-path",
+    "./usage-test-mod",
+    ...process.argv.slice(2)
+  ],
+  {
+    stdio: ["inherit", "pipe", "inherit"],
+    cwd: root,
+  },
+)
 let passed = false
 new BufferLineSplitter(child.stdout)?.on("line", (data) => {
   const str = data.toString()
