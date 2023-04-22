@@ -51,7 +51,7 @@
     "watch:usage-test-mod": "tstl -p usage-test-mod/tsconfig.json --watch",
     "watch-all": "conc \"npm:watch:*\"",
     "pretest": "npm run clean-mod && conc \"npm:build:*(!release)\"",
-    "test:self": "ts-node --esm cli/cli.ts run --mod-path ./src -- --cache-sprite-atlas true --disable-audio --fullscreen false",
+    "test:self": "ts-node --esm cli/cli.ts run ./src -- --cache-sprite-atlas true --disable-audio --fullscreen false",
     "test:usage-test": "ts-node --esm scripts/test-usage-test-mod.ts -- --cache-sprite-atlas true --disable-audio --fullscreen false",
     "test": "npm run test:self && npm run test:usage-test",
     "lint": "eslint .",

@@ -6,7 +6,7 @@ import * as path from "path"
 import { EventEmitter } from "events"
 import { Readable } from "stream"
 
-export default class BufferLineSplitter extends EventEmitter {
+class BufferLineSplitter extends EventEmitter {
   private buf: string
 
   constructor(instream: Readable) {
@@ -48,8 +48,8 @@ const child = child_process.spawn(
     "--esm",
     "cli/cli.ts",
     "run",
-    "--mod-path",
     "./usage-test-mod",
+    "--",
     ...process.argv.slice(2)
   ],
   {

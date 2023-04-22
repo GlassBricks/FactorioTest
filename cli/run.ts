@@ -13,43 +13,45 @@ const program = theProgram as unknown as Command
 const thisCommand = program
   .command("run")
   .summary("Runs tests with Factorio test.")
-  .description("Runs tests for the specified mod with Factorio test. Exits with code 0 only if all tests pass.")
-  .option(
-    "--mod-path <path>",
-    "The path to your mod files (containing info.json). If specified, the name of the mod will be determined from the info.json files, and a symlink will be made from factorio mods directory to this path.",
+  .description("Runs tests for the specified mod with Factorio test. Exits with code 0 only if all tests pass.\n")
+  .argument(
+    "[mod-path]",
+    "The path to the mod to test (containing info.json). A symlink will be created in the factorio mods folder, to this folder. Alternatively, you can specify --mod-name for manual test setup.",
   )
   .option(
-    "--mod-name <path>",
-    "The name of the mod to test; must already be present in the mods directory. One of --mod-path or --mod-name must be specified.",
+    "--mod-name <name>",
+    "The name of the mod to test. If specified, the mod must already be present in the mods directory (sse --data-directory below). One of [mod-path] or --mod-name must be specified.",
   )
   .option(
     "--factorio-path <path>",
-    "The path to the factorio installation. If not specified, tries to auto-detect the factorio path.",
+    "The path to the factorio binary. If not specified, tries to auto-detect the factorio installation.",
   )
   .option(
     "-d --data-directory <path>",
-    'The path to the data directory. Defaults to "./factorio-test".',
+    'The path to the data directory. The "config.ini" file and the "mods" folder will be in this directory.',
     "./factorio-test",
   )
-  .option("--show-output", "Prints test output to stdout. Default true", true)
+  .option("--show-output", "Prints test output to stdout.", true)
   .option(
     "-v --verbose",
-    "Prints all outputs of the factorio test process to stdout, not just test output. You can still see the full output in the log file without this option.",
+    "Enables more logging, and prints all outputs of the Factorio process to stdout (not just test output).",
   )
-  .addHelpText("after", `You should have a symlink to or copy of your mod in the specified data directory.`)
-  .action((options) => runTests(options))
+  .addHelpText("after", 'Options passed after "--" are passed as Factorio launch arguments.')
+  .action((modPath, options) => runTests(modPath, options))
 
-async function runTests(options: {
-  factorioPath?: string
-  modPath?: string
-  modName?: string
-  dataDirectory: string
-  verbose?: true
-}) {
-  if (options.modPath !== undefined && options.modName !== undefined) {
+async function runTests(
+  modPath: string | undefined,
+  options: {
+    factorioPath?: string
+    modName?: string
+    dataDirectory: string
+    verbose?: true
+  },
+) {
+  if (modPath !== undefined && options.modName !== undefined) {
     throw new Error("Only one of --mod-path or --mod-name can be specified.")
   }
-  if (options.modPath === undefined && options.modName === undefined) {
+  if (modPath === undefined && options.modName === undefined) {
     throw new Error("One of --mod-path or --mod-name must be specified.")
   }
 
@@ -58,7 +60,7 @@ async function runTests(options: {
   const modsDir = path.join(dataDir, "mods")
   await fsp.mkdir(modsDir, { recursive: true })
 
-  const modToTest = await configureModToTest(modsDir, options.modPath, options.modName)
+  const modToTest = await configureModToTest(modsDir, modPath, options.modName)
   await installFactorioTest(modsDir)
 
   if (options.verbose) console.log("Enabling mods", modToTest, "and factorio-test")
@@ -201,7 +203,7 @@ async function setSettingsForAutorun(factorioPath: string, dataDir: string, mods
 }
 
 async function runFactorioTests(factorioPath: string, dataDir: string) {
-  const args = program.args
+  const args = process.argv
   const index = args.indexOf("--")
   const additionalArgs = index >= 0 ? args.slice(index + 1) : []
 
