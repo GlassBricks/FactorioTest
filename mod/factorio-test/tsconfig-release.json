@@ -8,6 +8,7 @@
     "sourceMapTraceback": false,
     "noImplicitSelf": true,
     "luaBundle": "../_factorio-test.lua",
-    "luaBundleEntry": "load.ts"
+    "luaBundleEntry": "load.ts",
+    "luaLibImport": "require-minimal",
   }
 }

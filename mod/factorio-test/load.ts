@@ -137,7 +137,7 @@ function tapEvent(event: defines.events, func: () => void) {
 function revertTappedEvents() {
   script.on_event = oldOnEvent
   for (const [event, handler] of pairs(tappedHandlers)) {
-    delete tappedHandlers[event]
+    tappedHandlers[event] = undefined!
     script.on_event(event, handler[0])
   }
   onEventTapped = false

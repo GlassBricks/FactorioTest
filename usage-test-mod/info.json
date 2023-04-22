@@ -3,5 +3,8 @@
   "version": "0.0.0",
   "title": "Factorio test usage test mod",
   "author": "GlassBricks",
-  "factorio_version": "1.1"
+  "factorio_version": "1.1",
+  "scripts": {
+    "prepackage": "echo \"This is a test mod and should not be packaged or published!\" && exit 1"
+  }
 }

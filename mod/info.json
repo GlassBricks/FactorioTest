@@ -1,13 +1,13 @@
 {
   "name": "factorio-test",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "title": "Factorio Test",
   "description": "Mod testing framework for factorio.",
   "author": "GlassBricks",
   "factorio_version": "1.1",
   "package": {
     "scripts": {
-      "prepackage": "npm run prepare-package",
+      "prepackage": "npm run prepare-package"
     },
     "git_publish_branch": "main",
     "ignore": ["**/tsconfig*.json", "**/*.ts", "**/*.xcf"],
