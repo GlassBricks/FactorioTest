@@ -8,7 +8,9 @@
     "index.d.ts"
   ],
   "peerDependencies": {
-    "luassert-tstl": ">=0.2.3",
     "typed-factorio": "^1.14.0"
+  },
+  "optionalDependencies": {
+    "luassert-tstl": ">=0.2.3"
   }
 }

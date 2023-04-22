@@ -1,5 +1,4 @@
 /** @noSelfInFile */
-/// <reference types="luassert-tstl" />
 
 declare var test: FactorioTest.TestCreator
 declare var it: FactorioTest.TestCreator
@@ -41,13 +40,17 @@ declare namespace FactorioTest {
   type HookFn = TestFn
   type OnTickFn = (tick: number) => void | boolean
 
+  type MutableValues<A extends readonly any[]> = {
+    -readonly [K in keyof A]: A[K]
+  }
+
   /** @noSelf */
   interface TestCreatorBase {
     (name: string, func: TestFn): TestBuilder
 
     each<const V extends readonly any[]>(
       values: readonly V[],
-    ): (name: string, func: (...values: V) => void) => TestBuilder<typeof func>
+    ): (name: string, func: (...values: MutableValues<V>) => void) => TestBuilder<typeof func>
     each<const T>(values: readonly T[]): (name: string, func: (value: T) => void) => TestBuilder<typeof func>
   }
 
@@ -68,7 +71,7 @@ declare namespace FactorioTest {
   interface DescribeBlockCreatorBase {
     (name: string, func: TestFn): void
 
-    each<const V extends readonly any[]>(values: readonly V[]): (name: string, func: (...values: V) => void) => void
+    each<const V extends readonly any[]>(values: readonly V[]): (name: string, func: (...values: MutableValues<V>) => void) => void
     each<const T>(values: readonly T[]): (name: string, func: (value: T) => void) => void
   }
 
