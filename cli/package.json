@@ -8,9 +8,16 @@
   "bin": {
     "factorio-test": "./cli.js"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "*.js"
+  ],
   "scripts": {
     "build": "tsc",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "chalk": "^5.2.0",
