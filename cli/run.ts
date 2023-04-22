@@ -47,11 +47,22 @@ async function runTests(options: { factorioPath?: string; modPath?: string; modN
   const modToTest = await configureModToTest(modsDir, options.modPath, options.modName)
   await installFactorioTest(modsDir)
 
-  await runScript("fmtk", "mods", "adjust", "--modsPath", modsDir, "factorio-test=true", modToTest + "=true")
+  await runScript("fmt mods adjust", "--modsPath", modsDir, "factorio-test=true", modToTest + "=true")
   await ensureConfigIni(dataDir)
   await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest)
 
-  await runFactorioTests(factorioPath, dataDir)
+  let resultMessage: string | undefined
+  try {
+    resultMessage = await runFactorioTests(factorioPath, dataDir)
+  } finally {
+    await runScript("fmtk settings set startup factorio-test-auto-start false", "--modsPath", modsDir)
+  }
+  if (resultMessage) {
+    const color =
+        resultMessage == "passed" ? chalk.greenBright : resultMessage == "todo" ? chalk.yellowBright : chalk.redBright
+    console.log("Test run result:", color(resultMessage))
+    process.exit(resultMessage === "passed" ? 0 : 1)
+  }
 }
 
 async function configureModToTest(modsDir: string, modPath?: string, modName?: string): Promise<string> {
@@ -121,7 +132,7 @@ async function installFactorioTest(modsDir: string) {
   const alreadyExists = await checkModExists(modsDir, testModName)
   if (!alreadyExists) {
     console.log(`Installing ${testModName}...`)
-    await runScript("fmtk", "mods", "install", "--modsPath", modsDir, testModName)
+    await runScript("fmtk mods install", "--modsPath", modsDir, testModName)
   }
 }
 
@@ -205,12 +216,7 @@ async function runFactorioTests(factorioPath: string, dataDir: string) {
       }
     })
   })
-  if (resultMessage) {
-    const color =
-      resultMessage == "passed" ? chalk.greenBright : resultMessage == "todo" ? chalk.yellowBright : chalk.redBright
-    console.log("Test run result:", color(resultMessage))
-    process.exit(resultMessage === "passed" ? 0 : 1)
-  }
+  return resultMessage
 }
 
 function runScript(...command: string[]) {
