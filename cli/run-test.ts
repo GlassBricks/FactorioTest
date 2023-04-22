@@ -4,6 +4,8 @@ import * as fsp from "fs/promises"
 import * as fs from "fs"
 import * as path from "path"
 import { spawn } from "child_process"
+import BufferReadLine from "./buffer-read-line.js"
+import chalk from "chalk"
 
 program
   .command("run")
@@ -164,8 +166,8 @@ async function runFactorioTests(factorioPath: string, dataDir: string) {
   const args = program.args
   const index = args.indexOf("--")
   const additionalArgs = index >= 0 ? args.slice(index + 1) : []
-  await runProcess(
-    factorioPath,
+
+  const actualArgs = [
     "--load-scenario",
     "factorio-test/Test",
     "--mod-directory",
@@ -175,7 +177,35 @@ async function runFactorioTests(factorioPath: string, dataDir: string) {
     "--graphics-quality",
     "very-low",
     ...additionalArgs,
-  )
+  ]
+  const factorioProcess = spawn(factorioPath, actualArgs, {
+    stdio: ["inherit", "pipe", "inherit"],
+  })
+
+  let resultMessage: string | undefined = undefined
+  new BufferReadLine(factorioProcess.stdout).on("line", (data) => {
+    if (data.startsWith("FACTORIO-TEST:")) {
+      resultMessage = data.slice("FACTORIO-TEST:".length)
+      factorioProcess.kill()
+    } else {
+      console.log(data)
+    }
+  })
+  await new Promise<void>((resolve, reject) => {
+    factorioProcess.on("exit", (code) => {
+      if (code === 0 || resultMessage !== undefined) {
+        resolve()
+      } else {
+        reject(new Error(`Factorio exited with code ${code}`))
+      }
+    })
+  })
+  if (resultMessage) {
+    const color =
+      resultMessage == "passed" ? chalk.greenBright : resultMessage == "todo" ? chalk.yellowBright : chalk.redBright
+    console.log("Test run result:", color(resultMessage))
+    process.exit(resultMessage === "passed" ? 0 : 1)
+  }
 }
 
 function runScript(...command: string[]) {
@@ -185,12 +215,12 @@ function runScript(...command: string[]) {
 function runProcess(command: string, ...args: string[]) {
   console.log("Running:", command, ...args)
   // run another npx command
-  const child = spawn(command, args, {
+  const process = spawn(command, args, {
     stdio: "inherit",
     shell: true,
   })
   return new Promise<void>((resolve, reject) => {
-    child.on("exit", (code) => {
+    process.on("exit", (code) => {
       if (code === 0) {
         resolve()
       } else {

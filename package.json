@@ -43,8 +43,7 @@
     "watch:factorio-test": "tstl -p src/factorio-test/tsconfig.json --watch",
     "watch:usage-test-mod": "tstl -p usage-test-mod/tsconfig.json --watch",
     "watch-all": "conc \"npm:watch:*\"",
-    "setup-mods-dir": "ts-node --esm scripts/setup-mods-dir.ts",
-    "prepare-test": "conc \"npm:build:*(!release)\" \"npm:setup-mods-dir\"",
+    "prepare-test": "conc \"npm:build:*(!release)\"",
     "prepublishOnly": "yarn lint",
     "package-mod": "yarn clean && yarn build",
     "lint": "eslint .",
@@ -52,6 +51,7 @@
   },
   "packageManager": "yarn@3.2.3",
   "dependencies": {
+    "chalk": "^5.2.0",
     "commander": "^10.0.1",
     "ini": "^4.1.0"
   }

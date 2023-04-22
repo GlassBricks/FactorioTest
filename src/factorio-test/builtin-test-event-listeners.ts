@@ -19,10 +19,11 @@ const setupListener: TesteEventListener = (event, state) => {
         game.play_sound({ path: "utility/game_lost" })
       }
     }
+    print("FACTORIO-TEST:" + status) // signal to cli
+
     state.config.after_test_run?.()
     cleanupTestState()
 
-    log("FACTORIO-TEST: " + status)
   } else if (event.type === "loadError") {
     game.speed = 1
     game.play_sound({ path: "utility/console_message" })
