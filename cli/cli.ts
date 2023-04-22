@@ -1,5 +1,5 @@
 import { program } from "@commander-js/extra-typings"
-import "./run-test.js"
+import "./run.js"
 
 program
   .name("factorio-test")

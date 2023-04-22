@@ -9,7 +9,7 @@ script.on_event(defines.events.on_game_created_from_scenario, () => {
   function errorMessage(message: LocalisedString) {
     game.print(message)
     log(message)
-    print("FACTORIO-TEST:could not auto start")
+    print("FACTORIO-TEST-RESULT:could not auto start")
   }
 
   if (modToTest == "") {

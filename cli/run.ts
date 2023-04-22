@@ -4,7 +4,7 @@ import * as fsp from "fs/promises"
 import * as fs from "fs"
 import * as path from "path"
 import { spawn } from "child_process"
-import BufferReadLine from "./buffer-read-line.js"
+import BufferLineSplitter from "./buffer-line-splitter.js"
 import chalk from "chalk"
 
 program
@@ -135,6 +135,9 @@ async function ensureConfigIni(dataDir: string) {
 [path]
 read-data=__PATH__executable__/../../data
 write-data=${dataDir}
+
+[general]
+locale=
 `,
     )
   }
@@ -145,18 +148,20 @@ async function setSettingsForAutorun(factorioPath: string, dataDir: string, mods
   const settingsDat = path.join(modsDir, "mod-settings.dat")
   if (!fs.existsSync(settingsDat)) {
     // run factorio once to create it
-    console.log(
-      "running factorio once to generate mod-settings.dat. You can safely delete the created save file later.",
-    )
+    const dummySaveFile = path.join(dataDir, "____dummy_save_file")
     await runProcess(
       factorioPath,
       "--create",
-      "__test",
+      dummySaveFile,
       "--mod-directory",
       modsDir,
       "-c",
       path.join(dataDir, "config.ini"),
     )
+
+    if (fs.existsSync(dummySaveFile)) {
+      fs.unlinkSync(dummySaveFile)
+    }
   }
   await runScript("fmtk settings set startup factorio-test-auto-start true", "--modsPath", modsDir)
   await runScript("fmtk settings set runtime-global factorio-test-mod-to-test", modToTest, "--modsPath", modsDir)
@@ -183,9 +188,9 @@ async function runFactorioTests(factorioPath: string, dataDir: string) {
   })
 
   let resultMessage: string | undefined = undefined
-  new BufferReadLine(factorioProcess.stdout).on("line", (data) => {
-    if (data.startsWith("FACTORIO-TEST:")) {
-      resultMessage = data.slice("FACTORIO-TEST:".length)
+  new BufferLineSplitter(factorioProcess.stdout).on("line", (data) => {
+    if (data.startsWith("FACTORIO-TEST-RESULT:")) {
+      resultMessage = data.slice("FACTORIO-TEST-RESULT:".length)
       factorioProcess.kill()
     } else {
       console.log(data)

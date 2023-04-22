@@ -1,7 +1,7 @@
 import { EventEmitter } from "events"
 import { Readable } from "stream"
 
-export default class BufferReadLine extends EventEmitter {
+export default class BufferLineSplitter extends EventEmitter {
   private buf: string
 
   constructor(instream: Readable) {
