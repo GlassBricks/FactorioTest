@@ -19,14 +19,14 @@ export default class BufferLineSplitter extends EventEmitter {
       this.buf += chunk.toString()
       while (this.buf.length > 0) {
         const index = this.buf.indexOf("\n")
-        if (index !== -1) {
-          this.emit("line", this.buf.slice(0, index))
-          this.buf = this.buf.slice(index + 1)
-        }
+        if (index === -1) break
+        this.emit("line", this.buf.slice(0, index))
+        this.buf = this.buf.slice(index + 1)
       }
     })
   }
-   on(event: "line", listener: (line: string) => void): this {
+
+  on(event: "line", listener: (line: string) => void): this {
     return super.on(event, listener)
-   }
+  }
 }
