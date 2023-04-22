@@ -1,7 +1,7 @@
 import * as path from "path"
 import { deleteAsync } from "del"
 import * as fs from "fs/promises"
-import { globbyStream } from "globby"
+import * as globby from "globby"
 import { fileURLToPath } from "url"
 
 // __dirname patch
@@ -26,7 +26,7 @@ async function copyLuassert() {
   })
   await fs.copyFile(path.join(repo, "LICENSE"), licenseDest)
 
-  for await (const file of globbyStream("**/*.lua", {
+  for await (const file of globby.stream("**/*.lua", {
     cwd: repoSrc,
   })) {
     const fileContents = await fs.readFile(path.join(repoSrc, file.toString()), "utf-8")

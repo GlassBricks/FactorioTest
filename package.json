@@ -52,7 +52,6 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
-  "packageManager": "yarn@3.2.3",
   "dependencies": {
     "chalk": "^5.2.0",
     "commander": "^10.0.1",
