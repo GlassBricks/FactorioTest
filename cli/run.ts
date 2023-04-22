@@ -47,7 +47,7 @@ async function runTests(options: { factorioPath?: string; modPath?: string; modN
   const modToTest = await configureModToTest(modsDir, options.modPath, options.modName)
   await installFactorioTest(modsDir)
 
-  await runScript("fmt mods adjust", "--modsPath", modsDir, "factorio-test=true", modToTest + "=true")
+  await runScript("fmtk mods adjust", "--modsPath", modsDir, "factorio-test=true", modToTest + "=true")
   await ensureConfigIni(dataDir)
   await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest)
 
