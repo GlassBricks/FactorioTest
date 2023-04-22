@@ -7,7 +7,7 @@
   "factorio_version": "1.1",
   "package": {
     "scripts": {
-      "prepackage": "yarn package-mod"
+      "prepackage": "npm run prepare-package",
     },
     "git_publish_branch": "main",
     "ignore": ["**/tsconfig*.json", "**/*.ts", "**/*.xcf"],

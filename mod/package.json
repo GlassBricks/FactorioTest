@@ -30,6 +30,7 @@
     "test:usage-test": "ts-node --esm ../scripts/test-usage-test-mod.ts -- --cache-sprite-atlas true --disable-audio --fullscreen false",
     "test": "npm run test:self && npm run test:usage-test",
     "lint": "eslint .",
-    "check": "npm run lint && npm run test"
+    "check": "npm run lint && npm run test",
+    "prepare-package": "npm run check && npm run build"
   }
 }
