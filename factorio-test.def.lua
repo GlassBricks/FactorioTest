@@ -15,9 +15,6 @@ after_each = nil
 ---@type LifecycleFn
 after_test = nil
 
----@vararg string
-function tags(...) end
-
 ---@param timeout number|nil
 ---@overload fun()
 function async(timeout) end
@@ -34,20 +31,15 @@ function after_ticks(ticks, func) end
 ---@param ticks number
 function ticks_between_tests(ticks) end
 
----@param func TestFn
-function part(func) end
-
+---@vararg string
+function tags(...) end
 
 ---@class FactorioTestConfig
----@field show_progress_gui boolean | nil
 ---@field default_timeout number | nil
 ---@field default_ticks_between_tests number | nil
 ---@field game_speed number | nil
----@field log_to_game boolean | nil
----@field log_to_DA boolean | nil
----@field log_to_log boolean | nil
--- @field log_passed_tests boolean | nil
--- @field log_skipped_tests boolean | nil
+---@field log_passed_tests boolean | nil
+---@field log_skipped_tests boolean | nil
 ---@field test_pattern string | nil
 ---@field tag_whitelist string[] | nil
 ---@field tag_blacklist string[] | nil
@@ -62,15 +54,12 @@ function part(func) end
 ---@class TestCreatorBase
 ---@overload fun(name: string, func: TestFn): TestBuilder<TestFn>
 local TestCreatorBase = {}
+
 ---@generic T
 ---@param values T[][]
----@param name string
----@param func fun(vararg T): void
----@return TestBuilder<fun(vararg T): void>
----@overload fun<T>(values: T[], name: string, func: fun(v: T): void): TestBuilder<fun(v: T): void>
----@overload fun<T>(values: T[][]): fun(name: string, func: fun(vararg T): void): void
+---@return fun(name: string, func: fun(vararg T): void): void
 ---@overload fun<T>(values: T[]): fun(name: string, func: fun(v: T): void): void
-function TestCreatorBase.each(values, name, func) end
+function TestCreatorBase.each(values) end
 
 ---@class TestCreator : TestCreatorBase
 ---@overload fun(name: string, func: TestFn): TestBuilder<TestFn>
@@ -85,30 +74,29 @@ local TestCreator = {
 ---@class TestBuilder<T>
 local TestBuilder = {}
 
+---@generic T
 ---@param func T
 ---@return TestBuilder<T>
 function TestBuilder.after_script_reload(func) end
 
+---@generic T
 ---@param func T
 ---@return TestBuilder<T>
 function TestBuilder.after_mod_reload(func) end
 
----@class DescribeBlockCreatorBase
+---@class DescribeCreatorBase
 ---@overload fun(name: string, func: TestFn): void
 local DescribeCreatorBase = {}
 
 ---@generic T
 ---@param values T[][]
----@param name string
----@param func fun(vararg T): void
----@overload fun<T>(values: T[], name: string, func: fun(v: T): void): void
----@overload fun<T>(values: T[][]): fun(name: string, func: fun(vararg T): void): void
+---@return fun(name: string, func: fun(vararg T): void): void
 ---@overload fun<T>(values: T[]): fun(name: string, func: fun(v: T): void): void
-function DescribeCreatorBase.each(values, name, func) end
+function DescribeCreatorBase.each(values) end
 
 ---@class DescribeCreator : DescribeCreatorBase
 ---@overload fun(name: string, func: TestFn): void
----@field skip DescribeCreator
----@field only DescribeCreator
+---@field skip DescribeCreatorBase
+---@field only DescribeCreatorBase
 
 ---@alias LifecycleFn fun(func: HookFn): void
