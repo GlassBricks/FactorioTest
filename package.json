@@ -47,10 +47,8 @@
     "test:self": "ts-node --esm cli/cli.ts run --mod-path ./src -- --cache-sprite-atlas true --disable-audio --fullscreen false",
     "test:usage-test": "ts-node --esm scripts/test-usage-test-mod.ts -- --cache-sprite-atlas true --disable-audio --fullscreen false",
     "test": "npm run test:self && npm run test:usage-test",
-    "prepublishOnly": "yarn lint",
-    "package-mod": "yarn clean && yarn build",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "check": "npm run lint && npm run test"
   },
   "dependencies": {
     "chalk": "^5.2.0",

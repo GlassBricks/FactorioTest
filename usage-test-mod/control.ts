@@ -21,11 +21,13 @@ if ("factorio-test" in script.active_mods) {
           break
         }
       }
+      print("FACTORIO-TEST-MESSAGE-START")
       if(match) {
         log("Usage test mod result: passed")
       } else {
         log("Usage test mod result: failed")
       }
+      print("FACTORIO-TEST-MESSAGE-END")
     },
   } satisfies Partial<FactorioTest.Config>)
 }
