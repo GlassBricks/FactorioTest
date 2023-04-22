@@ -1,6 +1,6 @@
 {
   "name": "factorio-test-cli",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A CLI to run FactorioTest.",
   "license": "MIT",
   "repository": "https://github.com/GlassBricks/FactorioTest",
@@ -14,18 +14,20 @@
   "files": [
     "*.js"
   ],
-  "scripts": {
-    "build": "tsc",
-    "lint": "eslint .",
-    "prepublishOnly": "npm run build"
-  },
   "dependencies": {
     "chalk": "^5.2.0",
     "commander": "^10.0.1",
     "factoriomod-debug": "^1.1.28"
   },
   "devDependencies": {
-    "typescript": "^5.0.4",
-    "@commander-js/extra-typings": "^10.0.3"
+    "@commander-js/extra-typings": "^10.0.3",
+    "del-cli": "^5.0.0",
+    "typescript": "^5.0.4"
+  },
+  "scripts": {
+    "build": "npm run clean && tsc",
+    "lint": "eslint .",
+    "prepublishOnly": "npm run build",
+    "clean": "del-cli \"*.js\""
   }
 }
