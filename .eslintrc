@@ -1,17 +1,26 @@
 {
   "root": true,
-  "plugins": ["@typescript-eslint"],
+  "plugins": [
+    "@typescript-eslint"
+  ],
   "parser": "@typescript-eslint/parser",
   "settings": {
     "import/resolver": "typescript"
   },
   "parserOptions": {
     "project": [
-      "tsconfig.json", "src/tsconfig.json", "src/factorio-test/tsconfig.json", "usage-test-mod/tsconfig.json"
+      "tsconfig.json",
+      "src/tsconfig.json",
+      "src/factorio-test/tsconfig.json",
+      "usage-test-mod/tsconfig.json",
+      "cli/tsconfig.json"
     ]
   },
   "extends": [
-    "eslint:recommended", "plugin:eslint-comments/recommended", "plugin:@typescript-eslint/recommended", "prettier"
+    "eslint:recommended",
+    "plugin:eslint-comments/recommended",
+    "plugin:@typescript-eslint/recommended",
+    "prettier"
   ],
   "rules": {
     // off
@@ -19,7 +28,8 @@
     "@typescript-eslint/no-var-requires": "off",
     "@typescript-eslint/no-non-null-assertion": "off",
     "@typescript-eslint/no-inferrable-types": [
-      "warn", {
+      "warn",
+      {
         "ignoreProperties": true,
         "ignoreParameters": true
       }
@@ -28,7 +38,8 @@
     "no-template-curly-in-string": "error",
     "eslint-comments/no-unused-disable": "error",
     "eslint-comments/disable-enable-pair": [
-      "error", {
+      "error",
+      {
         "allowWholeFile": true
       }
     ]

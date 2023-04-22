@@ -9,16 +9,14 @@ const root = path.resolve(__dirname, "..")
 
 // create "factorio" directory
 
-const factorioDir = path.join(root, "factorio")
+const factorioDir = path.join(root, "factorio-test")
 
 const modsDir = path.join(factorioDir, "mods")
 mkdirSync(modsDir, { recursive: true })
 
 function tryMakeSymlink(target: string, dest: string) {
-  const stat = fs.lstatSync(dest)
-  if (!stat.isSymbolicLink()) {
-    fs.symlinkSync(target, dest, "junction")
-  }
+  if(fs.existsSync(dest)) fs.unlinkSync(dest)
+  fs.symlinkSync(target, dest, "junction")
 }
 
 tryMakeSymlink(path.join(root, "src"), path.join(modsDir, "factorio-test"))

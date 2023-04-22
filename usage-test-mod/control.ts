@@ -1,4 +1,5 @@
 declare const __DebugAdapter: any
+declare const global: any
 if ("factorio-test" in script.active_mods) {
   require("__factorio-test__/init")(["test1", "folder/test2"], {
     tag_blacklist: ["no"],
@@ -6,6 +7,7 @@ if ("factorio-test" in script.active_mods) {
     log_skipped_tests: true,
     sound_effects: true,
     after_test_run() {
+      global._ranTests = true
       const results = remote.call("factorio-test", "getResults") as any
       const expected = {
         failed: 1,
@@ -29,7 +31,7 @@ if ("factorio-test" in script.active_mods) {
         game.print("Test results does not match expected!")
       }
     },
-  })
+  } satisfies Partial<FactorioTest.Config>)
   if (
     settings.global["__factorio-usage-test-mod:state"].value === "terminate" &&
     script.active_mods.debugadapter !== undefined
@@ -40,7 +42,9 @@ if ("factorio-test" in script.active_mods) {
   if (settings.global["factorio-test-mod-to-test"].value === script.mod_name) {
     script.on_event(defines.events.on_tick, () => {
       script.on_event(defines.events.on_tick, undefined)
-      remote.call("factorio-test", "runTests")
+      if(!global._ranTests) {
+        remote.call("factorio-test", "runTests")
+      }
     })
   }
 }
