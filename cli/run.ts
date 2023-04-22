@@ -1,4 +1,4 @@
-import { program } from "@commander-js/extra-typings"
+import { program as theProgram } from "commander"
 import * as os from "os"
 import * as fsp from "fs/promises"
 import * as fs from "fs"
@@ -6,6 +6,9 @@ import * as path from "path"
 import { spawn } from "child_process"
 import BufferLineSplitter from "./buffer-line-splitter.js"
 import chalk from "chalk"
+import type { Command } from "@commander-js/extra-typings"
+
+const program = theProgram as unknown as Command
 
 const thisCommand = program
   .command("run")
@@ -178,7 +181,7 @@ async function setSettingsForAutorun(factorioPath: string, dataDir: string, mods
     // run factorio once to create it
     const dummySaveFile = path.join(dataDir, "____dummy_save_file")
     await runProcess(
-        false,
+      false,
       factorioPath,
       "--create",
       dummySaveFile,
@@ -261,13 +264,11 @@ function runScript(...command: string[]) {
   return runProcess(true, "npx", ...command)
 }
 
-function runProcess(
-    inheritStdio: boolean,
-    command: string, ...args: string[]) {
+function runProcess(inheritStdio: boolean, command: string, ...args: string[]) {
   if (thisCommand.opts().verbose) console.log("Running:", command, ...args)
   // run another npx command
   const process = spawn(command, args, {
-    stdio: inheritStdio ? "inherit" :"ignore",
+    stdio: inheritStdio ? "inherit" : "ignore",
     shell: true,
   })
   return new Promise<void>((resolve, reject) => {

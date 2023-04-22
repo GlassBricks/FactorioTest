@@ -1,4 +1,4 @@
-import { program } from "@commander-js/extra-typings"
+import { program } from "commander"
 import "./run.js"
 
 program
