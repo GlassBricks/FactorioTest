@@ -2,8 +2,8 @@
   "name": "factorio-test-cli",
   "version": "1.0.0",
   "description": "A CLI to run FactorioTest.",
-  "author": "GlassBricks",
   "license": "MIT",
+  "repository": "https://github.com/GlassBricks/FactorioTest",
   "type": "module",
   "bin": {
     "factorio-test": "./cli.js"
