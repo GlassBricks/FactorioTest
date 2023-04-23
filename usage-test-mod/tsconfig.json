@@ -3,7 +3,7 @@
     "target": "esnext",
     "module": "none",
     "moduleResolution": "node",
-    "types": ["typed-factorio/runtime"],
+    "types": ["typed-factorio/runtime", "luassert-tstl"],
     "plugins": [
       {
         "name": "typescript-tstl-plugin"
