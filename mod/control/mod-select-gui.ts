@@ -311,6 +311,7 @@ function destroyConfigGui() {
     element.destroy()
   }
 }
+
 const DestroyConfigGui = guiAction("destroyConfigGui", destroyConfigGui)
 
 const CreateConfigGui = guiAction("createConfigGui", (e) => {
@@ -323,7 +324,7 @@ const CreateConfigGui = guiAction("createConfigGui", (e) => {
 function createModButton(player: LuaPlayer) {
   const flow = modGui.get_button_flow(player)
   flow[ModSelectGuiName]?.destroy()
-  modGui.get_button_flow(player).add({
+  flow.add({
     type: "sprite-button",
     name: ModSelectGuiName,
     style: modGui.button_style,
@@ -350,5 +351,8 @@ function createModButtonForAllPlayers() {
 }
 
 script.on_init(createModButtonForAllPlayers)
-script.on_configuration_changed(refreshConfigGui)
+script.on_configuration_changed(() => {
+  createModButtonForAllPlayers()
+  refreshConfigGui()
+})
 script.on_event([defines.events.on_player_created], (e) => createModButton(game.players[e.player_index]!))
