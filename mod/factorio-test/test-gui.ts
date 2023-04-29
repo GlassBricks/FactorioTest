@@ -316,6 +316,6 @@ export const progressGuiLogger: MessageHandler = (message) => {
       }
     }
   }
-  textBox.style.height = (newLineCount + 1) * 20
+  textBox.style.height = (newLineCount + 1) * 20 + 10
   textBox.caption = message.richText
 }
