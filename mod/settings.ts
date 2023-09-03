@@ -1,7 +1,7 @@
-import { Data } from "typed-factorio/settings/types"
 import { Settings } from "./constants"
+import { SettingsData } from "factorio:common"
 
-declare const data: Data
+declare const data: SettingsData
 
 data.extend([
   {

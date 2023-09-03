@@ -1,4 +1,5 @@
 import { Remote, Settings } from "../constants"
+import { LocalisedString } from "factorio:runtime"
 
 script.on_event(defines.events.on_game_created_from_scenario, () => {
   const shouldAutoStart = settings.startup[Settings.AutoStart]!.value

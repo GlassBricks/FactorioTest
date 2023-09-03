@@ -2,16 +2,16 @@
   "name": "factorio-test-mod",
   "private": true,
   "devDependencies": {
-    "concurrently": "^8.0.1",
-    "del-cli": "^5.0.0",
+    "concurrently": "^8.2.1",
+    "del-cli": "^5.1.0",
     "lua-types": "^2.13.1",
     "luassert-tstl": "^0.3.0",
-    "typed-factorio": "^1.14.0",
-    "typescript": "^5.0.4",
-    "typescript-to-lua": "^1.14.0",
+    "typed-factorio": "^2.0.0",
+    "typescript": "^5.2.2",
+    "typescript-to-lua": "^1.19.0",
     "typescript-tstl-plugin": "^0.3.2",
     "ts-node": "^10.9.1",
-    "factorio-test": "^1.0.0"
+    "factorio-test": "^1.1.0"
   },
   "scripts": {
     "clean": "del-cli \"**/*.lua\" \"!**/*.def.lua\" \"!**/{scenarios,node_modules}/**\" \"!{luassert,say}/**\"",

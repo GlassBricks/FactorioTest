@@ -29,9 +29,10 @@
     ]
   },
   "include": [
-    "."
+    ".",
   ],
   "exclude": [
-    "factorio-test/**/*"
+    "factorio-test/**/*",
+    "**/node_modules/"
   ]
 }

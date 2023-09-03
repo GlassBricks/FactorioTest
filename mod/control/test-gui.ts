@@ -1,5 +1,6 @@
 import { guiAction } from "./guiAction"
 import { Misc, Remote } from "../constants"
+import { LuaPlayer } from "factorio:runtime"
 
 function getPlayer(): LuaPlayer | undefined {
   // noinspection LoopStatementThatDoesntLoopJS
