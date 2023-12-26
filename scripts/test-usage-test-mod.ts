@@ -3,39 +3,6 @@
 import * as child_process from "child_process"
 import { fileURLToPath } from "url"
 import * as path from "path"
-import { EventEmitter } from "events"
-import { Readable } from "stream"
-
-class BufferLineSplitter extends EventEmitter {
-  private buf: string
-
-  constructor(instream: Readable) {
-    super()
-    this.buf = ""
-    instream.on("close", () => {
-      if (this.buf.length > 0) this.emit("line", this.buf)
-      this.emit("close")
-    })
-    instream.on("end", () => {
-      if (this.buf.length > 0) this.emit("line", this.buf)
-      this.emit("end")
-    })
-    instream.on("data", (chunk: Buffer) => {
-      this.buf += chunk.toString()
-      while (this.buf.length > 0) {
-        const index = this.buf.indexOf("\n")
-        if (index !== -1) {
-          this.emit("line", this.buf.slice(0, index))
-          this.buf = this.buf.slice(index + 1)
-        }
-      }
-    })
-  }
-
-  on(event: "line", listener: (line: string) => void): this {
-    return super.on(event, listener)
-  }
-}
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -47,29 +14,27 @@ const child = child_process.spawn(
   {
     stdio: ["inherit", "pipe", "inherit"],
     cwd: root,
+    shell: true,
   },
 )
-let passed = false
-new BufferLineSplitter(child.stdout)?.on("line", (data) => {
-  const str = data.toString()
-  if (str.includes("Usage test mod result: passed")) {
-    passed = true
-  }
-  console.log(str)
+let stdOut = ""
+child.stdout.on("data", (data) => {
+  stdOut += data
+  process.stdout.write(data)
 })
 
-const promise = new Promise<void>((resolve, reject) => {
+await new Promise<void>((resolve, reject) => {
+  child.on("error", reject)
   child.on("exit", (code) => {
     if (code === 1) {
       resolve()
     } else {
-      reject(new Error(`Command did not exit with code 1`))
+      reject(new Error(`Process did not exit with code 1, but ${code}`))
     }
   })
 })
 
-await promise
-
-console.log("Test passed:", passed)
+const passed = stdOut.includes("Usage test mod result: passed")
+console.log("Results are as expected: ", passed)
 
 process.exit(passed ? 0 : 1)
