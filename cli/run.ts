@@ -147,7 +147,7 @@ async function installFactorioTest(modsDir: string) {
   // if not found, install it
   const alreadyExists = await checkModExists(modsDir, testModName)
   if (!alreadyExists) {
-    console.log(`Downloading ${testModName} from mod portal. This may ask for factorio login credentials.`)
+    console.log(`Downloading ${testModName} from mod portal using fmtk. This may ask for factorio login credentials.`)
     await runScript("fmtk mods install", "--modsPath", modsDir, testModName)
   }
 }
