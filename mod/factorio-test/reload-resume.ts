@@ -4,6 +4,7 @@ import type { TestState } from "./state"
 import { DescribeBlock, HookType, Source, Test, TestMode, TestTags } from "./tests"
 import { table } from "util"
 import compare = table.compare
+import { LuaProfiler } from "factorio:runtime"
 
 interface SavedTestData {
   readonly type: "test"

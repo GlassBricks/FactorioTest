@@ -3,6 +3,7 @@ import { TestState } from "./state"
 import Config = FactorioTest.Config
 import HookFn = FactorioTest.HookFn
 import TestFn = FactorioTest.TestFn
+import { LuaProfiler } from "factorio:runtime"
 
 export interface Source {
   readonly file?: string | undefined

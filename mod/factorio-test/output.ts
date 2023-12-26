@@ -1,3 +1,4 @@
+import { ColorArray, LocalisedString, LuaProfiler } from "factorio:runtime"
 import { debugAdapterEnabled } from "./_util"
 import { TesteEventListener } from "./test-events"
 import { Source } from "./tests"

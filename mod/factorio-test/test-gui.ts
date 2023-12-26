@@ -5,6 +5,17 @@ import { TestState } from "./state"
 import { TesteEventListener } from "./test-events"
 import { countActiveTests } from "./tests"
 import ProgressGui = Locale.ProgressGui
+import {
+  FrameGuiElement,
+  LabelGuiElement,
+  LuaGuiElement,
+  LuaPlayer,
+  LuaStyle,
+  ProgressBarGuiElement,
+  ScrollPaneGuiElement,
+  SpriteButtonGuiElement,
+  TableGuiElement,
+} from "factorio:runtime"
 
 interface TestGui {
   player: LuaPlayer

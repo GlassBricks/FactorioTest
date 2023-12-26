@@ -6,6 +6,7 @@ import { createRootDescribeBlock, DescribeBlock, Test, TestTags } from "./tests"
 import Config = FactorioTest.Config
 import OnTickFn = FactorioTest.OnTickFn
 import HookFn = FactorioTest.HookFn
+import { LuaProfiler } from "factorio:runtime"
 
 /** @noSelf */
 export interface TestState {
