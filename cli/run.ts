@@ -1,4 +1,4 @@
-import { program as theProgram } from "commander"
+import { program } from "commander"
 import * as os from "os"
 import * as fsp from "fs/promises"
 import * as fs from "fs"
@@ -8,15 +8,13 @@ import BufferLineSplitter from "./buffer-line-splitter.js"
 import chalk from "chalk"
 import type { Command } from "@commander-js/extra-typings"
 
-const program = theProgram as unknown as Command
-
-const thisCommand = program
+const thisCommand = (program as unknown as Command)
   .command("run")
   .summary("Runs tests with Factorio test.")
   .description("Runs tests for the specified mod with Factorio test. Exits with code 0 only if all tests pass.\n")
   .argument(
     "[mod-path]",
-    "The path to the mod to test (containing info.json). A symlink will be created in the factorio mods folder, to this folder. Alternatively, you can specify --mod-name for manual test setup.",
+    "The path to the mod to test (containing info.json). A symlink will be created in the mods folder to this folder. Alternatively, you can specify --mod-name for manual setup.",
   )
   .option(
     "--mod-name <name>",
@@ -144,13 +142,12 @@ async function checkModExists(modsDir: string, modName: string) {
 async function installFactorioTest(modsDir: string) {
   await fsp.mkdir(modsDir, { recursive: true })
 
-  // const testModName = "testorio"
   const testModName = "factorio-test"
 
   // if not found, install it
   const alreadyExists = await checkModExists(modsDir, testModName)
   if (!alreadyExists) {
-    console.log(`Downloading ${testModName} from mod portal...`)
+    console.log(`Downloading ${testModName} from mod portal. This may ask for factorio login credentials.`)
     await runScript("fmtk mods install", "--modsPath", modsDir, testModName)
   }
 }
@@ -184,7 +181,7 @@ async function setSettingsForAutorun(factorioPath: string, dataDir: string, mods
     const dummySaveFile = path.join(dataDir, "____dummy_save_file.zip")
     await runProcess(
       false,
-      factorioPath,
+      `"${factorioPath}"`,
       "--create",
       dummySaveFile,
       "--mod-directory",
@@ -274,11 +271,12 @@ function runProcess(inheritStdio: boolean, command: string, ...args: string[]) {
     shell: true,
   })
   return new Promise<void>((resolve, reject) => {
+    process.on("error", reject)
     process.on("exit", (code) => {
       if (code === 0) {
         resolve()
       } else {
-        reject(new Error(`Command exited with code ${code}`))
+        reject(new Error(`Command exited with code ${code}: ${command} ${args.join(" ")}`))
       }
     })
   })

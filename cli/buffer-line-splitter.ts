@@ -18,7 +18,7 @@ export default class BufferLineSplitter extends EventEmitter {
     instream.on("data", (chunk: Buffer) => {
       this.buf += chunk.toString()
       while (this.buf.length > 0) {
-        const index = this.buf.indexOf("\n")
+        const index = this.buf.search(/\r?\n/)
         if (index === -1) break
         this.emit("line", this.buf.slice(0, index))
         this.buf = this.buf.slice(index + 1)
