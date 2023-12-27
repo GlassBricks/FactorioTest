@@ -29,26 +29,54 @@ interface MessagePart {
   color?: MessageColor
 }
 
-const MAX_LINE_LENGTH = 110
-const PREFIX_LEN = 5
-const SUFFIX_LEN = 23
+const MAX_LINE_LENGTH = 118
+const PREFIX_LEN = "PASS ".length
+const SUFFIX_LEN = " (Duration: 0.082400ms)".length
+const INDENT_LEN = 8
 
 function formatTestPath(text: string): MessagePart {
-  let curStart = 0
-  let curLineLen = PREFIX_LEN
+  const length = text.length
+
   const result: string[] = []
-  while (text.length - curStart + curLineLen > MAX_LINE_LENGTH) {
-    const length = MAX_LINE_LENGTH - curLineLen
-    result.push(string.sub(text, curStart + 1, curStart + length))
-    curStart += length
-    curLineLen = 8 // 8 spaces in indent
+  let curStart = 1 // lua index
+  let curLineLen = PREFIX_LEN
+  while (length + SUFFIX_LEN - curStart + curLineLen > MAX_LINE_LENGTH) {
+    let breakPoint: number
+    {
+      const maxIndex = curStart + MAX_LINE_LENGTH - curLineLen
+      // find last index of whitespace in [curStart+1, maxIndex]
+      // if no whitespace, return next index of whitespace
+      let index = curStart
+      while (true) {
+        // pretend there is a whitespace at the end
+        const nextIndex: number | undefined = string.find(text, "%s", index + 1)[0] ?? length + 1
+        if (nextIndex > maxIndex) {
+          if (index !== curStart) {
+            breakPoint = index
+          } else {
+            breakPoint = nextIndex
+          }
+          break
+        }
+        if (nextIndex === length + 1) {
+          breakPoint = nextIndex
+          break
+        }
+        index = nextIndex
+      }
+    }
+
+    result.push(string.sub(text, curStart, breakPoint - 1))
+    // skip whitespace
+    curStart = string.find(text, "%S", breakPoint + 1)[0] ?? length + 1
+    curLineLen = INDENT_LEN
   }
-  if (text.length - curStart + curLineLen > MAX_LINE_LENGTH - SUFFIX_LEN) {
-    const length = MAX_LINE_LENGTH - curLineLen - SUFFIX_LEN
-    result.push(string.sub(text, curStart + 1, curStart + length))
-    curStart += length
+
+  if (curStart <= length) {
+    result.push(string.sub(text, curStart))
+  } else {
+    result.push("")
   }
-  result.push(string.sub(text, curStart + 1))
   return { text: result.join("\n        ") }
 }
 
