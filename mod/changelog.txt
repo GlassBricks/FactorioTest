@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.3
-Date: ????
+Date: 2023-12-27
   Changes:
     - Added better word wrapping to test output.
   Bugfixes:
