@@ -44,8 +44,6 @@ function formatTestPath(text: string): MessagePart {
     let breakPoint: number
     {
       const maxIndex = curStart + MAX_LINE_LENGTH - curLineLen
-      // find last index of whitespace in [curStart+1, maxIndex]
-      // if no whitespace, return next index of whitespace
       let index = curStart
       while (true) {
         // pretend there is a whitespace at the end

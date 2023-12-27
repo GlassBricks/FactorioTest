@@ -26,6 +26,7 @@
       }
     ],
     "no-inner-declarations": "off",
+    "no-constant-condition": "off",
     // on
     "no-template-curly-in-string": "error",
     "eslint-comments/no-unused-disable": "error",
