@@ -14,7 +14,7 @@
     "factorio-test": "^1.1.0"
   },
   "scripts": {
-    "clean": "del-cli \"**/*.lua\" \"!**/*.def.lua\" \"!**/{scenarios,node_modules}/**\" \"!{luassert,say}/**\"",
+    "clean": "del-cli \"**/*.lua\" \"!**/*.def.lua\" \"!**/*.k.lua\" \"!**/{scenarios,node_modules}/**\" \"!{luassert,say}/**\"",
     "build:copy-luassert": "ts-node --esm ../scripts/copy-luassert.ts",
     "build:mod-runtime": "tstl -p tsconfig.json",
     "build:factorio-test-meta-test": "tstl -p factorio-test/tsconfig.json",

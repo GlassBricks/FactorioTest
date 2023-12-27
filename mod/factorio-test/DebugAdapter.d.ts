@@ -1,20 +1,30 @@
 /** @noResolution */
-declare module "__debugadapter__/json" {
-  import { AnyBasic } from "factorio:runtime"
-
-  function encode(this: void, value: AnyBasic | object | undefined, stack?: object): string
+declare module "__debugadapter__/print" {
+  function outputEvent(
+    this: void,
+    body: {
+      output: string
+      category?: "console" | "important" | "stdout" | "stderr"
+    },
+    info?: {
+      source: string
+      currentline: number
+    },
+  ): void
 }
 
 /** @noResolution */
 declare module "__debugadapter__/variables" {
   import { LocalisedString } from "factorio:runtime"
 
-  function translate(this: void, value: LocalisedString): string | number
+  function translate(this: void, value: LocalisedString): LuaMultiReturn<[i: number | undefined, message?: string]>
 }
 
-declare const __DebugAdapter:
+declare let __DebugAdapter:
   | {
-      defineGlobal?(this: void, name: string): void
-      breakpoint(this: void): void
+      defineGlobal(name: string): void
+      outputEvent: typeof import("__debugadapter__/print").outputEvent
+      translate: typeof import("__debugadapter__/variables").translate
+      breakpoint(): void
     }
   | undefined

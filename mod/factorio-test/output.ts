@@ -2,6 +2,7 @@ import { ColorArray, LocalisedString, LuaProfiler } from "factorio:runtime"
 import { debugAdapterEnabled } from "./_util"
 import { TesteEventListener } from "./test-events"
 import { Source } from "./tests"
+import getTranslate = require("./get-translate.k")
 
 export const enum MessageColor {
   White = 1,
@@ -154,30 +155,28 @@ function output(message: RichAndPlainText, source?: Source): void {
   }
 }
 
-const jsonEncode: typeof import("__debugadapter__/json").encode = !debugAdapterEnabled
-  ? undefined
-  : require("@NoResolution:__debugadapter__/json").encode
-const daTranslate: typeof import("__debugadapter__/variables").translate = !debugAdapterEnabled
-  ? undefined
-  : __DebugAdapter
-  ? require("@NoResolution:__debugadapter__/variables").translate
-  : (() => {
-      let id = 0
-      return (message) => {
-        const translationID = id++
-        const [success, result] = pcall(localised_print, [
-          "",
-          "***DebugAdapterBlockPrint***\nDBGtranslate: ",
-          translationID,
-          "\n",
-          message,
-          "\n***EndDebugAdapterBlockPrint***",
-        ])
-        return success ? translationID : (result as string)
-      }
-    })()
+let daOutputEvent: typeof import("__debugadapter__/print").outputEvent | undefined
+let daTranslate: ((value: LocalisedString) => string) | undefined
+if (debugAdapterEnabled) {
+  if (__DebugAdapter) {
+    daOutputEvent = __DebugAdapter.outputEvent
+  } else {
+    __DebugAdapter = {
+      stepIgnore: (f: any) => f,
+      stepIgnoreAll: (f: any) => f,
+    } as any
+    daOutputEvent = require("@NoResolution:__debugadapter__/print").outputEvent
+  }
 
-const DebugAdapterCategories: Record<MessageColor, string> = {
+  const variables = require("@NoResolution:__debugadapter__/variables")
+  for (const [k, v] of pairs<unknown>(variables.__)) {
+    ;(__DebugAdapter as any)[k] = v
+  }
+  daTranslate = getTranslate(variables.translate)
+}
+
+type MessageCategory = "console" | "important" | "stdout" | "stderr"
+const DebugAdapterCategories: Record<MessageColor, MessageCategory> = {
   [MessageColor.White]: "stdout",
   [MessageColor.Green]: "stdout",
   [MessageColor.Yellow]: "console",
@@ -185,7 +184,7 @@ const DebugAdapterCategories: Record<MessageColor, string> = {
   [MessageColor.Purple]: "console",
 }
 
-function printDebugAdapterText(text: string, source: Source | undefined, category: string) {
+function printDebugAdapterText(text: string, source: Source | undefined, category: MessageCategory) {
   const lines = text.split("\n")
   for (const line of lines) {
     let sourceFile: string | undefined, sourceLine: number | undefined
@@ -199,25 +198,26 @@ function printDebugAdapterText(text: string, source: Source | undefined, categor
       sourceLine = tonumber(line1)
     }
     if (sourceFile && !sourceFile.startsWith("@")) sourceFile = "@" + sourceFile
-    const body = {
+    daOutputEvent!({
       category,
       output: line,
-      line: sourceFile && (sourceLine ?? 1),
-      source: {
-        name: sourceFile,
-        path: sourceFile,
-      },
-    }
-
-    print("DBGprint: " + jsonEncode!(body))
+    })
+    daOutputEvent!(
+      { category, output: "\n" },
+      sourceFile !== undefined
+        ? {
+            source: sourceFile,
+            currentline: sourceLine ?? 1,
+          }
+        : undefined,
+    )
   }
 }
 
 export const debugAdapterLogger: MessageHandler = (message, source) => {
   const color = message.firstColor ?? MessageColor.White
   const category = DebugAdapterCategories[color]
-  const text = message.plainText
-  const output = typeof text === "string" ? text : `{LocalisedString ${daTranslate(text)}}`
+  const output = daTranslate!(message.plainText)
   printDebugAdapterText(output, source, category)
 }
 
@@ -267,7 +267,6 @@ export const logListener: TesteEventListener = (event, state) => {
     }
     case "describeBlockFailed": {
       const { block } = event
-      // output(m`${bold(block.path)} ${red("error")}`, block.source)
       output(m`${red("ERROR")} ${formatTestPath(block.path)}`, block.source)
       for (const error of block.errors) {
         output(formatError(error))
