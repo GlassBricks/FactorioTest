@@ -10,7 +10,7 @@ const setupListener: TesteEventListener = (event, state) => {
     state.config.before_test_run?.()
   } else if (event.type === "testRunFinished") {
     game.speed = 1
-    const status = state.results.status;
+    const status = state.results.status
     if (state.config.sound_effects) {
       const passed = status === "passed" || status === "todo"
       if (passed) {
