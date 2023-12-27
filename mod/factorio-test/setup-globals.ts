@@ -137,7 +137,7 @@ export function propagateTestMode(state: TestState, describeBlock: DescribeBlock
   }
 }
 
-function createDescribe(name: string, block: TestFn, mode: TestMode, upStack: number = 1): DescribeBlock | undefined {
+function createDescribe(name: string, block: TestFn, mode: TestMode, upStack: number = 1): DescribeBlock {
   const state = getTestState()
   if (state.currentTestRun) {
     error(`Describe block "${name}" cannot be nested inside test "${state.currentTestRun.test.path}"`)
@@ -221,7 +221,12 @@ function createTestEach(mode: TestMode): TestCreatorBase {
   return result
 }
 function createDescribeEach(mode: TestMode): DescribeCreatorBase {
-  const result: DescribeCreatorBase = (name, func) => createDescribe(name, func, mode)
+  const result: DescribeCreatorBase = (name, func) => {
+    // avoid tail call, messes up stack trace
+    // noinspection UnnecessaryLocalVariableJS
+    const block: DescribeBlock = createDescribe(name, func, mode)
+    return block
+  }
   result.each = (values: unknown[]) => (name: string, func: (...values: any[]) => void) => {
     const items = createEachItems(values, name)
     for (const { row, name } of items) {
