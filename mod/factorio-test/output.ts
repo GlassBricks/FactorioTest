@@ -1,6 +1,6 @@
 import { ColorArray, LocalisedString, LuaProfiler } from "factorio:runtime"
 import { debugAdapterEnabled } from "./_util"
-import { TesteEventListener } from "./test-events"
+import { TestEventListener } from "./test-events"
 import { Source } from "./tests"
 import getTranslate = require("./get-translate.k")
 
@@ -255,7 +255,7 @@ export const logLogger: MessageHandler = (message) => {
   print("FACTORIO-TEST-MESSAGE-END")
 }
 
-export const logListener: TesteEventListener = (event, state) => {
+export const logListener: TestEventListener = (event, state) => {
   switch (event.type) {
     case "testRunStarted": {
       output(m`Starting test run...`)

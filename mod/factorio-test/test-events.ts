@@ -70,14 +70,14 @@ export type TestEvent =
   | LoadError
   | CustomEvent
 
-export type TesteEventListener = (event: TestEvent, state: TestState) => void
+export type TestEventListener = (event: TestEvent, state: TestState) => void
 
-let testListeners: TesteEventListener[] = []
+let testListeners: TestEventListener[] = []
 export function clearTestListeners() {
   testListeners = []
 }
 
-export function addTestListener(this: unknown, listener: TesteEventListener): void {
+export function addTestListener(this: unknown, listener: TestEventListener): void {
   testListeners.push(listener)
 }
 

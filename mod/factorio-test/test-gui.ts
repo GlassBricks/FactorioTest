@@ -2,7 +2,7 @@ import { Locale, Misc, Prototypes } from "../constants"
 import { Colors, MessageColor, MessageHandler } from "./output"
 import { TestRunResults } from "./results"
 import { TestState } from "./state"
-import { TesteEventListener } from "./test-events"
+import { TestEventListener } from "./test-events"
 import { countActiveTests } from "./tests"
 import ProgressGui = Locale.ProgressGui
 import {
@@ -232,7 +232,7 @@ function updateTestCounts(gui: TestGui, results: TestRunResults) {
   if (results.passed > 0) testCounts[4]!.caption = [ProgressGui.NPassed, results.passed]
 }
 
-export const progressGuiListener: TesteEventListener = (event, state) => {
+export const progressGuiListener: TestEventListener = (event, state) => {
   if (event.type === "testRunStarted") {
     global.__testGui = createTestProgressGui(state)
     return
