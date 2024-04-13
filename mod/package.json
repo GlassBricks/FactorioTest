@@ -4,18 +4,18 @@
   "devDependencies": {
     "concurrently": "^8.2.1",
     "del-cli": "^5.1.0",
+    "factorio-test": "^1.1.0",
     "lua-types": "^2.13.1",
     "luassert-tstl": "^0.3.0",
+    "tsx": "^4.7.2",
     "typed-factorio": "^2.0.0",
     "typescript": "^5.2.2",
     "typescript-to-lua": "^1.19.0",
-    "typescript-tstl-plugin": "^0.3.2",
-    "ts-node": "^10.9.1",
-    "factorio-test": "^1.1.0"
+    "typescript-tstl-plugin": "^0.3.2"
   },
   "scripts": {
     "clean": "del-cli \"**/*.lua\" \"!**/*.def.lua\" \"!**/*.k.lua\" \"!**/{scenarios,node_modules}/**\" \"!{luassert,say}/**\"",
-    "build:copy-luassert": "ts-node --esm ../scripts/copy-luassert.ts",
+    "build:copy-luassert": "tsx ../scripts/copy-luassert.ts",
     "build:mod-runtime": "tstl -p tsconfig.json",
     "build:factorio-test-meta-test": "tstl -p factorio-test/tsconfig.json",
     "build:factorio-test-release": "tstl -p factorio-test/tsconfig-release.json",
@@ -26,8 +26,8 @@
     "watch:usage-test-mod": "tstl -p ../usage-test-mod/tsconfig.json --watch",
     "watch-all": "conc \"npm:watch:*\"",
     "pretest": "npm run clean && conc \"npm:build:*(!release)\"",
-    "test:self": "cd .. && ts-node --esm cli/cli.ts run mod -- --cache-sprite-atlas true --disable-audio --fullscreen false",
-    "test:usage-test": "ts-node --esm ../scripts/test-usage-test-mod.ts -- --cache-sprite-atlas true --disable-audio --fullscreen false",
+    "test:self": "cd .. && tsx cli/cli.ts run mod -- --cache-sprite-atlas true --disable-audio --fullscreen false",
+    "test:usage-test": "tsx ../scripts/test-usage-test-mod.ts -- --cache-sprite-atlas true --disable-audio --fullscreen false",
     "test": "npm run test:self && npm run test:usage-test",
     "lint": "eslint .",
     "check": "npm run lint && npm run test",

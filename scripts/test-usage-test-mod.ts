@@ -10,7 +10,7 @@ const root = path.resolve(__dirname, "..")
 
 const child = child_process.spawn(
   "npx",
-  ["ts-node", "--esm", "cli/cli.ts", "run", "./usage-test-mod", "--", ...process.argv.slice(3)],
+  ["tsx", "cli/cli.ts", "run", "./usage-test-mod", "--", ...process.argv.slice(3)],
   {
     stdio: ["inherit", "pipe", "inherit"],
     cwd: root,
