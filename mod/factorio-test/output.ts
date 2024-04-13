@@ -2,7 +2,6 @@ import { ColorArray, LocalisedString, LuaProfiler } from "factorio:runtime"
 import { debugAdapterEnabled } from "./_util"
 import { TestEventListener } from "./test-events"
 import { Source } from "./tests"
-import getTranslate = require("./get-translate.k")
 
 export const enum MessageColor {
   White = 1,
@@ -108,7 +107,7 @@ function purple(text: string): MessagePart {
 
 interface RichAndPlainText {
   richText: LocalisedString
-  plainText: LocalisedString
+  plainText: string
   firstColor?: MessageColor | undefined
 }
 
@@ -125,7 +124,7 @@ function formatError(text: string): RichAndPlainText {
 }
 
 function m(strings: TemplateStringsArray, ...substitutions: (string | LuaProfiler | MessagePart)[]): RichAndPlainText {
-  let plainResult: ["", ...(string | LuaProfiler)[]] = [""]
+  const plainResult: string[] = []
   let richResult: ["", ...(string | LuaProfiler)[]] = [""]
   let firstColor: MessageColor | undefined = undefined
 
@@ -136,33 +135,33 @@ function m(strings: TemplateStringsArray, ...substitutions: (string | LuaProfile
     if (element === undefined) continue
 
     let color: MessageColor | undefined
-    let text: string | LuaProfiler
+    let part: string | LuaProfiler
     if (typeof element === "object") {
       if ("object_name" in element) {
-        text = element
+        part = element
       } else {
-        text = element.text
+        part = element.text
         color = element.color
         firstColor ??= color
       }
     } else {
-      text = element
+      part = element
     }
 
     if (color) richResult.push(ColorFormat[color])
-    if (typeof text !== "string" && isString) {
-      plainResult = ["", table.concat(plainResult as string[])]
+    const partIsStr = typeof part === "string"
+    if (!partIsStr && isString) {
       richResult = ["", table.concat(richResult as string[])]
       isString = false
     }
-    plainResult.push(text)
-    richResult.push(text)
+    plainResult.push(partIsStr ? (part as string) : "<Profiler>")
+    richResult.push(part)
     if (color) richResult.push("[/color]")
   }
 
   return {
     richText: richResult,
-    plainText: plainResult,
+    plainText: table.concat(plainResult),
     firstColor,
   }
 }
@@ -182,23 +181,12 @@ function output(message: RichAndPlainText, source?: Source): void {
 }
 
 let daOutputEvent: typeof import("__debugadapter__/print").outputEvent | undefined
-let daTranslate: ((value: LocalisedString) => string) | undefined
 if (debugAdapterEnabled) {
-  if (__DebugAdapter) {
-    daOutputEvent = __DebugAdapter.outputEvent
-  } else {
-    __DebugAdapter = {
-      stepIgnore: (f: any) => f,
-      stepIgnoreAll: (f: any) => f,
-    } as any
-    daOutputEvent = require("@NoResolution:__debugadapter__/print").outputEvent
-  }
-
-  const variables = require("@NoResolution:__debugadapter__/variables")
-  for (const [k, v] of pairs<unknown>(variables.__)) {
-    ;(__DebugAdapter as any)[k] = v
-  }
-  daTranslate = getTranslate(variables.translate)
+  __DebugAdapter ??= {
+    stepIgnore: (f: any) => f,
+    stepIgnoreAll: (f: any) => f,
+  } as any
+  daOutputEvent = require("@NoResolution:__debugadapter__/print").outputEvent
 }
 
 type MessageCategory = "console" | "important" | "stdout" | "stderr"
@@ -243,8 +231,7 @@ function printDebugAdapterText(text: string, source: Source | undefined, categor
 export const debugAdapterLogger: MessageHandler = (message, source) => {
   const color = message.firstColor ?? MessageColor.White
   const category = DebugAdapterCategories[color]
-  const output = daTranslate!(message.plainText)
-  printDebugAdapterText(output, source, category)
+  printDebugAdapterText(message.plainText, source, category)
 }
 
 export const logLogger: MessageHandler = (message) => {

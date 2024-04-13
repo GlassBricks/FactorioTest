@@ -17,7 +17,9 @@ declare module "__debugadapter__/print" {
 declare module "__debugadapter__/variables" {
   import { LocalisedString } from "factorio:runtime"
 
-  function translate(this: void, value: LocalisedString): LuaMultiReturn<[i: number | undefined, message?: string]>
+  function translate(this: void, value: LocalisedString): LuaMultiReturn<[i: string | undefined, message?: string]>
+
+  const __dap: any
 }
 
 declare let __DebugAdapter:
