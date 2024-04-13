@@ -1,8 +1,11 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.4
 Date: 2024-04-13
+  Changes:
+    - Made including the "luassert" library optional via the "load_luassert" setting, defaulting to true.
   Bugfixes:
     - Fixed compatibility with latest version of debugadapter.
+    - Fixed compatibility with factorio v1.1.107
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.3
 Date: 2023-12-27
