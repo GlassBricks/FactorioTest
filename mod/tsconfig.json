@@ -30,6 +30,7 @@
   },
   "include": [
     ".",
+    "../types/index.d.ts"
   ],
   "exclude": [
     "factorio-test/**/*",

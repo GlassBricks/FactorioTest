@@ -8,6 +8,7 @@ export function fillConfig(config: Partial<Config>): Config {
     log_passed_tests: true,
     log_skipped_tests: false,
     sound_effects: false,
+    load_luassert: true,
     ...config,
   }
 }
