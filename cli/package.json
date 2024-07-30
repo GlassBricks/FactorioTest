@@ -1,6 +1,6 @@
 {
   "name": "factorio-test-cli",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A CLI to run FactorioTest.",
   "license": "MIT",
   "repository": "https://github.com/GlassBricks/FactorioTest",

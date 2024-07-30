@@ -3,7 +3,7 @@ import * as os from "os"
 import * as fsp from "fs/promises"
 import * as fs from "fs"
 import * as path from "path"
-import { spawn } from "child_process"
+import { spawn, spawnSync } from "child_process"
 import BufferLineSplitter from "./buffer-line-splitter.js"
 import chalk from "chalk"
 import type { Command } from "@commander-js/extra-typings"
@@ -282,12 +282,19 @@ function runProcess(inheritStdio: boolean, command: string, ...args: string[]) {
   })
 }
 
+function factorioIsInPath(): boolean {
+    const result = spawnSync("factorio", ["--version"], { stdio: "ignore" })
+    return result.status === 0
+}
+
 function autoDetectFactorioPath(): string {
+  if(factorioIsInPath()) {
+    return "factorio"
+  }
   let pathsToTry: string[]
   // check if is linux
   if (os.platform() === "linux" || os.platform() === "darwin") {
     pathsToTry = [
-      "factorio",
       "~/.local/share/Steam/steamapps/common/Factorio/bin/x64/factorio",
       "~/Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio",
       "~/.factorio/bin/x64/factorio",
