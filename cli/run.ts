@@ -15,27 +15,30 @@ const thisCommand = (program as unknown as Command)
   .description("Runs tests for the specified mod with Factorio test. Exits with code 0 only if all tests pass.\n")
   .argument(
     "[mod-path]",
-    "The path to the mod to test (containing info.json). A symlink will be created in the mods folder to this folder. Alternatively, you can specify --mod-name for manual setup.",
+    "The path to the mod (folder containing info.json). A symlink will be created in the mods folder to this folder. Either this or --mod-name must be specified.",
   )
   .option(
     "--mod-name <name>",
-    "The name of the mod to test. If specified, the mod must already be present in the mods directory (sse --data-directory below). One of [mod-path] or --mod-name must be specified.",
+    "The name of the mod to test. To use this option, the mod must already be present in the mods directory (see --data-directory). Either this or [mod-path] must be specified.",
   )
   .option(
     "--factorio-path <path>",
-    "The path to the factorio binary. If not specified, tries to auto-detect the factorio installation.",
+    "The path to the factorio binary. If not specified, attempts to auto-detect the path.",
   )
   .option(
     "-d --data-directory <path>",
-    'The path to the data directory. The "config.ini" file and the "mods" folder will be in this directory.',
-    "./factorio-test-data",
+    'The path to the factorio data directory that the testing instance will use. The "config.ini" file and the "mods" folder will be in this directory.',
+    "./factorio-test-data-dir",
   )
-  .option("--show-output", "Prints test output to stdout.", true)
   .option(
-    "-v --verbose",
-    "Enables more logging, and prints all outputs of the Factorio process to stdout (not just test output).",
+    "--mods <mods...>",
+    'Adjust mods. By default, only the mod to test and "factorio-test" are enabled, and all others are disabled! ' +
+      'Same format as "fmtk mods adjust". Example: "--mods mod1 mod2=1.2.3" will enable mod1 any version, and mod2 version 1.2.3.',
   )
-  .addHelpText("after", 'Options passed after "--" are passed as Factorio launch arguments.')
+  .option("--show-output", "Print test output to stdout.", true)
+  .option("-v --verbose", "Enables more logging, and pipes the Factorio process output to stdout.")
+  .addHelpText("after", 'Arguments after "--" are passed to the Factorio process.')
+  .addHelpText("after", 'Suggested factorio arguments: "--cache-sprite-atlas", "--disable-audio"')
   .action((modPath, options) => runTests(modPath, options))
 
 async function runTests(
@@ -45,6 +48,7 @@ async function runTests(
     modName?: string
     dataDirectory: string
     verbose?: true
+    mods?: string[]
   },
 ) {
   if (modPath !== undefined && options.modName !== undefined) {
@@ -62,8 +66,14 @@ async function runTests(
   const modToTest = await configureModToTest(modsDir, modPath, options.modName)
   await installFactorioTest(modsDir)
 
-  if (options.verbose) console.log("Enabling mods", modToTest, "and factorio-test")
-  await runScript("fmtk mods adjust", "--modsPath", modsDir, "factorio-test=true", modToTest + "=true")
+  const enableModsOptions = [
+    "factorio-test=true",
+    `${modToTest}=true`,
+    ...(options.mods?.map((m) => (m.includes("=") ? m : `${m}=true`)) ?? []),
+  ]
+
+  if (options.verbose) console.log("Adjusting mods")
+  await runScript("fmtk mods adjust", "--modsPath", modsDir, "--disableExtra", ...enableModsOptions)
   await ensureConfigIni(dataDir)
   await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest)
 
@@ -170,6 +180,13 @@ write-data=${dataDir}
 locale=
 `,
     )
+  } else {
+    // edit "^write-data=.*" to be dataDir
+    const content = await fsp.readFile(filePath, "utf8")
+    const newContent = content.replace(/^write-data=.*$/m, `write-data=${dataDir}`)
+    if (content !== newContent) {
+      await fsp.writeFile(filePath, newContent)
+    }
   }
 }
 

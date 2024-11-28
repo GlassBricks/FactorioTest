@@ -1,3 +1,2 @@
 Rename after_script_reload
 Add "restart" button
-Add "enable mods" option to cli
