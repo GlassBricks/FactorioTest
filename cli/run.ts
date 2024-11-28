@@ -208,6 +208,7 @@ async function runFactorioTests(factorioPath: string, dataDir: string) {
   const actualArgs = [
     "--load-scenario",
     "factorio-test/Test",
+    "--disable-migration-window",
     "--mod-directory",
     path.join(dataDir, "mods"),
     "-c",
