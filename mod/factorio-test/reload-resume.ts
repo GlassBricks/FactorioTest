@@ -115,13 +115,13 @@ interface ResumeData {
   resumeTestPath: string
   resumePartIndex: number
 }
-declare const global: {
+declare const storage: {
   __testResume: ResumeData | undefined
 }
 
 export function prepareReload(testState: TestState): void {
   const currentRun = testState.currentTestRun!
-  global.__testResume = {
+  storage.__testResume = {
     rootBlock: saveDescribeBlock(testState.rootBlock),
     results: testState.results,
     resumeTestPath: currentRun.test.path,
@@ -131,8 +131,6 @@ export function prepareReload(testState: TestState): void {
   testState.rootBlock = undefined!
   testState.currentTestRun = undefined!
   testState.setTestStage(TestStage.ReloadingMods)
-  // collectgarbage()
-  // game.print(serpent.block(findRefValue()))
 }
 
 export function resumeAfterReload(state: TestState):
@@ -141,9 +139,9 @@ export function resumeAfterReload(state: TestState):
       partIndex: number
     }
   | undefined {
-  const testResume = global.__testResume ?? error("attempting to resume after reload without resume data saved")
+  const testResume = storage.__testResume ?? error("attempting to resume after reload without resume data saved")
 
-  global.__testResume = undefined
+  storage.__testResume = undefined
 
   state.results = testResume.results
   state.profiler = testResume.profiler

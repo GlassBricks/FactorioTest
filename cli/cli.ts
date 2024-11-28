@@ -2,10 +2,10 @@
 import { program } from "commander"
 import "./run.js"
 
-program
+await program
   .name("factorio-test")
   .description("cli for factorio testing")
-  .addHelpCommand()
+  .helpCommand(true)
   .showHelpAfterError()
   .showSuggestionAfterError()
-  .parse()
+  .parseAsync()

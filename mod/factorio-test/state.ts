@@ -46,7 +46,7 @@ export interface TestRun {
 }
 
 let TheTestState: TestState | undefined
-declare const global: {
+declare const storage: {
   __factorio_testTestStage?: TestStage
 }
 
@@ -60,14 +60,14 @@ export function _setTestState(state: TestState): void {
 }
 
 export function getGlobalTestStage(): TestStage {
-  return global.__factorio_testTestStage ?? TestStage.NotRun
+  return storage.__factorio_testTestStage ?? TestStage.NotRun
 }
 
 const onTestStageChanged = script.generate_event_name<{ stage: TestStage }>()
 export { onTestStageChanged }
 
 function setGlobalTestStage(stage: TestStage): void {
-  global.__factorio_testTestStage = stage
+  storage.__factorio_testTestStage = stage
   script.raise_event(onTestStageChanged, { stage })
 }
 

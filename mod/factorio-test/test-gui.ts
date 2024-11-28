@@ -30,7 +30,7 @@ interface TestGui {
   totalTests: number
 }
 
-declare const global: {
+declare const storage: {
   __testGui: TestGui
 }
 
@@ -122,7 +122,7 @@ function closeTestProgressGui(): void {
 
   const screen = player.gui.screen
   screen[Misc.TestGui]?.destroy()
-  global.__testGui = undefined!
+  storage.__testGui = undefined!
 }
 
 function createTestProgressGui(state: TestState): TestGui {
@@ -171,7 +171,7 @@ function createTestProgressGui(state: TestState): TestGui {
   const closeButton = titleBar.add({
     type: "sprite-button",
     style: "frame_action_button",
-    sprite: "utility/close_white",
+    sprite: "utility/close",
     hovered_sprite: "utility/close_black",
     clicked_sprite: "utility/close_black",
     tooltip: ["gui.close"],
@@ -211,9 +211,9 @@ function createTestProgressGui(state: TestState): TestGui {
 }
 
 function getTestProgressGui() {
-  const gui = global.__testGui
+  const gui = storage.__testGui
   if (!gui?.mainFrame.valid) {
-    global.__testGui = undefined!
+    storage.__testGui = undefined!
     return undefined
   }
   return gui
@@ -234,7 +234,7 @@ function updateTestCounts(gui: TestGui, results: TestRunResults) {
 
 export const progressGuiListener: TestEventListener = (event, state) => {
   if (event.type === "testRunStarted") {
-    global.__testGui = createTestProgressGui(state)
+    storage.__testGui = createTestProgressGui(state)
     return
   }
   const gui = getTestProgressGui()
@@ -308,7 +308,7 @@ export const progressGuiListener: TestEventListener = (event, state) => {
 }
 
 export const progressGuiLogger: MessageHandler = (message) => {
-  const gui = global.__testGui
+  const gui = storage.__testGui
   if (!gui || !gui.progressBar.valid) return
   const textBox = gui.output.add({
     type: "text-box",

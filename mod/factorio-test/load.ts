@@ -8,6 +8,7 @@ import { createTestRunner, TestRunner } from "./runner"
 import { globals } from "./setup-globals"
 import { getTestState, onTestStageChanged, resetTestState } from "./state"
 import { addTestListener, clearTestListeners } from "./test-events"
+import { LuaBootstrap } from "factorio:runtime"
 import Config = FactorioTest.Config
 
 declare const ____originalRequire: typeof require
@@ -109,13 +110,12 @@ function doRunTests() {
 }
 
 const tappedHandlers: Record<defines.events, [((data: any) => void) | undefined, () => void]> = {}
-let onEventTapped = false
-const oldOnEvent = script.on_event
+const oldScript: LuaBootstrap = script
 
 function tapEvent(event: defines.events, func: () => void) {
   if (!tappedHandlers[event]) {
     tappedHandlers[event] = [script.get_event_handler(event), func]
-    oldOnEvent(event, (data) => {
+    oldScript.on_event(event, (data) => {
       const handlers = tappedHandlers[event]!
       handlers[0]?.(data)
       handlers[1]()
@@ -124,25 +124,29 @@ function tapEvent(event: defines.events, func: () => void) {
     tappedHandlers[event]![1] = func
   }
 
-  if (!onEventTapped) {
-    onEventTapped = true
-
-    script.on_event = (event: any, func: any) => {
-      const handler = tappedHandlers[event]
-      if (handler) {
-        handler[0] = func
-      } else {
-        oldOnEvent(event, func)
-      }
+  if (rawequal(script, oldScript)) {
+    const proxyScript = {
+      on_event(this: void, event: any, func: any) {
+        const handler = tappedHandlers[event]
+        if (handler) {
+          handler[0] = func
+        } else {
+          oldScript.on_event(event, func)
+        }
+      },
     }
+    setmetatable(proxyScript, {
+      __index: oldScript,
+      __newindex: oldScript,
+    })
+    ;(_G as any).script = proxyScript
   }
 }
 
 function revertTappedEvents() {
-  script.on_event = oldOnEvent
+  ;(_G as any).script = oldScript
   for (const [event, handler] of pairs(tappedHandlers)) {
     tappedHandlers[event] = undefined!
     script.on_event(event, handler[0])
   }
-  onEventTapped = false
 }

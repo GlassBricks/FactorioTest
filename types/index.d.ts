@@ -34,7 +34,7 @@ declare namespace FactorioTest {
     after_test_run?(): void
 
     sound_effects: boolean
-    
+
     load_luassert: boolean
   }
 
@@ -64,7 +64,7 @@ declare namespace FactorioTest {
   }
 
   /** @noSelf */
-  export interface TestBuilder<F extends (...args: any) => void = TestFn> {
+  export interface TestBuilder<F extends (this: void, ...args: any) => void = TestFn> {
     after_script_reload(func: F): TestBuilder<F>
     after_mod_reload(func: F): TestBuilder<F>
   }
@@ -73,7 +73,7 @@ declare namespace FactorioTest {
   interface DescribeBlockCreatorBase {
     (name: string, func: TestFn): void
 
-    each<const V extends readonly any[]>(values: readonly V[]): (name: string, func: (...values: MutableValues<V>) => void) => void
+    each<const V extends readonly any[]>(values: readonly V[]): (name: string, func: (this: void, ...values: MutableValues<V>) => void) => void
     each<const T>(values: readonly T[]): (name: string, func: (value: T) => void) => void
   }
 

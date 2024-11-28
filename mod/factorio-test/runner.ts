@@ -23,22 +23,21 @@ interface TestTasks {
   leaveDescribeBlock(block: DescribeBlock): void
   finishTestRun(): void
 }
-type Task =
-  | {
-      [K in keyof TestTasks]: TestTasks[K] extends () => void
-        ? {
-            task: K
-            data?: never
-            waitTicks?: number
-          }
-        : TestTasks[K] extends (arg: infer A) => void
-        ? {
-            task: K
-            data: A
-            waitTicks?: number
-          }
-        : never
-    }[keyof TestTasks]
+type Task = {
+  [K in keyof TestTasks]: TestTasks[K] extends () => void
+    ? {
+        task: K
+        data?: never
+        waitTicks?: number
+      }
+    : TestTasks[K] extends (arg: infer A) => void
+    ? {
+        task: K
+        data: A
+        waitTicks?: number
+      }
+    : never
+}[keyof TestTasks]
 
 type TestTaskRunner = {
   [K in keyof TestTasks]: TestTasks[K] extends (...args: infer T) => void ? (...args: T) => Task | undefined : never
@@ -48,7 +47,6 @@ export function createTestRunner(state: TestState): TestRunner {
   return new TestRunnerImpl(state)
 }
 
-// noinspection JSUnusedGlobalSymbols
 class TestRunnerImpl implements TestTaskRunner, TestRunner {
   constructor(private state: TestState) {}
   ticksToWait = 0
@@ -72,10 +70,9 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
   }
 
   private runTask(task: Task): Task | undefined {
-    const self = this as any
-    const nextTask = self[task.task](task.data)
+    const nextTask: Task | undefined = this[task.task](task.data as any)
     if (nextTask) {
-      this.ticksToWait = nextTask.waitTicks ?? 0
+      this.ticksToWait = nextTask.waitTicks || 0
     }
     return nextTask
   }

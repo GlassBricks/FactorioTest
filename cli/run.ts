@@ -7,6 +7,7 @@ import { spawn, spawnSync } from "child_process"
 import BufferLineSplitter from "./buffer-line-splitter.js"
 import chalk from "chalk"
 import type { Command } from "@commander-js/extra-typings"
+import * as process from "node:process"
 
 const thisCommand = (program as unknown as Command)
   .command("run")
@@ -248,11 +249,11 @@ async function runFactorioTests(factorioPath: string, dataDir: string) {
     }
   })
   await new Promise<void>((resolve, reject) => {
-    factorioProcess.on("exit", (code) => {
-      if (code === 0 || resultMessage !== undefined) {
+    factorioProcess.on("exit", (code, signal) => {
+      if (code === 0 && resultMessage !== undefined) {
         resolve()
       } else {
-        reject(new Error(`Factorio exited with code ${code}`))
+        reject(new Error(`Factorio exited with code ${code}, signal ${signal}`))
       }
     })
   })
@@ -283,12 +284,12 @@ function runProcess(inheritStdio: boolean, command: string, ...args: string[]) {
 }
 
 function factorioIsInPath(): boolean {
-    const result = spawnSync("factorio", ["--version"], { stdio: "ignore" })
-    return result.status === 0
+  const result = spawnSync("factorio", ["--version"], { stdio: "ignore" })
+  return result.status === 0
 }
 
 function autoDetectFactorioPath(): string {
-  if(factorioIsInPath()) {
+  if (factorioIsInPath()) {
     return "factorio"
   }
   let pathsToTry: string[]
