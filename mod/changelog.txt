@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 2.0.0
-Date: ????
+Date: 2024-11-29
   Changes:
     - Updated to Factorio 2.0!
     - Renamed `after_script_reload` and to `after_reload_script`, and `after_mod_reload` to `after_reload_mods`
