@@ -4,8 +4,8 @@ import { TestRunResults } from "./results"
 import { TestState } from "./state"
 import { TestEventListener } from "./test-events"
 import { countActiveTests } from "./tests"
-import ProgressGui = Locale.ProgressGui
 import {
+  ButtonGuiElement,
   FrameGuiElement,
   LabelGuiElement,
   LuaGuiElement,
@@ -16,6 +16,8 @@ import {
   SpriteButtonGuiElement,
   TableGuiElement,
 } from "factorio:runtime"
+import ProgressGui = Locale.ProgressGui
+import ConfigGui = Locale.ConfigGui
 
 interface TestGui {
   player: LuaPlayer
@@ -26,6 +28,7 @@ interface TestGui {
   progressLabel: LabelGuiElement
   testCounts: TableGuiElement
   output: ScrollPaneGuiElement
+  rerunButton: ButtonGuiElement
 
   totalTests: number
 }
@@ -109,6 +112,30 @@ function TestOutput(parent: LuaGuiElement): ScrollPaneGuiElement {
   return pane
 }
 
+function bottomButtonsBar(parent: LuaGuiElement) {
+  const flow = parent.add({
+    type: "flow",
+    direction: "horizontal",
+  })
+  const spacer = flow.add({
+    type: "empty-widget",
+  })
+  spacer.style.horizontally_stretchable = true
+
+  const rerunButton = flow.add({
+    type: "button",
+    caption: [ConfigGui.RerunTests],
+    tags: {
+      modName: "factorio-test",
+      on_gui_click: Misc.RunTests,
+    },
+    enabled: false,
+  })
+  return {
+    rerunButton,
+  }
+}
+
 function getPlayer(): LuaPlayer {
   // noinspection LoopStatementThatDoesntLoopJS
   for (const [, player] of pairs(game.players)) {
@@ -131,7 +158,6 @@ function createTestProgressGui(state: TestState): TestGui {
   const screen = player.gui.screen
   screen[Misc.TestGui]?.destroy()
 
-  const totalTests = countActiveTests(state.rootBlock, state)
   const mainFrame = screen.add<"frame">({
     type: "frame",
     name: Misc.TestGui,
@@ -166,7 +192,6 @@ function createTestProgressGui(state: TestState): TestGui {
     style.horizontally_stretchable = true
     style.height = 24
   }
-  // close button
 
   const closeButton = titleBar.add({
     type: "sprite-button",
@@ -183,7 +208,7 @@ function createTestProgressGui(state: TestState): TestGui {
     enabled: false,
   })
   // the on_click handler is handled by factorio-test mod, not the mod under test
-  // this is so factorio-test does not need to "hack" into another event handler
+  // this is so factorio-test does not need to "hack" into yet another event handler
 
   const contentFlow = mainFrame.add({
     type: "flow",
@@ -198,12 +223,13 @@ function createTestProgressGui(state: TestState): TestGui {
   const gui: TestGui = {
     player,
     mainFrame,
-    totalTests,
+    totalTests: countActiveTests(state.rootBlock, state),
     closeButton,
     statusText: StatusText(topFrame),
     ...ProgressBar(topFrame),
     testCounts: TestCount(topFrame),
     output: TestOutput(contentFlow),
+    ...bottomButtonsBar(contentFlow),
   }
 
   updateTestCounts(gui, state.results)
@@ -291,6 +317,7 @@ export const progressGuiListener: TestEventListener = (event, state) => {
 
       gui.statusText.caption = [statusLocale]
       gui.closeButton.enabled = true
+      gui.rerunButton.enabled = true
       break
     }
     case "loadError": {
@@ -307,26 +334,29 @@ export const progressGuiListener: TestEventListener = (event, state) => {
   }
 }
 
+const profilerLength = "(Duration: 0.082400ms)".length - "(<Profiler>)".length
 export const progressGuiLogger: MessageHandler = (message) => {
   const gui = storage.__testGui
   if (!gui || !gui.progressBar.valid) return
-  const textBox = gui.output.add({
+  const output = gui.output
+  const textBox = output.add({
     type: "text-box",
     style: Prototypes.TestOutputBoxStyle,
   })
   textBox.read_only = true
-  let newLineCount = 0
-  if (typeof message.richText === "string") {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    for (const [_] of string.gmatch(message.richText, "\n")) newLineCount++
-  } else {
-    for (const part of message.richText as readonly unknown[]) {
-      if (typeof part === "string") {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        for (const [_] of string.gmatch(part, "\n")) newLineCount++
-      }
+  textBox.word_wrap = true
+  let lines = 0
+  let isFirstLine = true
+  for (const line of message.plainText.split("\n")) {
+    const lineLength = line.length + (isFirstLine ? profilerLength : 0)
+    if (lineLength > 110) {
+      lines += math.ceil(lineLength / 105)
+    } else {
+      lines++
     }
+    isFirstLine = false
   }
-  textBox.style.height = (newLineCount + 1) * 20 + 10
+  textBox.style.height = 20 * lines
   textBox.caption = message.richText
+  output.scroll_to_bottom()
 }

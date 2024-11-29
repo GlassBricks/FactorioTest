@@ -1,5 +1,5 @@
 import * as modGui from "mod-gui"
-import { Locale, Prototypes, Remote, Settings, TestStage } from "../constants"
+import { Locale, Misc, Prototypes, Remote, Settings, TestStage } from "../constants"
 import { guiAction } from "./guiAction"
 import { postLoadAction } from "./post-load-action"
 import {
@@ -232,7 +232,7 @@ const callRunTests = postLoadAction("runTests", () => {
   updateConfigGui()
 })
 
-const RunTests = guiAction("startTests", () => {
+const RunTests = guiAction(Misc.RunTests, () => {
   game.reload_mods()
   game.auto_save("beforeTest")
   callRunTests()

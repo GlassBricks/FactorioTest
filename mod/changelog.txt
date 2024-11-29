@@ -5,6 +5,8 @@ Date: ????
     - Updated to Factorio 2.0!
     - Renamed `after_script_reload` and to `after_reload_script`, and `after_mod_reload` to `after_reload_mods`
       to match the corresponding functions on `game`.
+    - Added "rerun tests" button to bottom of in-game test gui.
+    - Improved gui text display.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.4
 Date: 2024-04-13

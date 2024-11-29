@@ -28,55 +28,6 @@ interface MessagePart {
   color?: MessageColor
 }
 
-const MAX_LINE_LENGTH = 118
-const PREFIX_LEN = "PASS ".length
-const SUFFIX_LEN = " (Duration: 0.082400ms)".length
-const INDENT_LEN = 8
-
-function formatTestPath(text: string): MessagePart {
-  const length = text.length
-
-  const result: string[] = []
-  let curStart = 1 // lua index
-  let curLineLen = PREFIX_LEN
-  while (length + SUFFIX_LEN - curStart + curLineLen > MAX_LINE_LENGTH) {
-    let breakPoint: number
-    {
-      const maxIndex = curStart + MAX_LINE_LENGTH - curLineLen
-      let index = curStart
-      while (true) {
-        // pretend there is a whitespace at the end
-        const nextIndex: number | undefined = string.find(text, "%s", index + 1)[0] ?? length + 1
-        if (nextIndex > maxIndex) {
-          if (index !== curStart) {
-            breakPoint = index
-          } else {
-            breakPoint = nextIndex
-          }
-          break
-        }
-        if (nextIndex === length + 1) {
-          breakPoint = nextIndex
-          break
-        }
-        index = nextIndex
-      }
-    }
-
-    result.push(string.sub(text, curStart, breakPoint - 1))
-    // skip whitespace
-    curStart = string.find(text, "%S", breakPoint + 1)[0] ?? length + 1
-    curLineLen = INDENT_LEN
-  }
-
-  if (curStart <= length) {
-    result.push(string.sub(text, curStart))
-  } else {
-    result.push("")
-  }
-  return { text: result.join("\n        ") }
-}
-
 function red(text: string): MessagePart {
   return {
     text,
@@ -250,7 +201,7 @@ export const logListener: TestEventListener = (event, state) => {
       if (state.config.log_passed_tests) {
         const { test } = event
         output(
-          m`${green("PASS")} ${formatTestPath(test.path)} (${test.profiler!}${
+          m`${green("PASS")} ${test.path} (${test.profiler!}${
             test.tags.has("after_reload_mods") || test.tags.has("after_reload_script") ? " after reload" : ""
           })`,
           test.source,
@@ -260,7 +211,7 @@ export const logListener: TestEventListener = (event, state) => {
     }
     case "testFailed": {
       const { test } = event
-      output(m`${red("FAIL")} ${formatTestPath(test.path)}`, test.source)
+      output(m`${red("FAIL")} ${test.path}`, test.source)
       for (const error of test.errors) {
         output(formatError(error))
       }
@@ -268,19 +219,19 @@ export const logListener: TestEventListener = (event, state) => {
     }
     case "testTodo": {
       const { test } = event
-      output(m`${purple("TODO")} ${formatTestPath(test.path)}`, test.source)
+      output(m`${purple("TODO")} ${test.path}`, test.source)
       break
     }
     case "testSkipped": {
       if (state.config.log_skipped_tests) {
         const { test } = event
-        output(m`${yellow("SKIP")} ${formatTestPath(test.path)}`, test.source)
+        output(m`${yellow("SKIP")} ${test.path}`, test.source)
       }
       break
     }
     case "describeBlockFailed": {
       const { block } = event
-      output(m`${red("ERROR")} ${formatTestPath(block.path)}`, block.source)
+      output(m`${red("ERROR")} ${block.path}`, block.source)
       for (const error of block.errors) {
         output(formatError(error))
       }
