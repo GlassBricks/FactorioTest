@@ -358,5 +358,4 @@ export const progressGuiLogger: MessageHandler = (message) => {
   }
   textBox.style.height = 20 * lines
   textBox.caption = message.richText
-  output.scroll_to_bottom()
 }
