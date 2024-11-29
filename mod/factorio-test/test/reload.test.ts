@@ -5,7 +5,7 @@ let someValue = "initial"
 
 test("reload", () => {
   someValue = "changed"
-}).after_mod_reload(() => {
+}).after_reload_mods(() => {
   assert.equal(getTestState().getTestStage(), TestStage.Running)
   assert.equal("initial", someValue)
 })

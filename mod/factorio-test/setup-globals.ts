@@ -85,8 +85,8 @@ function createTestBuilder<F extends () => void>(addPart: (func: F) => void, add
   }
 
   const result: TestBuilder<F> = {
-    after_script_reload: reloadFunc(() => game.reload_script(), "script", "after_script_reload"),
-    after_mod_reload: reloadFunc(() => game.reload_mods(), "mods", "after_mod_reload"),
+    after_reload_script: reloadFunc(() => game.reload_script(), "script", "after_reload_script"),
+    after_reload_mods: reloadFunc(() => game.reload_mods(), "mods", "after_reload_mods"),
   }
   return result
 }

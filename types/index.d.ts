@@ -65,15 +65,17 @@ declare namespace FactorioTest {
 
   /** @noSelf */
   export interface TestBuilder<F extends (this: void, ...args: any) => void = TestFn> {
-    after_script_reload(func: F): TestBuilder<F>
-    after_mod_reload(func: F): TestBuilder<F>
+    after_reload_script(func: F): TestBuilder<F>
+    after_reload_mods(func: F): TestBuilder<F>
   }
 
   /** @noSelf */
   interface DescribeBlockCreatorBase {
     (name: string, func: TestFn): void
 
-    each<const V extends readonly any[]>(values: readonly V[]): (name: string, func: (this: void, ...values: MutableValues<V>) => void) => void
+    each<const V extends readonly any[]>(
+      values: readonly V[],
+    ): (name: string, func: (this: void, ...values: MutableValues<V>) => void) => void
     each<const T>(values: readonly T[]): (name: string, func: (value: T) => void) => void
   }
 

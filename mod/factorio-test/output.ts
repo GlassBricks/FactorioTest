@@ -251,7 +251,7 @@ export const logListener: TestEventListener = (event, state) => {
         const { test } = event
         output(
           m`${green("PASS")} ${formatTestPath(test.path)} (${test.profiler!}${
-            test.tags.has("after_mod_reload") || test.tags.has("after_script_reload") ? " after reload" : ""
+            test.tags.has("after_reload_mods") || test.tags.has("after_reload_script") ? " after reload" : ""
           })`,
           test.source,
         )

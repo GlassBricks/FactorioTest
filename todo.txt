@@ -1,2 +1,1 @@
-Rename after_script_reload
 Add "restart" button

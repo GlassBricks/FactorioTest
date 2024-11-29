@@ -1123,18 +1123,18 @@ describe("tags", () => {
     assert.not_same([], mockTestState.rootBlock.errors)
   })
 
-  test("automatic after_mod_reload tag", () => {
+  test("automatic after_reload_mods tag", () => {
     tags("tag1")
-    test("foo", () => 0).after_mod_reload(() => 0)
+    test("foo", () => 0).after_reload_mods(() => 0)
     skipRun()
-    assert.same(util.list_to_map(["tag1", "after_mod_reload"]), getFirst().tags)
+    assert.same(util.list_to_map(["tag1", "after_reload_mods"]), getFirst().tags)
   })
 
-  test("automatic after_script_reload tag", () => {
+  test("automatic after_reload_script tag", () => {
     tags("tag1")
-    test("foo", () => 0).after_mod_reload(() => 0)
+    test("foo", () => 0).after_reload_mods(() => 0)
     skipRun()
-    assert.same(util.list_to_map(["tag1", "after_mod_reload"]), getFirst().tags)
+    assert.same(util.list_to_map(["tag1", "after_reload_mods"]), getFirst().tags)
   })
 
   test("tag whitelist", () => {
