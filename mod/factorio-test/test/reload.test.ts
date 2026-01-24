@@ -1,11 +1,12 @@
 import { TestStage } from "../../constants"
 import { getTestState } from "../state"
+import { assertEqual } from "./test-util"
 
 let someValue = "initial"
 
 test("reload", () => {
   someValue = "changed"
 }).after_reload_mods(() => {
-  assert.equal(getTestState().getTestStage(), TestStage.Running)
-  assert.equal("initial", someValue)
+  assertEqual(TestStage.Running, getTestState().getTestStage())
+  assertEqual("initial", someValue)
 })

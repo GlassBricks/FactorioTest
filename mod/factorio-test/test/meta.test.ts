@@ -7,8 +7,17 @@ import { _setTestState, getTestState, resetTestState, TestState } from "../state
 import { TestEvent } from "../test-events"
 import { DescribeBlock, Test } from "../tests"
 import { propagateTestMode } from "../setup-globals"
+import {
+  assertEqual,
+  assertNotNil,
+  assertDeepEquals,
+  assertNotDeepEquals,
+  assertMatches,
+  assertTrue,
+  assertFalse,
+  assertThrows,
+} from "./test-util"
 
-// simulated test environment
 let actions: unknown[] = []
 let events: TestEvent[] = []
 let mockTestState: TestState
@@ -87,12 +96,12 @@ describe("setup", () => {
       // noop
     })
     const result = runTestSync()
-    assert.not_nil(result)
-    assert.equal("Hello", result.name)
-    assert.matches("Hello", result.path)
-    assert.same(mockTestState.rootBlock, result.parent)
-    assert.equal(0, result.indexInParent)
-    assert.same([], result.errors)
+    assertNotNil(result)
+    assertEqual("Hello", result.name)
+    assertMatches(result.path, "Hello")
+    assertDeepEquals(mockTestState.rootBlock, result.parent)
+    assertEqual(0, result.indexInParent)
+    assertDeepEquals([], result.errors)
   })
 
   test("a describe block", () => {
@@ -102,16 +111,16 @@ describe("setup", () => {
       })
     })
     const result = runTestSync<DescribeBlock>()
-    assert.not_nil(result)
-    assert.equal("Block", result.name)
-    assert.matches("Block", result.path)
-    assert.same(mockTestState.rootBlock, result.parent)
-    assert.equal(0, result.indexInParent)
+    assertNotNil(result)
+    assertEqual("Block", result.name)
+    assertMatches(result.path, "Block")
+    assertDeepEquals(mockTestState.rootBlock, result.parent)
+    assertEqual(0, result.indexInParent)
 
-    assert.equal(1, result.children.length)
+    assertEqual(1, result.children.length)
     const child = result.children[0]!
-    assert.same(result, child.parent)
-    assert.matches("Block > Hello", child.path)
+    assertDeepEquals(result, child.parent)
+    assertMatches(child.path, "Block > Hello")
   })
 
   it("should run tests in order by default", () => {
@@ -125,7 +134,7 @@ describe("setup", () => {
     })
 
     runTestSync()
-    assert.same([1, 2], actions)
+    assertDeepEquals([1, 2], actions)
   })
 
   test("cannot nest tests", () => {
@@ -135,8 +144,8 @@ describe("setup", () => {
       })
     })
     const errors = runTestSync().errors
-    assert.are_equal(1, errors.length)
-    assert.matches("cannot be nested", errors[0])
+    assertEqual(1, errors.length)
+    assertMatches(errors[0]!, "cannot be nested")
   })
 
   test("cannot nest describe in test", () => {
@@ -146,8 +155,8 @@ describe("setup", () => {
       })
     })
     const errors = runTestSync().errors
-    assert.are_equal(1, errors.length)
-    assert.matches("cannot be nested", errors[0])
+    assertEqual(1, errors.length)
+    assertMatches(errors[0]!, "cannot be nested")
   })
 
   test("empty describe is error", () => {
@@ -155,7 +164,7 @@ describe("setup", () => {
       // nothing
     })
     const block = runTestSync<DescribeBlock>()
-    assert.not_same([], block.errors)
+    assertNotDeepEquals([], block.errors)
   })
 
   test("Failing describe does not report empty describe", () => {
@@ -163,8 +172,8 @@ describe("setup", () => {
       error("fail")
     })
     const block = runTestSync<DescribeBlock>()
-    assert.not_same([], block.errors)
-    assert.same(1, block.errors.length)
+    assertNotDeepEquals([], block.errors)
+    assertEqual(1, block.errors.length)
   })
 })
 
@@ -180,7 +189,7 @@ describe("hooks", () => {
       actions.push("test")
     })
     runTestSync()
-    assert.are.same(["beforeAll", "test", "afterAll"], actions)
+    assertDeepEquals(["beforeAll", "test", "afterAll"], actions)
   })
 
   test("beforeEach, afterEach", () => {
@@ -194,7 +203,7 @@ describe("hooks", () => {
       actions.push("test")
     })
     runTestSync()
-    assert.are_same(["beforeEach", "test", "afterEach"], actions)
+    assertDeepEquals(["beforeEach", "test", "afterEach"], actions)
   })
 
   test("nested", () => {
@@ -213,7 +222,7 @@ describe("hooks", () => {
       test("test2", () => actions.push("2 - test"))
     })
     runTestSync()
-    assert.are_same(
+    assertDeepEquals(
       [
         "1 - beforeAll",
         "1 - beforeEach",
@@ -235,7 +244,7 @@ describe("hooks", () => {
 
 test("passing test", () => {
   function foo(this: void) {
-    assert.are_equal(1, 1)
+    assertEqual(1, 1)
   }
 
   before_all(foo)
@@ -245,15 +254,10 @@ test("passing test", () => {
   test("pass", foo)
 
   const result = runTestSync()
-  assert.are_same([], result.errors)
-  // assert.are_equal("passed", mockTestState.results.tests[0].result)
+  assertDeepEquals([], result.errors)
 })
 
 describe("failing tests", () => {
-  // after_each(() => {
-  //   assert.are_equal("failed", mockTestState.results.tests[0].result)
-  // })
-
   const failMessage = "FAIL: 238472"
 
   function fail(this: void) {
@@ -263,8 +267,8 @@ describe("failing tests", () => {
   test("test", () => {
     test("fail", fail)
     const theTest = runTestSync()
-    assert.are_equal(1, theTest.errors.length)
-    assert.matches(failMessage, theTest.errors[0], undefined, true)
+    assertEqual(1, theTest.errors.length)
+    assertMatches(theTest.errors[0]!, failMessage)
   })
 
   test("beforeEach", () => {
@@ -273,8 +277,8 @@ describe("failing tests", () => {
       error("Should not run")
     })
     const theTest = runTestSync()
-    assert.are_equal(1, theTest.errors.length)
-    assert.matches(failMessage, theTest.errors[0], undefined, true)
+    assertEqual(1, theTest.errors.length)
+    assertMatches(theTest.errors[0]!, failMessage)
   })
 
   test("beforeAll", () => {
@@ -283,8 +287,8 @@ describe("failing tests", () => {
       error("Should not run")
     })
     const theTest = runTestSync()
-    assert.are_same([], theTest.errors)
-    assert.matches(failMessage, mockTestState.rootBlock.errors[0], undefined, true)
+    assertDeepEquals([], theTest.errors)
+    assertMatches(mockTestState.rootBlock.errors[0]!, failMessage)
   })
 
   test("afterEach", () => {
@@ -293,8 +297,8 @@ describe("failing tests", () => {
       error("first error")
     })
     const theTest = runTestSync()
-    assert.are_equal(2, theTest.errors.length)
-    assert.matches(failMessage, theTest.errors[1], undefined, true)
+    assertEqual(2, theTest.errors.length)
+    assertMatches(theTest.errors[1]!, failMessage)
   })
 
   test("afterAll", () => {
@@ -303,8 +307,8 @@ describe("failing tests", () => {
       error("first error")
     })
     const theTest = runTestSync()
-    assert.are_equal(1, theTest.errors.length)
-    assert.matches(failMessage, mockTestState.rootBlock.errors[0], undefined, true)
+    assertEqual(1, theTest.errors.length)
+    assertMatches(mockTestState.rootBlock.errors[0]!, failMessage)
   })
 
   test("failure in describe definition", () => {
@@ -316,8 +320,8 @@ describe("failing tests", () => {
       error("fail")
     })
     const block = runTestSync<DescribeBlock>()
-    assert.not_same([], block.errors)
-    assert.same([], block.children[0]!.errors)
+    assertNotDeepEquals([], block.errors)
+    assertDeepEquals([], block.children[0]!.errors)
   })
 
   test("Error stacktrace is clean", () => {
@@ -325,8 +329,7 @@ describe("failing tests", () => {
       error("oh no")
     })
     const t = runTestSync()
-    assert.equals(1, t.errors.length)
-    // 2 stack frames: the test function, error()
+    assertEqual(1, t.errors.length)
     const errorMsg = t.errors[0]!
     const frames = errorMsg.split("\n\t").length - 1
     if (frames !== 2) {
@@ -349,9 +352,8 @@ describe("skipped tests", () => {
       actions.push("run")
     })
     const first = runTestSync()
-    // assert.are_equal("skipped", mockTestState.results.tests[0].result)
-    assert.is_same([], first.errors)
-    assert.same([], actions, "no actions should be taken on skipped test")
+    assertDeepEquals([], first.errors)
+    assertDeepEquals([], actions, "no actions should be taken on skipped test")
   })
 
   test("skipped describe", () => {
@@ -362,17 +364,15 @@ describe("skipped tests", () => {
       })
     })
     const first = runTestSync<DescribeBlock>().children[0] as Test
-    // assert.are_equal("skipped", mockTestState.results.tests[0].result)
-    assert.is_same([], first.errors)
-    assert.same([], actions, "no actions should be taken on skipped test")
+    assertDeepEquals([], first.errors)
+    assertDeepEquals([], actions, "no actions should be taken on skipped test")
   })
 
   test("todo", () => {
     setupActionHooks()
     test.todo("skipped test")
     const first = runTestSync()
-    // assert.are_equal("todo", mockTestState.results.tests[0].result)
-    assert.is_same([], first.errors)
+    assertDeepEquals([], first.errors)
   })
 
   it("only skips skipped tests", () => {
@@ -383,7 +383,7 @@ describe("skipped tests", () => {
       actions.push("yes")
     })
     runTestSync()
-    assert.same(["yes"], actions)
+    assertDeepEquals(["yes"], actions)
   })
 })
 
@@ -396,8 +396,8 @@ describe("focused tests", () => {
       actions.push("no")
     })
     runTestSync()
-    assert.is_true(mockTestState.hasFocusedTests)
-    assert.same(["yes"], actions)
+    assertTrue(mockTestState.hasFocusedTests)
+    assertDeepEquals(["yes"], actions)
   })
 
   test("focused describe", () => {
@@ -412,8 +412,8 @@ describe("focused tests", () => {
       })
     })
     runTestSync()
-    assert.is_true(mockTestState.hasFocusedTests)
-    assert.same(["yes"], actions)
+    assertTrue(mockTestState.hasFocusedTests)
+    assertDeepEquals(["yes"], actions)
   })
 
   it("should still respect skip", () => {
@@ -431,8 +431,8 @@ describe("focused tests", () => {
       })
     })
     runTestSync()
-    assert.is_true(mockTestState.hasFocusedTests)
-    assert.same(["yes"], actions)
+    assertTrue(mockTestState.hasFocusedTests)
+    assertDeepEquals(["yes"], actions)
   })
 
   test("shallow nested focus", () => {
@@ -441,7 +441,7 @@ describe("focused tests", () => {
         actions.push("yes1")
       })
       test("", () => {
-        actions.push("no2") // behavior changed since v1.5
+        actions.push("no2")
       })
     })
     describe("should not run", () => {
@@ -450,7 +450,7 @@ describe("focused tests", () => {
       })
     })
     runTestSync()
-    assert.same(["yes1"], actions)
+    assertDeepEquals(["yes1"], actions)
   })
 
   test("skipped describes do not focus", () => {
@@ -463,8 +463,8 @@ describe("focused tests", () => {
       actions.push("yes")
     })
     runTestSync()
-    assert.is_false(mockTestState.hasFocusedTests, "should not have focused tests if skipped")
-    assert.same(["yes"], actions)
+    assertFalse(mockTestState.hasFocusedTests, "should not have focused tests if skipped")
+    assertDeepEquals(["yes"], actions)
   })
 })
 
@@ -476,7 +476,7 @@ describe("async tests", () => {
       done()
     })
     runTestSync()
-    assert.same(["hello"], actions)
+    assertDeepEquals(["hello"], actions)
   })
 
   describe("timeout", () => {
@@ -494,9 +494,9 @@ describe("async tests", () => {
         })
       })
       runTestAsync((test) => {
-        assert.is_false(failedToTimeOut, "Test failed to time out.")
-        assert.not_same([], test.errors)
-        assert.equal(30, tick)
+        assertFalse(failedToTimeOut, "Test failed to time out.")
+        assertNotDeepEquals([], test.errors)
+        assertEqual(30, tick)
       })
     })
 
@@ -506,22 +506,21 @@ describe("async tests", () => {
         done()
       })
       runTestAsync((test) => {
-        assert.not_same([], test.errors)
+        assertNotDeepEquals([], test.errors)
       })
     })
   })
 
   test("async and done can only used during test", () => {
-    // already in mock test env
-    assert.error(async)
-    assert.error(done)
+    assertThrows(async)
+    assertThrows(done)
   })
 
   test("done when not async fails", () => {
     test("should fail", () => {
       done()
     })
-    assert.not_same([], runTestSync().errors)
+    assertNotDeepEquals([], runTestSync().errors)
   })
 
   test("double async does not fail", () => {
@@ -530,7 +529,7 @@ describe("async tests", () => {
       async()
       done()
     })
-    assert.same([], runTestSync().errors)
+    assertDeepEquals([], runTestSync().errors)
   })
 
   test("double done does not fail", () => {
@@ -540,7 +539,7 @@ describe("async tests", () => {
       done()
     })
     runTestAsync((test) => {
-      assert.same([], test.errors)
+      assertDeepEquals([], test.errors)
     })
   })
 })
@@ -557,7 +556,7 @@ describe("on_tick", () => {
       })
     })
     runTestAsync(() => {
-      assert.same([1, 2], actions)
+      assertDeepEquals([1, 2], actions)
     })
   })
 
@@ -568,7 +567,7 @@ describe("on_tick", () => {
       })
     })
     runTestAsync((test) => {
-      assert.same(test.errors, [])
+      assertDeepEquals([], test.errors)
     })
   })
 
@@ -581,7 +580,7 @@ describe("on_tick", () => {
       done()
     })
     runTestAsync(() => {
-      assert.same([], actions)
+      assertDeepEquals([], actions)
     })
   })
 
@@ -594,8 +593,8 @@ describe("on_tick", () => {
       })
     })
     runTestAsync((item) => {
-      assert.same(["tick"], actions)
-      assert.equals(1, item.errors.length)
+      assertDeepEquals(["tick"], actions)
+      assertEqual(1, item.errors.length)
     })
   })
 
@@ -613,7 +612,7 @@ describe("on_tick", () => {
       })
     })
     runTestAsync(() => {
-      assert.same([1, 2, 1, 2], actions)
+      assertDeepEquals([1, 2, 1, 2], actions)
     })
   })
 
@@ -628,7 +627,7 @@ describe("on_tick", () => {
       })
     })
     runTestAsync(() => {
-      assert.same([1], actions)
+      assertDeepEquals([1], actions)
     })
   })
 
@@ -646,7 +645,7 @@ describe("on_tick", () => {
       })
     })
     runTestAsync(() => {
-      assert.same([1, 2], actions)
+      assertDeepEquals([1, 2], actions)
     })
   })
 
@@ -665,7 +664,7 @@ describe("on_tick", () => {
       })
     })
     runTestAsync(() => {
-      assert.same([3, 4], actions)
+      assertDeepEquals([3, 4], actions)
     })
   })
 })
@@ -684,7 +683,7 @@ describe("after_ticks", () => {
     })
 
     runTestAsync(() => {
-      assert.equal(5, tick)
+      assertEqual(5, tick!)
     })
   })
 
@@ -703,7 +702,7 @@ describe("after_ticks", () => {
     })
 
     runTestAsync(() => {
-      assert.equal(4, tick)
+      assertEqual(4, tick!)
     })
   })
 
@@ -714,7 +713,7 @@ describe("after_ticks", () => {
       })
     })
     runTestAsync((test) => {
-      assert.same([], test.errors)
+      assertDeepEquals([], test.errors)
     })
   })
 
@@ -727,7 +726,7 @@ describe("after_ticks", () => {
     })
 
     runTestAsync((test) => {
-      assert.not_same([], test.errors)
+      assertNotDeepEquals([], test.errors)
     })
   })
 
@@ -739,7 +738,7 @@ describe("after_ticks", () => {
       })
     })
     runTestAsync((test) => {
-      assert.not_same([], test.errors)
+      assertNotDeepEquals([], test.errors)
     })
   })
 })
@@ -762,8 +761,8 @@ describe("ticks between tests", () => {
       tick3 = game.tick
     })
     runTestAsync(() => {
-      assert.equals(2, tick2 - tick1)
-      assert.equals(2, tick3 - tick2)
+      assertEqual(2, tick2 - tick1)
+      assertEqual(2, tick3 - tick2)
     })
   })
 
@@ -800,10 +799,10 @@ describe("ticks between tests", () => {
     })
 
     runTestAsync(() => {
-      assert.equals(2, tick2 - tick1)
-      assert.equals(3, tick3 - tick2)
-      assert.equals(2, tick4 - tick3)
-      assert.equals(0, tick5 - tick4)
+      assertEqual(2, tick2 - tick1)
+      assertEqual(3, tick3 - tick2)
+      assertEqual(2, tick4 - tick3)
+      assertEqual(0, tick5 - tick4)
     })
   })
 
@@ -811,11 +810,11 @@ describe("ticks between tests", () => {
     test("1", () => 0)
     ticks_between_tests(2)
     test.skip("1", () => 0)
-    runTestSync() // gives error if not run in 1 tick
+    runTestSync()
   })
 
   it("does not accept negative value", () => {
-    assert.error(() => {
+    assertThrows(() => {
       ticks_between_tests(-1)
     })
   })
@@ -829,7 +828,7 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
       actions.push(value)
     })
     runTestSync()
-    assert.same(values, actions)
+    assertDeepEquals(values, actions)
   })
 
   test("many values", () => {
@@ -842,7 +841,7 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
       actions.push(values)
     })
     runTestSync()
-    assert.same(values, actions)
+    assertDeepEquals(values, actions)
   })
 
   test("number title format", () => {
@@ -856,9 +855,9 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
       actions.push(values)
     })
     runTestSync()
-    assert.same(values, actions)
+    assertDeepEquals(values, actions)
     const titles = mockTestState.rootBlock.children.map((x) => x.name)
-    assert.same(
+    assertDeepEquals(
       values.map((v) => string.format(title, ...v)),
       titles,
     )
@@ -869,7 +868,7 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
       // nothing
     })
     const item = runTestSync()
-    assert.equals('{prop = "value"}', item.name)
+    assertEqual('{prop = "value"}', item.name)
   })
 })
 
@@ -879,8 +878,6 @@ describe("reload state", () => {
     runner.tick()
   }
 
-  // would also check for uninitialized, but that requires too deep a level of meta
-
   test("Reload state lifecycle", () => {
     test("", () => {
       // empty
@@ -889,12 +886,12 @@ describe("reload state", () => {
     test("", () => {
       // empty
     })
-    assert.equal(TestStage.NotRun, mockTestState.getTestStage())
+    assertEqual(TestStage.NotRun, mockTestState.getTestStage())
     const runner = createTestRunner(mockTestState)
     runner.tick()
-    assert.equal(TestStage.Running, mockTestState.getTestStage())
+    assertEqual(TestStage.Running, mockTestState.getTestStage())
     runner.tick()
-    assert.equal(TestStage.Finished, mockTestState.getTestStage())
+    assertEqual(TestStage.Finished, mockTestState.getTestStage())
   })
 
   test("Cannot reload while testing", () => {
@@ -902,10 +899,10 @@ describe("reload state", () => {
       async()
     })
     reloadAndTick()
-    assert.same([], mockTestState.rootBlock.errors)
+    assertDeepEquals([], mockTestState.rootBlock.errors)
     reloadAndTick()
-    assert.not_same([], mockTestState.rootBlock.errors)
-    assert.equal(TestStage.LoadError, mockTestState.getTestStage())
+    assertNotDeepEquals([], mockTestState.rootBlock.errors)
+    assertEqual(TestStage.LoadError, mockTestState.getTestStage())
   })
 
   test("can reload after load error", () => {
@@ -914,9 +911,9 @@ describe("reload state", () => {
     })
     mockTestState.setTestStage(TestStage.LoadError)
     reloadAndTick()
-    assert.same([], mockTestState.rootBlock.errors)
-    assert.equal(TestStage.Finished, mockTestState.getTestStage())
-    assert.same(["test 1"], actions)
+    assertDeepEquals([], mockTestState.rootBlock.errors)
+    assertEqual(TestStage.Finished, mockTestState.getTestStage())
+    assertDeepEquals(["test 1"], actions)
   })
 })
 
@@ -930,7 +927,7 @@ describe("test events", () => {
     runTestSync()
     const expected: TestEvent["type"][] = [
       "testRunStarted",
-      "describeBlockEntered", // root
+      "describeBlockEntered",
       "describeBlockEntered",
       "testEntered",
       "testStarted",
@@ -939,7 +936,7 @@ describe("test events", () => {
       "describeBlockFinished",
       "testRunFinished",
     ]
-    assert.same(
+    assertDeepEquals(
       expected,
       events.map((x) => x.type),
     )
@@ -958,7 +955,7 @@ describe("test events", () => {
       "describeBlockFinished",
       "testRunFinished",
     ]
-    assert.same(
+    assertDeepEquals(
       expected,
       events.map((x) => x.type),
     )
@@ -976,7 +973,7 @@ describe("test events", () => {
       "describeBlockFinished",
       "testRunFinished",
     ]
-    assert.same(
+    assertDeepEquals(
       expected,
       events.map((x) => x.type),
     )
@@ -992,7 +989,7 @@ describe("test events", () => {
       "describeBlockFinished",
       "testRunFinished",
     ]
-    assert.same(
+    assertDeepEquals(
       expected,
       events.map((x) => x.type),
     )
@@ -1011,7 +1008,7 @@ describe("test events", () => {
       "describeBlockFinished",
       "testRunFinished",
     ]
-    assert.same(
+    assertDeepEquals(
       expected,
       events.map((x) => x.type),
     )
@@ -1035,7 +1032,7 @@ describe("test events", () => {
       "describeBlockFinished",
       "testRunFinished",
     ]
-    assert.same(
+    assertDeepEquals(
       expected,
       events.map((x) => x.type),
     )
@@ -1062,7 +1059,7 @@ describe("test events", () => {
       "describeBlockFinished",
       "testRunFinished",
     ]
-    assert.same(
+    assertDeepEquals(
       expected,
       events.map((x) => x.type),
     )
@@ -1085,7 +1082,7 @@ test("Test pattern", () => {
     })
   })
   runTestSync()
-  assert.are_same(["yes1", "yes2"], actions)
+  assertDeepEquals(["yes1", "yes2"], actions)
 })
 
 describe("tags", () => {
@@ -1095,7 +1092,7 @@ describe("tags", () => {
       // noop
     })
     const result = runTestSync<DescribeBlock>()
-    assert.same(util.list_to_map(["foo", "bar"]), result.tags)
+    assertDeepEquals(util.list_to_map(["foo", "bar"]), result.tags)
   })
 
   test("Can add tag to test", () => {
@@ -1103,8 +1100,8 @@ describe("tags", () => {
     test("Some test", () => 0)
     test("Some other test", () => 0)
     const result = runTestSync()
-    assert.same(util.list_to_map(["foo", "bar"]), result.tags)
-    assert.same([], mockTestState.rootBlock.children[1]!.tags)
+    assertDeepEquals(util.list_to_map(["foo", "bar"]), result.tags)
+    assertDeepEquals([], mockTestState.rootBlock.children[1]!.tags)
   })
 
   test("Lonely tag call is error", () => {
@@ -1112,7 +1109,7 @@ describe("tags", () => {
       tags("foo", "bar")
     })
     const block = runTestSync<DescribeBlock>()
-    assert.not_same([], block.errors)
+    assertNotDeepEquals([], block.errors)
   })
 
   test("double tag call is error", () => {
@@ -1120,21 +1117,21 @@ describe("tags", () => {
     tags("foo", "bar")
     test("some test", () => 0)
     runTestSync()
-    assert.not_same([], mockTestState.rootBlock.errors)
+    assertNotDeepEquals([], mockTestState.rootBlock.errors)
   })
 
   test("automatic after_reload_mods tag", () => {
     tags("tag1")
     test("foo", () => 0).after_reload_mods(() => 0)
     skipRun()
-    assert.same(util.list_to_map(["tag1", "after_reload_mods"]), getFirst().tags)
+    assertDeepEquals(util.list_to_map(["tag1", "after_reload_mods"]), getFirst().tags)
   })
 
   test("automatic after_reload_script tag", () => {
     tags("tag1")
     test("foo", () => 0).after_reload_mods(() => 0)
     skipRun()
-    assert.same(util.list_to_map(["tag1", "after_reload_mods"]), getFirst().tags)
+    assertDeepEquals(util.list_to_map(["tag1", "after_reload_mods"]), getFirst().tags)
   })
 
   test("tag whitelist", () => {
@@ -1156,7 +1153,7 @@ describe("tags", () => {
     })
     mockTestState.config = fillConfig({ tag_whitelist: ["yes"] })
     runTestSync()
-    assert.same(["yes1", "yes2"], actions)
+    assertDeepEquals(["yes1", "yes2"], actions)
   })
 
   test("tag blacklist", () => {
@@ -1179,7 +1176,7 @@ describe("tags", () => {
 
     mockTestState.config = fillConfig({ tag_blacklist: ["no"] })
     runTestSync()
-    assert.same(["yes"], actions)
+    assertDeepEquals(["yes"], actions)
   })
 
   test("tag whitelist and blacklist", () => {
@@ -1208,7 +1205,7 @@ describe("tags", () => {
 
     mockTestState.config = fillConfig({ tag_whitelist: ["yes"], tag_blacklist: ["no"] })
     runTestSync()
-    assert.same(["yes"], actions)
+    assertDeepEquals(["yes"], actions)
   })
 })
 
@@ -1218,9 +1215,9 @@ describe("rerun", () => {
       actions.push("foo")
     })
     runTestSync()
-    assert.same(["foo"], actions)
+    assertDeepEquals(["foo"], actions)
     runTestSync()
-    assert.same(["foo", "foo"], actions)
+    assertDeepEquals(["foo", "foo"], actions)
   })
 
   test("rerun resets test results", () => {
@@ -1228,9 +1225,9 @@ describe("rerun", () => {
       // noop
     })
     runTestSync()
-    assert.same(1, mockTestState.results?.passed)
+    assertEqual(1, mockTestState.results?.passed)
     runTestSync()
-    assert.same(1, mockTestState.results?.passed)
+    assertEqual(1, mockTestState.results?.passed)
   })
 
   test("rerun blacklists tests with no_rerun tag", () => {
@@ -1249,9 +1246,9 @@ describe("rerun", () => {
     mockTestState.config = fillConfig({ tag_blacklist: ["no"] })
 
     runTestSync()
-    assert.same(["run both", "run one"], actions)
+    assertDeepEquals(["run both", "run one"], actions)
     runTestSync()
-    assert.same(["run both", "run one", "run both"], actions)
+    assertDeepEquals(["run both", "run one", "run both"], actions)
   })
 })
 
@@ -1264,7 +1261,7 @@ describe("after_test", () => {
       actions.push("foo")
     })
     runTestSync()
-    assert.same(["foo", "after_foo"], actions)
+    assertDeepEquals(["foo", "after_foo"], actions)
   })
 
   test("called even if test failed", () => {
@@ -1275,7 +1272,7 @@ describe("after_test", () => {
       error("oh no")
     })
     runTestSync()
-    assert.same(["after_foo"], actions)
+    assertDeepEquals(["after_foo"], actions)
   })
 
   test("called in async", () => {
@@ -1289,7 +1286,7 @@ describe("after_test", () => {
       })
     })
     runTestAsync(() => {
-      assert.same(["foo", "foo", "after_foo"], actions)
+      assertDeepEquals(["foo", "foo", "after_foo"], actions)
     })
   })
 
@@ -1304,14 +1301,10 @@ describe("after_test", () => {
       actions.push("foo")
     })
     runTestSync()
-    assert.same(["foo", "after_foo", "after_foo2"], actions)
+    assertDeepEquals(["foo", "after_foo", "after_foo2"], actions)
   })
 })
 
 test("a test with a really, really, incredibly long name such that it might extend pass the length of the output window, and this text needs to be even longer for that to happen", () => {
-  assert.True(true)
+  assertTrue(true)
 })
-
-// test("fail", () => {
-//   assert.True(false)
-// })

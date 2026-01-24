@@ -1,15 +1,15 @@
 test("Pass", () => {
-  assert.are_equal(2, 2)
+  assert(2 === 2, "2 should equal 2")
 })
 test.skip("Skip", () => {
   error("Uh oh")
 })
 test.todo("TODO")
 test.each([1, 2])("each %d", (v) => {
-  assert.are_equal(1, v) // meant to fail on the second time
+  assert(1 === v, `expected 1, got ${v}`)
 })
 test("In world", () => {
-  assert.is_true(game.surfaces[1].count_entities_filtered({}) > 0)
+  assert(game.surfaces[1]!.count_entities_filtered({}) > 0, "expected entities in world")
 })
 
 describe("fail in describe block", () => {
@@ -21,6 +21,6 @@ describe("Failing after_all hook", () => {
     error("Oh no")
   })
   test("Pass", () => {
-    assert.are_equal(2, 2)
+    assert(2 === 2, "2 should equal 2")
   })
 })

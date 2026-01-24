@@ -125,9 +125,6 @@ dist
 **/*.lua
 !**/*.def.lua
 
-mod/luassert
-mod/say-LICENSE
-
 factorio-test-data-dir/
 
 cli/*.js

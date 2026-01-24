@@ -117,10 +117,6 @@ The state machine in `runner.ts` handles these via a task queue that processes w
 **Reload/Resume Mechanism:**
 Tests can trigger mod or script reloads mid-test. The framework saves test state to `global` before reload, then resumes from the saved state after reload completes. This allows testing migration code and mod compatibility.
 
-### luassert Integration
-
-The framework bundles the luassert library but prefixes all symbols with `__factorio-test__` to avoid conflicts with other mods. The `scripts/copy-luassert.ts` script handles this transformation.
-
 ### Test Framework Features
 
 - BDD-style syntax: `describe()`, `test()`, `it()`

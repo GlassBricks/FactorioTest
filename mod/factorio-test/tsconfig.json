@@ -5,7 +5,6 @@
     "moduleResolution": "node",
     "types": [
       "typed-factorio/runtime",
-      "luassert-tstl",
       "factorio-test"
     ],
     "lib": [

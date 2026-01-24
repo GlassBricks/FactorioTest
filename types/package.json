@@ -9,8 +9,5 @@
   ],
   "peerDependencies": {
     "typed-factorio": ">=1.14.0"
-  },
-  "optionalDependencies": {
-    "luassert-tstl": ">=0.2.3"
   }
 }

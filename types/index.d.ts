@@ -34,8 +34,6 @@ declare namespace FactorioTest {
     after_test_run?(): void
 
     sound_effects: boolean
-
-    load_luassert: boolean
   }
 
   type TestFn = () => void

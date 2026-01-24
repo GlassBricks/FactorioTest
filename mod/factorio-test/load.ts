@@ -42,11 +42,6 @@ export = function (files: string[], config: Partial<Config>): void {
 function loadTests(files: string[], partialConfig: Partial<Config>): void {
   const config = fillConfig(partialConfig)
 
-  if (config.load_luassert) {
-    debug.getmetatable = getmetatable
-    require("@NoResolution:__factorio-test__/luassert/init")
-  }
-
   // load globals
   const defineGlobal = __DebugAdapter?.defineGlobal
   if (defineGlobal) {

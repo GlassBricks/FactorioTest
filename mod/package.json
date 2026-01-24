@@ -5,15 +5,13 @@
     "concurrently": "^9.2.1",
     "del-cli": "^6.0.0",
     "lua-types": "^2.13.1",
-    "luassert-tstl": "^0.3.0",
     "tsx": "^4.21.0",
     "typed-factorio": "^3.33.0",
     "typescript": "^5.9.3",
     "typescript-to-lua": "^1.33.2"
   },
   "scripts": {
-    "clean": "del-cli \"**/*.lua\" \"!**/*.def.lua\" \"!**/*.k.lua\" \"!**/{scenarios,node_modules}/**\" \"!{luassert,say}/**\"",
-    "build:copy-luassert": "tsx ../scripts/copy-luassert.ts",
+    "clean": "del-cli \"**/*.lua\" \"!**/*.def.lua\" \"!**/*.k.lua\" \"!**/{scenarios,node_modules}/**\"",
     "build:mod-runtime": "tstl -p tsconfig.json",
     "build:factorio-test-meta-test": "tstl -p factorio-test/tsconfig.json",
     "build:factorio-test-release": "tstl -p factorio-test/tsconfig-release.json",

@@ -3,7 +3,7 @@
     "target": "esnext",
     "module": "none",
     "moduleResolution": "node",
-    "types": ["typed-factorio/runtime", "luassert-tstl"],
+    "types": ["typed-factorio/runtime"],
     "strict": true,
     "experimentalDecorators": true,
     "rootDir": "."
