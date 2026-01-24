@@ -35,6 +35,7 @@ export = function (files: string[], config: Partial<Config>): void {
     },
     onTestStageChanged: () => onTestStageChanged,
     getResults: () => getTestState().results,
+    getConfig: () => getTestState().config,
   })
   tapEvent(defines.events.on_tick, tryContinueTests)
 }

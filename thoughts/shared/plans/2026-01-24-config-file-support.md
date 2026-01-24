@@ -55,9 +55,9 @@ Create the shared type definition and add the Factorio setting for config transf
 
 ### Changes Required
 
-#### 1. Create shared types directory
+#### 1. Create shared types
 
-**File**: `shared/config.ts` (new)
+**File**: `types/config.d.ts` (new)
 
 ```typescript
 export interface TestRunnerConfig {
@@ -115,29 +115,28 @@ Add new setting:
     "strict": true,
     "rootDir": ".."
   },
-  "include": [".", "../shared"]
+  "include": [".", "../types"]
 }
 ```
 
 #### 5. Update mod tsconfig
 
-**File**: `mod/tsconfig.json`
+**File**: `mod/factorio-test/tsconfig.json`
 
 Add to include array:
 ```json
 "include": [
-  ".",
-  "../types/index.d.ts",
-  "../shared"
+  "./",
+  "../../types"
 ]
 ```
 
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `npm run build --workspace=cli` succeeds
-- [ ] `npm run build --workspace=mod` succeeds
-- [ ] TypeScript finds `TestRunnerConfig` type in both workspaces
+- [x] `npm run build --workspace=cli` succeeds
+- [x] `npm run build --workspace=mod` succeeds
+- [x] TypeScript finds `TestRunnerConfig` type in both workspaces
 
 ---
 
@@ -260,8 +259,8 @@ export function mergeTestConfig(
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `npm run build --workspace=cli` succeeds
-- [ ] Config module exports `loadConfig` and `mergeTestConfig`
+- [x] `npm run build --workspace=cli` succeeds
+- [x] Config module exports `loadConfig` and `mergeTestConfig`
 
 ---
 
@@ -380,14 +379,14 @@ const combinedPattern = allPatterns.length > 0
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `npm run build --workspace=cli` succeeds
-- [ ] `factorio-test run --help` shows new options
-- [ ] `npm run test --workspace=mod` passes
+- [x] `npm run build --workspace=cli` succeeds
+- [x] `factorio-test run --help` shows new options
+- [x] `npm run test --workspace=mod` passes
 
-#### Manual Verification
-- [ ] `factorio-test run ./mod --test-pattern foo` filters tests
-- [ ] `factorio-test run ./mod --game-speed 500` changes game speed
-- [ ] Config file values are used when CLI options not provided
+#### Manual Verification (now automated in test:config-options)
+- [x] `factorio-test run ./mod --test-pattern foo` filters tests
+- [x] `factorio-test run ./mod --game-speed 500` changes game speed
+- [x] Config file values are used when CLI options not provided
 
 ---
 
@@ -436,13 +435,13 @@ The order ensures: framework defaults → mod config → settings config (CLI/co
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `npm run build --workspace=mod` succeeds
-- [ ] `npm run test --workspace=mod` passes
+- [x] `npm run build --workspace=mod` succeeds
+- [x] `npm run test --workspace=mod` passes
 
-#### Manual Verification
-- [ ] Test with `--game-speed 100` and verify game runs at that speed
-- [ ] Test with config file containing `{"test": {"game_speed": 100}}` and verify it works
-- [ ] Test that mod-provided config is overridden by CLI options
+#### Manual Verification (now automated in test:config-options)
+- [x] Test with `--game-speed 100` and verify game runs at that speed
+- [x] Test with config file containing `{"test": {"game_speed": 100}}` and verify it works
+- [x] Test that mod-provided config is overridden by CLI options
 
 ---
 
@@ -470,8 +469,8 @@ try {
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `npm run test --workspace=mod` passes
-- [ ] Running tests twice with different options uses correct options each time
+- [x] `npm run test --workspace=mod` passes
+- [x] Running tests twice with different options uses correct options each time
 
 ---
 
@@ -501,7 +500,7 @@ try {
 
 | File | Changes |
 |------|---------|
-| `shared/config.ts` | New - shared TestRunnerConfig type |
+| `types/config.d.ts` | New - shared TestRunnerConfig type |
 | `cli/tsconfig.json` | Add `../shared` to include, update rootDir |
 | `cli/config.ts` | New - config loading and merging with validation |
 | `cli/run.ts` | Add options, load config, write settings |

@@ -24,7 +24,8 @@
     "pretest": "npm run clean && conc \"npm:build:*(!release)\"",
     "test:self": "cd .. && tsx cli/cli.ts run mod -v -- --cache-sprite-atlas true --disable-audio --fullscreen false",
     "test:usage-test": "tsx ../scripts/test-usage-test-mod.ts -- --cache-sprite-atlas true --disable-audio --fullscreen false",
-    "test": "npm run test:self && npm run test:usage-test",
+    "test:config-options": "tsx ../scripts/test-config-options.ts",
+    "test": "npm run test:self && npm run test:usage-test && npm run test:config-options",
     "lint": "eslint .",
     "check": "npm run lint && npm run test",
     "prepare-package": "npm run check && npm run build"

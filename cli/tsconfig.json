@@ -5,7 +5,7 @@
     "moduleResolution": "Node",
     "skipLibCheck": true,
     "strict": true,
-    "rootDir": "."
+    "rootDir": ".."
   },
-  "include": ["."],
+  "include": [".", "../types"]
 }

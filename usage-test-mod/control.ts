@@ -6,6 +6,15 @@ if ("factorio-test" in script.active_mods) {
     sound_effects: true,
     after_test_run() {
       const results = remote.call("factorio-test", "getResults") as any
+      const config = remote.call("factorio-test", "getConfig") as FactorioTest.Config
+
+      print("FACTORIO-TEST-MESSAGE-START")
+      log(`CONFIG:game_speed=${config.game_speed}`)
+      log(`CONFIG:default_timeout=${config.default_timeout}`)
+      if (config.test_pattern) {
+        log(`CONFIG:test_pattern=${config.test_pattern}`)
+      }
+
       const expected = {
         failed: 1,
         passed: 5,
@@ -21,8 +30,7 @@ if ("factorio-test" in script.active_mods) {
           break
         }
       }
-      print("FACTORIO-TEST-MESSAGE-START")
-      if(match) {
+      if (match) {
         log("Usage test mod result: passed")
       } else {
         log("Usage test mod result: failed")

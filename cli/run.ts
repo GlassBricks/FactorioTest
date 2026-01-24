@@ -8,6 +8,7 @@ import BufferLineSplitter from "./buffer-line-splitter.js"
 import chalk from "chalk"
 import type { Command } from "@commander-js/extra-typings"
 import * as process from "node:process"
+import { loadConfig, mergeTestConfig } from "./config.js"
 
 const thisCommand = (program as unknown as Command)
   .command("run")
@@ -17,6 +18,7 @@ const thisCommand = (program as unknown as Command)
     "[mod-path]",
     "The path to the mod (folder containing info.json). A symlink will be created in the mods folder to this folder. Either this or --mod-name must be specified.",
   )
+  .argument("[patterns...]", "Test patterns to filter (OR logic)")
   .option(
     "--mod-name <name>",
     "The name of the mod to test. To use this option, the mod must already be present in the mods directory (see --data-directory). Either this or [mod-path] must be specified.",
@@ -37,20 +39,56 @@ const thisCommand = (program as unknown as Command)
   )
   .option("--show-output", "Print test output to stdout.", true)
   .option("-v --verbose", "Enables more logging, and pipes the Factorio process output to stdout.")
+  .option("--config <path>", "Path to config file")
+  .option("--test-pattern <pattern>", "Pattern to filter tests")
+  .option("--tag-whitelist <tags...>", "Only run tests with these tags")
+  .option("--tag-blacklist <tags...>", "Skip tests with these tags")
+  .option("--default-timeout <ticks>", "Default test timeout in ticks", parseInt)
+  .option("--game-speed <speed>", "Game speed multiplier", parseInt)
+  .option("--log-passed-tests", "Log passed test names")
+  .option("--no-log-passed-tests", "Don't log passed test names")
+  .option("--log-skipped-tests", "Log skipped test names")
   .addHelpText("after", 'Arguments after "--" are passed to the Factorio process.')
   .addHelpText("after", 'Suggested factorio arguments: "--cache-sprite-atlas", "--disable-audio"')
-  .action((modPath, options) => runTests(modPath, options))
+  .action((modPath, patterns, options) => {
+    const actualPatterns: string[] = []
+    for (const p of patterns) {
+      if (p.startsWith("-")) break
+      actualPatterns.push(p)
+    }
+    runTests(modPath, actualPatterns, options)
+  })
 
 async function runTests(
   modPath: string | undefined,
+  patterns: string[],
   options: {
+    config?: string
     factorioPath?: string
     modName?: string
     dataDirectory: string
     verbose?: true
+    showOutput?: boolean
     mods?: string[]
+    testPattern?: string
+    tagWhitelist?: string[]
+    tagBlacklist?: string[]
+    defaultTimeout?: number
+    gameSpeed?: number
+    logPassedTests?: boolean
+    logSkippedTests?: boolean
   },
 ) {
+  const fileConfig = loadConfig(options.config)
+
+  modPath ??= fileConfig.modPath
+  options.modName ??= fileConfig.modName
+  options.factorioPath ??= fileConfig.factorioPath
+  options.dataDirectory ??= fileConfig.dataDirectory ?? "./factorio-test-data-dir"
+  options.mods ??= fileConfig.mods
+  options.verbose ??= fileConfig.verbose as true | undefined
+  options.showOutput ??= fileConfig.showOutput ?? true
+
   if (modPath !== undefined && options.modName !== undefined) {
     throw new Error("Only one of --mod-path or --mod-name can be specified.")
   }
@@ -77,12 +115,35 @@ async function runTests(
   await ensureConfigIni(dataDir)
   await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest)
 
+  const allPatterns = [fileConfig.test?.test_pattern, options.testPattern, ...patterns].filter(Boolean) as string[]
+  const combinedPattern = allPatterns.length > 0 ? allPatterns.map((p) => `(${p})`).join("|") : undefined
+
+  const testConfig = mergeTestConfig(fileConfig.test, {
+    test_pattern: combinedPattern,
+    tag_whitelist: options.tagWhitelist,
+    tag_blacklist: options.tagBlacklist,
+    default_timeout: options.defaultTimeout,
+    game_speed: options.gameSpeed,
+    log_passed_tests: options.logPassedTests,
+    log_skipped_tests: options.logSkippedTests,
+  })
+
+  if (Object.keys(testConfig).length > 0) {
+    await runScript(
+      "fmtk settings set runtime-global factorio-test-config",
+      `'${JSON.stringify(testConfig)}'`,
+      "--modsPath",
+      modsDir,
+    )
+  }
+
   let resultMessage: string | undefined
   try {
-    resultMessage = await runFactorioTests(factorioPath, dataDir)
+    resultMessage = await runFactorioTests(factorioPath, dataDir, options.verbose, options.showOutput)
   } finally {
     if (options.verbose) console.log("Disabling auto-start settings")
     await runScript("fmtk settings set startup factorio-test-auto-start false", "--modsPath", modsDir)
+    await runScript("fmtk settings set runtime-global factorio-test-config", "{}", "--modsPath", modsDir)
   }
   if (resultMessage) {
     const color =
@@ -115,8 +176,6 @@ async function configureModPath(modPath: string, modsDir: string) {
   if (typeof modName !== "string") {
     throw new Error(`info.json file at ${infoJsonFile} does not contain a string property "name".`)
   }
-  // make symlink modsDir/modName -> modPath
-  // delete if exists
   const resultPath = path.join(modsDir, modName)
   const stat = await fsp.stat(resultPath).catch(() => undefined)
   if (stat) await fsp.rm(resultPath, { recursive: true })
@@ -127,7 +186,6 @@ async function configureModPath(modPath: string, modsDir: string) {
 }
 
 async function configureModName(modsDir: string, modName: string) {
-  // check if modName is in modsDir
   const alreadyExists = await checkModExists(modsDir, modName)
   if (!alreadyExists) {
     throw new Error(`Mod ${modName} not found in ${modsDir}.`)
@@ -155,7 +213,6 @@ async function installFactorioTest(modsDir: string) {
 
   const testModName = "factorio-test"
 
-  // if not found, install it
   const alreadyExists = await checkModExists(modsDir, testModName)
   if (!alreadyExists) {
     console.log(`Downloading ${testModName} from mod portal using fmtk. This may ask for factorio login credentials.`)
@@ -181,7 +238,6 @@ locale=
 `,
     )
   } else {
-    // edit "^write-data=.*" to be dataDir
     const content = await fsp.readFile(filePath, "utf8")
     const newContent = content.replace(/^write-data=.*$/m, `write-data=${dataDir}`)
     if (content !== newContent) {
@@ -191,11 +247,9 @@ locale=
 }
 
 async function setSettingsForAutorun(factorioPath: string, dataDir: string, modsDir: string, modToTest: string) {
-  // touch modsDir/mod-settings.dat
   const settingsDat = path.join(modsDir, "mod-settings.dat")
   if (!fs.existsSync(settingsDat)) {
     if (thisCommand.opts().verbose) console.log("Creating mod-settings.dat file by running factorio")
-    // run factorio once to create it
     const dummySaveFile = path.join(dataDir, "____dummy_save_file.zip")
     await runProcess(
       false,
@@ -217,7 +271,12 @@ async function setSettingsForAutorun(factorioPath: string, dataDir: string, mods
   await runScript("fmtk settings set runtime-global factorio-test-mod-to-test", modToTest, "--modsPath", modsDir)
 }
 
-async function runFactorioTests(factorioPath: string, dataDir: string) {
+async function runFactorioTests(
+  factorioPath: string,
+  dataDir: string,
+  verbose: boolean | undefined,
+  showOutput: boolean | undefined,
+) {
   const args = process.argv
   const index = args.indexOf("--")
   const additionalArgs = index >= 0 ? args.slice(index + 1) : []
@@ -239,9 +298,6 @@ async function runFactorioTests(factorioPath: string, dataDir: string) {
     stdio: ["inherit", "pipe", "inherit"],
   })
 
-  const verbose = thisCommand.opts().verbose
-  const showOutput = thisCommand.opts().showOutput
-
   let resultMessage: string | undefined = undefined
   let isMessage = false
   let isMessageFirstLine = true
@@ -261,7 +317,6 @@ async function runFactorioTests(factorioPath: string, dataDir: string) {
         console.log(line.slice(line.indexOf(": ") + 2))
         isMessageFirstLine = false
       } else {
-        // print line with tab
         console.log("    " + line)
       }
     }
@@ -284,7 +339,6 @@ function runScript(...command: string[]) {
 
 function runProcess(inheritStdio: boolean, command: string, ...args: string[]) {
   if (thisCommand.opts().verbose) console.log("Running:", command, ...args)
-  // run another npx command
   const process = spawn(command, args, {
     stdio: inheritStdio ? "inherit" : "ignore",
     shell: true,
@@ -311,7 +365,6 @@ function autoDetectFactorioPath(): string {
     return "factorio"
   }
   let pathsToTry: string[]
-  // check if is linux
   if (os.platform() === "linux" || os.platform() === "darwin") {
     pathsToTry = [
       "~/.local/share/Steam/steamapps/common/Factorio/bin/x64/factorio",

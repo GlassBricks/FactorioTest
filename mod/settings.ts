@@ -19,4 +19,13 @@ data.extend([
     default_value: false,
     order: "b",
   },
+  {
+    type: "string-setting",
+    setting_type: "runtime-global",
+    name: Settings.Config,
+    default_value: "{}",
+    allow_blank: true,
+    hidden: true,
+    order: "c",
+  },
 ])

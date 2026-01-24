@@ -11,6 +11,7 @@ export const enum Prototypes {
 export const enum Settings {
   ModToTest = "factorio-test-mod-to-test",
   AutoStart = "factorio-test-auto-start",
+  Config = "factorio-test-config",
 }
 
 export namespace Locale {
