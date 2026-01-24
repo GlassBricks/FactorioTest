@@ -1,14 +1,15 @@
 import { program } from "commander"
-import * as os from "os"
 import * as fsp from "fs/promises"
-import * as fs from "fs"
 import * as path from "path"
-import { spawn, spawnSync } from "child_process"
-import BufferLineSplitter from "./buffer-line-splitter.js"
 import chalk from "chalk"
 import type { Command } from "@commander-js/extra-typings"
 import * as process from "node:process"
 import { loadConfig, mergeTestConfig } from "./config.js"
+import { registerTestRunnerOptions, parseCliTestOptions } from "./schema.js"
+import { setVerbose, runScript } from "./process-utils.js"
+import { autoDetectFactorioPath } from "./factorio-detect.js"
+import { configureModToTest, installFactorioTest, ensureConfigIni, setSettingsForAutorun } from "./mod-setup.js"
+import { runFactorioTests } from "./factorio-process.js"
 
 const thisCommand = (program as unknown as Command)
   .command("run")
@@ -40,14 +41,10 @@ const thisCommand = (program as unknown as Command)
   .option("--show-output", "Print test output to stdout.", true)
   .option("-v --verbose", "Enables more logging, and pipes the Factorio process output to stdout.")
   .option("--config <path>", "Path to config file")
-  .option("--test-pattern <pattern>", "Pattern to filter tests")
-  .option("--tag-whitelist <tags...>", "Only run tests with these tags")
-  .option("--tag-blacklist <tags...>", "Skip tests with these tags")
-  .option("--default-timeout <ticks>", "Default test timeout in ticks", parseInt)
-  .option("--game-speed <speed>", "Game speed multiplier", parseInt)
-  .option("--log-passed-tests", "Log passed test names")
-  .option("--no-log-passed-tests", "Don't log passed test names")
-  .option("--log-skipped-tests", "Log skipped test names")
+
+registerTestRunnerOptions(thisCommand)
+
+thisCommand
   .addHelpText("after", 'Arguments after "--" are passed to the Factorio process.')
   .addHelpText("after", 'Suggested factorio arguments: "--cache-sprite-atlas", "--disable-audio"')
   .action((modPath, patterns, options) => {
@@ -89,6 +86,8 @@ async function runTests(
   options.verbose ??= fileConfig.verbose as true | undefined
   options.showOutput ??= fileConfig.showOutput ?? true
 
+  setVerbose(!!options.verbose)
+
   if (modPath !== undefined && options.modName !== undefined) {
     throw new Error("Only one of --mod-path or --mod-name can be specified.")
   }
@@ -101,7 +100,7 @@ async function runTests(
   const modsDir = path.join(dataDir, "mods")
   await fsp.mkdir(modsDir, { recursive: true })
 
-  const modToTest = await configureModToTest(modsDir, modPath, options.modName)
+  const modToTest = await configureModToTest(modsDir, modPath, options.modName, options.verbose)
   await installFactorioTest(modsDir)
 
   const enableModsOptions = [
@@ -113,19 +112,15 @@ async function runTests(
   if (options.verbose) console.log("Adjusting mods")
   await runScript("fmtk mods adjust", "--modsPath", modsDir, "--disableExtra", ...enableModsOptions)
   await ensureConfigIni(dataDir)
-  await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest)
+  await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest, options.verbose)
 
-  const allPatterns = [fileConfig.test?.test_pattern, options.testPattern, ...patterns].filter(Boolean) as string[]
+  const cliTestOptions = parseCliTestOptions(options)
+  const allPatterns = [fileConfig.test?.test_pattern, cliTestOptions.test_pattern, ...patterns].filter(Boolean) as string[]
   const combinedPattern = allPatterns.length > 0 ? allPatterns.map((p) => `(${p})`).join("|") : undefined
 
   const testConfig = mergeTestConfig(fileConfig.test, {
+    ...cliTestOptions,
     test_pattern: combinedPattern,
-    tag_whitelist: options.tagWhitelist,
-    tag_blacklist: options.tagBlacklist,
-    default_timeout: options.defaultTimeout,
-    game_speed: options.gameSpeed,
-    log_passed_tests: options.logPassedTests,
-    log_skipped_tests: options.logSkippedTests,
   })
 
   if (Object.keys(testConfig).length > 0) {
@@ -137,9 +132,16 @@ async function runTests(
     )
   }
 
+  const args = process.argv
+  const index = args.indexOf("--")
+  const additionalArgs = index >= 0 ? args.slice(index + 1) : []
+
   let resultMessage: string | undefined
   try {
-    resultMessage = await runFactorioTests(factorioPath, dataDir, options.verbose, options.showOutput)
+    resultMessage = await runFactorioTests(factorioPath, dataDir, additionalArgs, {
+      verbose: options.verbose,
+      showOutput: options.showOutput,
+    })
   } finally {
     if (options.verbose) console.log("Disabling auto-start settings")
     await runScript("fmtk settings set startup factorio-test-auto-start false", "--modsPath", modsDir)
@@ -151,248 +153,4 @@ async function runTests(
     console.log("Test run result:", color(resultMessage))
     process.exit(resultMessage === "passed" ? 0 : 1)
   }
-}
-
-async function configureModToTest(modsDir: string, modPath?: string, modName?: string): Promise<string> {
-  if (modPath) {
-    if (thisCommand.opts().verbose) console.log("Creating mod symlink", modPath)
-    return configureModPath(modPath, modsDir)
-  } else {
-    await configureModName(modsDir, modName!)
-    return modName!
-  }
-}
-
-async function configureModPath(modPath: string, modsDir: string) {
-  modPath = path.resolve(modPath)
-  const infoJsonFile = path.join(modPath, "info.json")
-  let infoJson: { name: unknown }
-  try {
-    infoJson = JSON.parse(await fsp.readFile(infoJsonFile, "utf8")) as { name: unknown }
-  } catch (e) {
-    throw new Error(`Could not read info.json file from ${modPath}`, { cause: e })
-  }
-  const modName = infoJson.name
-  if (typeof modName !== "string") {
-    throw new Error(`info.json file at ${infoJsonFile} does not contain a string property "name".`)
-  }
-  const resultPath = path.join(modsDir, modName)
-  const stat = await fsp.stat(resultPath).catch(() => undefined)
-  if (stat) await fsp.rm(resultPath, { recursive: true })
-
-  await fsp.symlink(modPath, resultPath, "junction")
-
-  return modName
-}
-
-async function configureModName(modsDir: string, modName: string) {
-  const alreadyExists = await checkModExists(modsDir, modName)
-  if (!alreadyExists) {
-    throw new Error(`Mod ${modName} not found in ${modsDir}.`)
-  }
-  return modName
-}
-
-async function checkModExists(modsDir: string, modName: string) {
-  const alreadyExists =
-    (await fsp.stat(modsDir).catch(() => undefined))?.isDirectory() &&
-    (await fsp.readdir(modsDir))?.find((f) => {
-      const stat = fs.statSync(path.join(modsDir, f), { throwIfNoEntry: false })
-      if (stat?.isDirectory()) {
-        return f === modName || f.match(new RegExp(`^${modName}_\\d+\\.\\d+\\.\\d+$`))
-      }
-      if (stat?.isFile()) {
-        return f === modName + ".zip" || f.match(new RegExp(`^${modName}_\\d+\\.\\d+\\.\\d+\\.zip$`))
-      }
-    })
-  return !!alreadyExists
-}
-
-async function installFactorioTest(modsDir: string) {
-  await fsp.mkdir(modsDir, { recursive: true })
-
-  const testModName = "factorio-test"
-
-  const alreadyExists = await checkModExists(modsDir, testModName)
-  if (!alreadyExists) {
-    console.log(`Downloading ${testModName} from mod portal using fmtk. This may ask for factorio login credentials.`)
-    await runScript("fmtk mods install", "--modsPath", modsDir, testModName)
-  }
-}
-
-async function ensureConfigIni(dataDir: string) {
-  const filePath = path.join(dataDir, "config.ini")
-  if (!fs.existsSync(filePath)) {
-    console.log("Creating config.ini file")
-    await fsp.writeFile(
-      filePath,
-      `
-; This file was auto-generated by factorio-test cli
-
-[path]
-read-data=__PATH__executable__/../../data
-write-data=${dataDir}
-
-[general]
-locale=
-`,
-    )
-  } else {
-    const content = await fsp.readFile(filePath, "utf8")
-    const newContent = content.replace(/^write-data=.*$/m, `write-data=${dataDir}`)
-    if (content !== newContent) {
-      await fsp.writeFile(filePath, newContent)
-    }
-  }
-}
-
-async function setSettingsForAutorun(factorioPath: string, dataDir: string, modsDir: string, modToTest: string) {
-  const settingsDat = path.join(modsDir, "mod-settings.dat")
-  if (!fs.existsSync(settingsDat)) {
-    if (thisCommand.opts().verbose) console.log("Creating mod-settings.dat file by running factorio")
-    const dummySaveFile = path.join(dataDir, "____dummy_save_file.zip")
-    await runProcess(
-      false,
-      `"${factorioPath}"`,
-      "--create",
-      dummySaveFile,
-      "--mod-directory",
-      modsDir,
-      "-c",
-      path.join(dataDir, "config.ini"),
-    )
-
-    if (fs.existsSync(dummySaveFile)) {
-      await fsp.rm(dummySaveFile)
-    }
-  }
-  if (thisCommand.opts().verbose) console.log("Setting autorun settings")
-  await runScript("fmtk settings set startup factorio-test-auto-start true", "--modsPath", modsDir)
-  await runScript("fmtk settings set runtime-global factorio-test-mod-to-test", modToTest, "--modsPath", modsDir)
-}
-
-async function runFactorioTests(
-  factorioPath: string,
-  dataDir: string,
-  verbose: boolean | undefined,
-  showOutput: boolean | undefined,
-) {
-  const args = process.argv
-  const index = args.indexOf("--")
-  const additionalArgs = index >= 0 ? args.slice(index + 1) : []
-
-  const actualArgs = [
-    "--load-scenario",
-    "factorio-test/Test",
-    "--disable-migration-window",
-    "--mod-directory",
-    path.join(dataDir, "mods"),
-    "-c",
-    path.join(dataDir, "config.ini"),
-    "--graphics-quality",
-    "low",
-    ...additionalArgs,
-  ]
-  console.log("Running tests...")
-  const factorioProcess = spawn(factorioPath, actualArgs, {
-    stdio: ["inherit", "pipe", "inherit"],
-  })
-
-  let resultMessage: string | undefined = undefined
-  let isMessage = false
-  let isMessageFirstLine = true
-  new BufferLineSplitter(factorioProcess.stdout).on("line", (line) => {
-    if (line.startsWith("FACTORIO-TEST-RESULT:")) {
-      resultMessage = line.slice("FACTORIO-TEST-RESULT:".length)
-      factorioProcess.kill()
-    } else if (line === "FACTORIO-TEST-MESSAGE-START") {
-      isMessage = true
-      isMessageFirstLine = true
-    } else if (line === "FACTORIO-TEST-MESSAGE-END") {
-      isMessage = false
-    } else if (verbose) {
-      console.log(line)
-    } else if (isMessage && showOutput) {
-      if (isMessageFirstLine) {
-        console.log(line.slice(line.indexOf(": ") + 2))
-        isMessageFirstLine = false
-      } else {
-        console.log("    " + line)
-      }
-    }
-  })
-  await new Promise<void>((resolve, reject) => {
-    factorioProcess.on("exit", (code, signal) => {
-      if (code === 0 && resultMessage !== undefined) {
-        resolve()
-      } else {
-        reject(new Error(`Factorio exited with code ${code}, signal ${signal}`))
-      }
-    })
-  })
-  return resultMessage
-}
-
-function runScript(...command: string[]) {
-  return runProcess(true, "npx", ...command)
-}
-
-function runProcess(inheritStdio: boolean, command: string, ...args: string[]) {
-  if (thisCommand.opts().verbose) console.log("Running:", command, ...args)
-  const process = spawn(command, args, {
-    stdio: inheritStdio ? "inherit" : "ignore",
-    shell: true,
-  })
-  return new Promise<void>((resolve, reject) => {
-    process.on("error", reject)
-    process.on("exit", (code) => {
-      if (code === 0) {
-        resolve()
-      } else {
-        reject(new Error(`Command exited with code ${code}: ${command} ${args.join(" ")}`))
-      }
-    })
-  })
-}
-
-function factorioIsInPath(): boolean {
-  const result = spawnSync("factorio", ["--version"], { stdio: "ignore" })
-  return result.status === 0
-}
-
-function autoDetectFactorioPath(): string {
-  if (factorioIsInPath()) {
-    return "factorio"
-  }
-  let pathsToTry: string[]
-  if (os.platform() === "linux" || os.platform() === "darwin") {
-    pathsToTry = [
-      "~/.local/share/Steam/steamapps/common/Factorio/bin/x64/factorio",
-      "~/Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio",
-      "~/.factorio/bin/x64/factorio",
-      "/Applications/factorio.app/Contents/MacOS/factorio",
-      "/usr/share/factorio/bin/x64/factorio",
-      "/usr/share/games/factorio/bin/x64/factorio",
-    ]
-  } else if (os.platform() === "win32") {
-    pathsToTry = [
-      "factorio.exe",
-      process.env["ProgramFiles(x86)"] + "\\Steam\\steamapps\\common\\Factorio\\bin\\x64\\factorio.exe",
-      process.env["ProgramFiles"] + "\\Factorio\\bin\\x64\\factorio.exe",
-    ]
-  } else {
-    throw new Error(`Can not auto-detect factorio path on platform ${os.platform()}`)
-  }
-  pathsToTry = pathsToTry.map((p) => p.replace(/^~\//, os.homedir() + "/"))
-
-  for (const testPath of pathsToTry) {
-    if (fs.statSync(testPath, { throwIfNoEntry: false })?.isFile()) {
-      return path.resolve(testPath)
-    }
-  }
-  throw new Error(
-    `Could not auto-detect factorio executable. Tried: ${pathsToTry.join(
-      ", ",
-    )}. Either add the factorio bin to your path, or specify the path with --factorio-path`,
-  )
 }

@@ -1,54 +1,14 @@
 import * as fs from "fs"
 import * as path from "path"
-import type { TestRunnerConfig } from "../types/config.js"
+import { cliConfigSchema, type CliConfig, type TestRunnerConfig } from "./schema.js"
+import { ZodError } from "zod"
 
-export interface CliConfig {
-  modPath?: string
-  modName?: string
-  factorioPath?: string
-  dataDirectory?: string
-  mods?: string[]
-  verbose?: boolean
-  showOutput?: boolean
-  factorioArgs?: string[]
-  test?: TestRunnerConfig
-}
-
-const validCliConfigKeys = new Set([
-  "modPath",
-  "modName",
-  "factorioPath",
-  "dataDirectory",
-  "mods",
-  "verbose",
-  "showOutput",
-  "factorioArgs",
-  "test",
-])
-
-const validTestConfigKeys = new Set([
-  "test_pattern",
-  "tag_whitelist",
-  "tag_blacklist",
-  "default_timeout",
-  "game_speed",
-  "log_passed_tests",
-  "log_skipped_tests",
-])
-
-function validateConfig(config: Record<string, unknown>, filePath: string): void {
-  for (const key of Object.keys(config)) {
-    if (!validCliConfigKeys.has(key)) {
-      throw new Error(`Unknown config key "${key}" in ${filePath}`)
-    }
-  }
-  if (config.test && typeof config.test === "object") {
-    for (const key of Object.keys(config.test)) {
-      if (!validTestConfigKeys.has(key)) {
-        throw new Error(`Unknown test config key "${key}" in ${filePath}`)
-      }
-    }
-  }
+function formatZodError(error: ZodError, filePath: string): string {
+  const issues = error.issues.map((issue) => {
+    const pathStr = issue.path.join(".")
+    return `  - ${pathStr ? `"${pathStr}": ` : ""}${issue.message}`
+  })
+  return `Invalid config in ${filePath}:\n${issues.join("\n")}`
 }
 
 export function loadConfig(configPath?: string): CliConfig {
@@ -60,17 +20,17 @@ export function loadConfig(configPath?: string): CliConfig {
     if (!fs.existsSync(filePath)) continue
 
     const content = JSON.parse(fs.readFileSync(filePath, "utf8"))
+    const rawConfig = filePath.endsWith("package.json")
+      ? content["factorio-test"]
+      : content
 
-    if (filePath.endsWith("package.json")) {
-      if (content["factorio-test"]) {
-        validateConfig(content["factorio-test"], filePath)
-        return content["factorio-test"] as CliConfig
-      }
-      continue
+    if (!rawConfig) continue
+
+    const result = cliConfigSchema.strict().safeParse(rawConfig)
+    if (!result.success) {
+      throw new Error(formatZodError(result.error, filePath))
     }
-
-    validateConfig(content, filePath)
-    return content as CliConfig
+    return result.data
   }
 
   return {}
@@ -100,3 +60,5 @@ export function mergeTestConfig(
     log_skipped_tests: cliOptions.log_skipped_tests ?? configFile?.log_skipped_tests,
   }
 }
+
+export { type CliConfig, type TestRunnerConfig }

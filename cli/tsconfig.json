@@ -7,5 +7,6 @@
     "strict": true,
     "rootDir": ".."
   },
-  "include": [".", "../types"]
+  "include": [".", "../types"],
+  "exclude": ["factorio-test-data-dir", "../mod", "../usage-test-mod"]
 }

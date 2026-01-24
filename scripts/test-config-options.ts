@@ -6,7 +6,7 @@ import { fileURLToPath } from "url"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const root = path.resolve(__dirname, "..")
-const customConfigPath = path.join(root, "custom-test-config.json")
+const customConfigPath = path.join(root, "cli", "custom-test-config.json")
 
 interface TestCase {
   name: string
@@ -50,13 +50,13 @@ const testCases: TestCase[] = [
   {
     name: "Invalid config key throws error",
     configFile: { invalidKey: true },
-    expectedError: 'Unknown config key "invalidKey"',
+    expectedError: "invalidKey",
     expectExitCode: 1,
   },
   {
     name: "Invalid test config key throws error",
     configFile: { test: { invalidTestKey: true } },
-    expectedError: 'Unknown test config key "invalidTestKey"',
+    expectedError: "invalidTestKey",
     expectExitCode: 1,
   },
   {
@@ -67,7 +67,7 @@ const testCases: TestCase[] = [
   },
 ]
 
-const configFilePath = path.join(root, "factorio-test.json")
+const configFilePath = path.join(root, "cli", "factorio-test.json")
 
 async function runTest(tc: TestCase): Promise<boolean> {
   console.log(`\n=== ${tc.name} ===`)
@@ -83,10 +83,12 @@ async function runTest(tc: TestCase): Promise<boolean> {
   }
 
   const args = [
-    "tsx",
-    "cli/cli.ts",
     "run",
-    "./usage-test-mod",
+    "cli",
+    "--workspace=cli",
+    "--",
+    "run",
+    "../usage-test-mod",
     ...(tc.args ?? []),
     "--",
     "--cache-sprite-atlas",
@@ -97,7 +99,7 @@ async function runTest(tc: TestCase): Promise<boolean> {
   ]
 
   return new Promise((resolve) => {
-    const child = child_process.spawn("npx", args, {
+    const child = child_process.spawn("npm", args, {
       stdio: ["inherit", "pipe", "pipe"],
       cwd: root,
       shell: true,
