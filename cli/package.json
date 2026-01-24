@@ -15,14 +15,14 @@
     "*.js"
   ],
   "dependencies": {
-    "chalk": "^5.3.0",
+    "chalk": "^5.6.2",
     "commander": "^12.1.0",
-    "factoriomod-debug": "^2.0.3"
+    "factoriomod-debug": "^2.0.10"
   },
   "devDependencies": {
     "@commander-js/extra-typings": "^12.1.0",
     "del-cli": "^6.0.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.9.3"
   },
   "scripts": {
     "build": "npm run clean && tsc",

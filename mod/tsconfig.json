@@ -10,11 +10,6 @@
     "lib": [
       "esnext"
     ],
-    "plugins": [
-      {
-        "name": "typescript-tstl-plugin"
-      }
-    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "experimentalDecorators": true,

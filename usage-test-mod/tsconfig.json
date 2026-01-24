@@ -4,11 +4,6 @@
     "module": "none",
     "moduleResolution": "node",
     "types": ["typed-factorio/runtime", "luassert-tstl"],
-    "plugins": [
-      {
-        "name": "typescript-tstl-plugin"
-      }
-    ],
     "strict": true,
     "experimentalDecorators": true,
     "rootDir": "."

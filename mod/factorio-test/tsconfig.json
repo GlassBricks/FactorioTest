@@ -11,11 +11,6 @@
     "lib": [
       "esnext"
     ],
-    "plugins": [
-      {
-        "name": "typescript-tstl-plugin"
-      }
-    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noPropertyAccessFromIndexSignature": true,
