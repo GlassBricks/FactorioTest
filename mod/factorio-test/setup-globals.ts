@@ -1,6 +1,7 @@
 // noinspection JSUnusedGlobalSymbols
 
 import * as util from "util"
+import { __factorio_test__pcallWithStacktrace } from "./_util"
 import { prepareReload } from "./reload-resume"
 import { getCurrentBlock, getTestState, TestRun, TestState } from "./state"
 import {
@@ -14,7 +15,6 @@ import {
   TestMode,
   TestTags,
 } from "./tests"
-import { __factorio_test__pcallWithStacktrace } from "./_util"
 import DescribeCreator = FactorioTest.DescribeCreator
 import DescribeCreatorBase = FactorioTest.DescribeBlockCreatorBase
 import HookFn = FactorioTest.HookFn
@@ -91,49 +91,47 @@ function createTestBuilder<F extends () => void>(addPart: (func: F) => void, add
   return result
 }
 
-function skipAllChildren(block: DescribeBlock): void {
-  for (const child of block.children) {
-    child.mode = "skip"
-    if (child.declaredMode !== "skip") {
-      if (child.type === "describeBlock") {
-        skipAllChildren(child)
-      }
-    }
+export function propagateTestMode(state: TestState, block: DescribeBlock, parentMode: TestMode): void {
+  if (parentMode === "skip") {
+    applyModeToAllChildren(block, "skip")
+    return
   }
-}
-function focusAllChildren(block: DescribeBlock): void {
-  for (const child of block.children) {
-    if (child.declaredMode === undefined) {
-      child.mode = "only"
-      if (child.type === "describeBlock") {
-        focusAllChildren(child)
-      }
+
+  if (parentMode === "only") {
+    state.hasFocusedTests = true
+    const hasNestedOnly = block.children.some((child) => child.declaredMode === "only")
+    if (!hasNestedOnly) {
+      applyModeToAllChildren(block, "only")
     } else {
-      child.mode = child.declaredMode
+      markChildrenWithFocus(state, block)
     }
+    return
   }
+
+  markChildrenWithFocus(state, block)
 }
-function markFocusedTests(state: TestState, block: DescribeBlock): void {
+
+function applyModeToAllChildren(block: DescribeBlock, mode: TestMode): void {
   for (const child of block.children) {
-    if (child.declaredMode === "only") {
-      state.hasFocusedTests = true
+    if (child.declaredMode === "skip") continue
+
+    if (mode === "only" && child.declaredMode !== undefined) {
+      child.mode = child.declaredMode
+    } else {
+      child.mode = mode
+    }
+
+    if (child.type === "describeBlock") {
+      applyModeToAllChildren(child, mode)
     }
   }
 }
 
-export function propagateTestMode(state: TestState, describeBlock: DescribeBlock, mode: TestMode) {
-  if (mode === "skip") {
-    skipAllChildren(describeBlock)
-  } else if (mode === "only") {
-    state.hasFocusedTests = true
-    if (!describeBlock.children.some((child) => child.mode === "only")) {
-      // nested only; ignore outer only
-      focusAllChildren(describeBlock)
-    } else {
-      markFocusedTests(state, describeBlock)
+function markChildrenWithFocus(state: TestState, block: DescribeBlock): void {
+  for (const child of block.children) {
+    if (child.declaredMode === "only") {
+      state.hasFocusedTests = true
     }
-  } else {
-    markFocusedTests(state, describeBlock)
   }
 }
 
@@ -293,7 +291,6 @@ function async(timeout?: number) {
   if (timeout < 1) error("test timeout must be greater than 0")
 
   testRun.timeout = timeout
-  testRun.async = true
 }
 
 export const globals: Pick<typeof globalThis, SetupGlobals> = {

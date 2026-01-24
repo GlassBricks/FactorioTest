@@ -1,9 +1,3 @@
-import { Locale, Misc, Prototypes } from "../constants"
-import { Colors, MessageColor, MessageHandler } from "./output"
-import { TestRunResults } from "./results"
-import { TestState } from "./state"
-import { TestEventListener } from "./test-events"
-import { countActiveTests } from "./tests"
 import {
   ButtonGuiElement,
   FrameGuiElement,
@@ -16,6 +10,13 @@ import {
   SpriteButtonGuiElement,
   TableGuiElement,
 } from "factorio:runtime"
+import { Locale, Misc, Prototypes } from "../constants"
+import { getPlayer } from "./_util"
+import { Colors, MessageColor, MessageHandler } from "./output"
+import { TestRunResults } from "./results"
+import { TestState } from "./state"
+import { TestEventListener } from "./test-events"
+import { countActiveTests } from "./tests"
 import ProgressGui = Locale.ProgressGui
 import ConfigGui = Locale.ConfigGui
 
@@ -134,14 +135,6 @@ function bottomButtonsBar(parent: LuaGuiElement) {
   return {
     rerunButton,
   }
-}
-
-function getPlayer(): LuaPlayer {
-  // noinspection LoopStatementThatDoesntLoopJS
-  for (const [, player] of pairs(game.players)) {
-    return player
-  }
-  error("Could not find any players!")
 }
 
 function closeTestProgressGui(): void {

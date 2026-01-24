@@ -87,8 +87,8 @@ function async(timeout?: number) {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Tests pass: `npm run test --workspace=mod`
-- [ ] Lint passes: `npm run lint --workspace=mod`
+- [x] Tests pass: `npm run test --workspace=mod`
+- [x] Lint passes: `npm run lint --workspace=mod`
 
 ---
 
@@ -143,9 +143,9 @@ getPlayer().gui.screen[Misc.TestGui]?.destroy()
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Tests pass: `npm run test --workspace=mod`
-- [ ] Lint passes: `npm run lint --workspace=mod`
-- [ ] Build succeeds: `npm run build --workspace=mod`
+- [x] Tests pass: `npm run test --workspace=mod`
+- [x] Lint passes: `npm run lint --workspace=mod`
+- [x] Build succeeds: `npm run build --workspace=mod`
 
 ---
 
@@ -236,9 +236,9 @@ const afterEach = [...afterTestFuncs, ...collectHooks(test.parent, "afterEach", 
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Tests pass: `npm run test --workspace=mod`
-- [ ] Self-tests pass: `npm run test:self --workspace=mod`
-- [ ] Lint passes: `npm run lint --workspace=mod`
+- [x] Tests pass: `npm run test --workspace=mod`
+- [x] Self-tests pass: `npm run test:self --workspace=mod`
+- [x] Lint passes: `npm run lint --workspace=mod`
 
 ---
 
@@ -380,12 +380,12 @@ let foundMatchingTest: Test | undefined
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Tests pass: `npm run test --workspace=mod`
-- [ ] Self-tests pass: `npm run test:self --workspace=mod`
-- [ ] Lint passes: `npm run lint --workspace=mod`
+- [x] Tests pass: `npm run test --workspace=mod`
+- [x] Self-tests pass: `npm run test:self --workspace=mod`
+- [x] Lint passes: `npm run lint --workspace=mod`
 
 #### Manual Verification:
-- [ ] Run a test that uses `.after_reload_mods()` to verify reload/resume still works correctly
+- [x] Run a test that uses `.after_reload_mods()` to verify reload/resume still works correctly
 
 ---
 
@@ -449,9 +449,9 @@ function markChildrenWithFocus(state: TestState, block: DescribeBlock): void {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Tests pass: `npm run test --workspace=mod`
-- [ ] Self-tests pass: `npm run test:self --workspace=mod`
-- [ ] Lint passes: `npm run lint --workspace=mod`
+- [x] Tests pass: `npm run test --workspace=mod`
+- [x] Self-tests pass: `npm run test:self --workspace=mod`
+- [x] Lint passes: `npm run lint --workspace=mod`
 
 Note: Existing tests in `meta.test.ts:338-469` provide sufficient coverage of `.only`/`.skip` behavior including nested combinations. No additional tests needed before refactoring.
 

@@ -1,10 +1,10 @@
+import { LuaProfiler } from "factorio:runtime"
+import { table } from "util"
 import { TestStage } from "../constants"
 import { TestRunResults } from "./results"
 import type { TestState } from "./state"
 import { DescribeBlock, HookType, Source, Test, TestMode, TestTags } from "./tests"
-import { table } from "util"
 import compare = table.compare
-import { LuaProfiler } from "factorio:runtime"
 
 interface SavedTestData {
   readonly type: "test"
@@ -65,25 +65,18 @@ function saveDescribeBlock(block: DescribeBlock): SavedDescribeBlockData {
   return result
 }
 
-let savedTestPath: string
-let foundMatchingTest: Test | undefined
-
-function compareToSavedTest(saved: SavedTestData, current: Test): boolean {
-  if (saved.path !== current.path) return false
-  if (!compare(saved.tags, current.tags)) return false
-  if (!compare(saved.source, current.source)) return false
-  if (saved.numParts !== current.parts.length) return false
-  if (saved.mode !== current.mode) return false
-  if (saved.ticksBefore !== current.ticksBefore) return false
-  ;(current as any).errors = saved.errors
-  current.profiler = saved.profiler
-  if (current.path === savedTestPath) {
-    foundMatchingTest = current
-  }
-  return true
+function structuresMatch(saved: SavedTestData, current: Test): boolean {
+  return (
+    saved.path === current.path &&
+    compare(saved.tags, current.tags) &&
+    compare(saved.source, current.source) &&
+    saved.numParts === current.parts.length &&
+    saved.mode === current.mode &&
+    saved.ticksBefore === current.ticksBefore
+  )
 }
 
-function compareToSavedDescribeBlock(saved: SavedDescribeBlockData, current: DescribeBlock): boolean {
+function describeBlockStructuresMatch(saved: SavedDescribeBlockData, current: DescribeBlock): boolean {
   if (saved.path !== current.path) return false
   if (!compare(saved.tags, current.tags)) return false
   if (!compare(saved.source, current.source)) return false
@@ -96,16 +89,48 @@ function compareToSavedDescribeBlock(saved: SavedDescribeBlockData, current: Des
     return false
   if (saved.mode !== current.mode) return false
   if (saved.ticksBetweenTests !== current.ticksBetweenTests) return false
-  const childrenMatch = saved.children.every((child, i) => {
+  if (saved.children.length !== current.children.length) return false
+
+  return saved.children.every((child, i) => {
     const currentChild = current.children[i]
     if (!currentChild || currentChild.type !== child.type) return false
     return child.type === "test"
-      ? compareToSavedTest(child, currentChild as Test)
-      : compareToSavedDescribeBlock(child, currentChild as DescribeBlock)
+      ? structuresMatch(child, currentChild as Test)
+      : describeBlockStructuresMatch(child, currentChild as DescribeBlock)
   })
-  if (!childrenMatch) return false
-  ;(current as any).errors = saved.errors
-  return true
+}
+
+function restoreTestState(saved: SavedTestData, current: Test): void {
+  current.errors.length = 0
+  current.errors.push(...saved.errors)
+  current.profiler = saved.profiler
+}
+
+function restoreDescribeBlockState(saved: SavedDescribeBlockData, current: DescribeBlock): void {
+  current.errors.length = 0
+  current.errors.push(...saved.errors)
+
+  for (let i = 0; i < saved.children.length; i++) {
+    const savedChild = saved.children[i]!
+    const currentChild = current.children[i]!
+    if (savedChild.type === "test") {
+      restoreTestState(savedChild, currentChild as Test)
+    } else {
+      restoreDescribeBlockState(savedChild, currentChild as DescribeBlock)
+    }
+  }
+}
+
+function findTestByPath(block: DescribeBlock, path: string): Test | undefined {
+  for (const child of block.children) {
+    if (child.type === "test") {
+      if (child.path === path) return child
+    } else {
+      const found = findTestByPath(child, path)
+      if (found) return found
+    }
+  }
+  return undefined
 }
 
 interface ResumeData {
@@ -133,14 +158,8 @@ export function prepareReload(testState: TestState): void {
   testState.setTestStage(TestStage.ReloadingMods)
 }
 
-export function resumeAfterReload(state: TestState):
-  | {
-      test: Test
-      partIndex: number
-    }
-  | undefined {
+export function resumeAfterReload(state: TestState): { test: Test; partIndex: number } | undefined {
   const testResume = storage.__testResume ?? error("attempting to resume after reload without resume data saved")
-
   storage.__testResume = undefined
 
   state.results = testResume.results
@@ -149,17 +168,19 @@ export function resumeAfterReload(state: TestState):
 
   const saved = testResume.rootBlock
 
-  savedTestPath = testResume.resumeTestPath
-  foundMatchingTest = undefined
-  const matches = compareToSavedDescribeBlock(saved, state.rootBlock)
-  const test = foundMatchingTest
-  foundMatchingTest = undefined
-  savedTestPath = undefined!
+  if (!describeBlockStructuresMatch(saved, state.rootBlock)) {
+    return undefined
+  }
 
-  if (matches && test) {
-    return {
-      test,
-      partIndex: testResume.resumePartIndex,
-    }
+  restoreDescribeBlockState(saved, state.rootBlock)
+
+  const test = findTestByPath(state.rootBlock, testResume.resumeTestPath)
+  if (!test) {
+    return undefined
+  }
+
+  return {
+    test,
+    partIndex: testResume.resumePartIndex,
   }
 }

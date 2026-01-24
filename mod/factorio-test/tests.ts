@@ -1,9 +1,9 @@
+import { LuaProfiler } from "factorio:runtime"
 import { assertNever } from "./_util"
 import { TestState } from "./state"
 import Config = FactorioTest.Config
 import HookFn = FactorioTest.HookFn
 import TestFn = FactorioTest.TestFn
-import { LuaProfiler } from "factorio:runtime"
 
 export interface Source {
   readonly file?: string | undefined
@@ -200,4 +200,28 @@ export function countActiveTests(block: DescribeBlock, state: TestState): number
     }
   }
   return result
+}
+
+export type HookTraversalOrder = "ancestors-first" | "descendants-first"
+
+export function collectHooks(block: DescribeBlock, type: HookType, order: HookTraversalOrder): HookFn[] {
+  const hooks: HookFn[] = []
+  collectHooksRecursive(block, type, order, hooks)
+  return hooks
+}
+
+function collectHooksRecursive(block: DescribeBlock, type: HookType, order: HookTraversalOrder, hooks: HookFn[]): void {
+  if (order === "ancestors-first" && block.parent) {
+    collectHooksRecursive(block.parent, type, order, hooks)
+  }
+
+  for (const hook of block.hooks) {
+    if (hook.type === type) {
+      hooks.push(hook.func)
+    }
+  }
+
+  if (order === "descendants-first" && block.parent) {
+    collectHooksRecursive(block.parent, type, order, hooks)
+  }
 }

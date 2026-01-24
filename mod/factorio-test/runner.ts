@@ -2,9 +2,8 @@
 import { TestStage } from "../constants"
 import { __factorio_test__pcallWithStacktrace, assertNever } from "./_util"
 import { resumeAfterReload } from "./reload-resume"
-import { setToLoadErrorState, TestRun, TestState } from "./state"
-import { DescribeBlock, formatSource, Hook, isSkippedTest, Test } from "./tests"
-import TestFn = FactorioTest.TestFn
+import { TestRun, TestState, setToLoadErrorState } from "./state"
+import { DescribeBlock, Test, collectHooks, formatSource, isSkippedTest } from "./tests"
 
 export interface TestRunner {
   tick(): void
@@ -189,16 +188,10 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
       test,
     })
 
-    function collectHooks(block: DescribeBlock, hooks: Hook[]) {
-      if (block.parent) collectHooks(block.parent, hooks)
-      hooks.push(...block.hooks.filter((x) => x.type === "beforeEach"))
-      return hooks
-    }
-
-    const beforeEach = collectHooks(test.parent, [])
+    const beforeEach = collectHooks(test.parent, "beforeEach", "ancestors-first")
     for (const hook of beforeEach) {
       if (test.errors.length !== 0) break
-      const [success, error] = __factorio_test__pcallWithStacktrace(hook.func)
+      const [success, error] = __factorio_test__pcallWithStacktrace(hook)
       if (!success) {
         test.errors.push(error as string)
       }
@@ -247,13 +240,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
 
   leaveTest(testRun: TestRun): Task {
     const { test, afterTestFuncs } = testRun
-
-    function collectHooks(block: DescribeBlock, hooks: TestFn[]) {
-      hooks.push(...block.hooks.filter((x) => x.type === "afterEach").map((x) => x.func))
-      if (block.parent) collectHooks(block.parent, hooks)
-      return hooks
-    }
-    const afterEach = collectHooks(test.parent, [...afterTestFuncs])
+    const afterEach = [...afterTestFuncs, ...collectHooks(test.parent, "afterEach", "descendants-first")]
 
     for (const hook of afterEach) {
       const [success, error] = __factorio_test__pcallWithStacktrace(hook)

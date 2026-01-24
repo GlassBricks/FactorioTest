@@ -1,17 +1,10 @@
-import { guiAction } from "./guiAction"
 import { Misc, Remote } from "../constants"
-import { LuaPlayer } from "factorio:runtime"
-
-function getPlayer(): LuaPlayer | undefined {
-  // noinspection LoopStatementThatDoesntLoopJS
-  for (const [, player] of game.players) {
-    return player
-  }
-}
+import { getPlayer } from "../factorio-test/_util"
+import { guiAction } from "./guiAction"
 
 guiAction(Misc.CloseTestGui, () => {
   if (remote.interfaces[Remote.FactorioTest]) {
     remote.call(Remote.FactorioTest, "fireCustomEvent", "closeProgressGui")
   }
-  getPlayer()?.gui.screen[Misc.TestGui]?.destroy()
+  getPlayer().gui.screen[Misc.TestGui]?.destroy()
 })
