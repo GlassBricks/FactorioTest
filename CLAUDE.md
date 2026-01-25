@@ -38,3 +38,4 @@ npm run prettier:fix  # run lint and prettier fix after .ts/.json changes
 - You can run tests, they are run in headless mode
 - Run format, lint, and tests after .ts file changes
 - If applicable include plan files in commits
+- Use parameterized tests where applicable
