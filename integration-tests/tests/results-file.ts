@@ -80,9 +80,9 @@ async function testFailedTestsReorderedFirst(ctx: TestContext): Promise<boolean>
 }
 
 export const tests: TestDefinition[] = [
+  { name: "Failed tests reordered first", run: testFailedTestsReorderedFirst },
   { name: "Results file created", run: testResultsFileCreated },
   { name: "--no-output-file option", run: testNoOutputFileOption },
-  { name: "Failed tests reordered first", run: testFailedTestsReorderedFirst },
 ]
 
 if (import.meta.url === `file://${process.argv[1]}`) {

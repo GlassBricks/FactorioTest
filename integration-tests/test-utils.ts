@@ -20,6 +20,7 @@ export interface TestResult {
   name: string
   passed: boolean
   messages: string[]
+  durationMs: number
 }
 
 export interface TestContext {
@@ -124,14 +125,15 @@ export async function waitForOutput(output: { value: string }, pattern: string, 
 }
 
 export async function runTestsDirectly(tests: TestDefinition[]): Promise<void> {
-  const concurrency = Math.max(1, Math.floor(os.cpus().length / 2))
+  const concurrency = Math.max(1, Math.floor((os.cpus().length * 3) / 4))
   console.log(`Running ${tests.length} tests with concurrency ${concurrency}...`)
 
   const results = await runWithConcurrencyLimit(tests, concurrency, async (test) => {
     const ctx = await createTestContext(test.name.replace(/\s+/g, "-").slice(0, 20))
+    const start = Date.now()
     try {
       const passed = await test.run(ctx)
-      return { name: test.name, passed, messages: ctx.messages }
+      return { name: test.name, passed, messages: ctx.messages, durationMs: Date.now() - start }
     } finally {
       await cleanupTestContext(ctx)
     }
@@ -141,7 +143,8 @@ export async function runTestsDirectly(tests: TestDefinition[]): Promise<void> {
   let failed = 0
 
   for (const result of results) {
-    console.log(`\n=== ${result.name} ===`)
+    const duration = (result.durationMs / 1000).toFixed(1)
+    console.log(`\n=== ${result.name} (${duration}s) ===`)
     for (const msg of result.messages) {
       console.log(`  ${msg}`)
     }

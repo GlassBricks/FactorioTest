@@ -42,18 +42,6 @@ const testCases: TestCase[] = [
     expectedOutput: ["CONFIG:default_timeout=120"],
   },
   {
-    name: "Invalid config key throws error",
-    configFile: { invalidKey: true },
-    expectedError: "invalidKey",
-    expectExitCode: 1,
-  },
-  {
-    name: "Invalid test config key throws error",
-    configFile: { test: { invalidTestKey: true } },
-    expectedError: "invalidTestKey",
-    expectExitCode: 1,
-  },
-  {
     name: "--config option loads custom config file",
     configFile: { test: { game_speed: 400 } },
     expectedOutput: ["CONFIG:game_speed=400"],
@@ -95,6 +83,18 @@ const testCases: TestCase[] = [
     args: ["--bail=2"],
     expectedOutput: ["FAIL test1 > each 2", "PASS test1 > In world", "Test run result: failed"],
     unexpectedOutput: ["Bailed out after"],
+    expectExitCode: 1,
+  },
+  {
+    name: "Invalid config key throws error",
+    configFile: { invalidKey: true },
+    expectedError: "invalidKey",
+    expectExitCode: 1,
+  },
+  {
+    name: "Invalid test config key throws error",
+    configFile: { test: { invalidTestKey: true } },
+    expectedError: "invalidTestKey",
     expectExitCode: 1,
   },
 ]
