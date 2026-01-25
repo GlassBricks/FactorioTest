@@ -1,6 +1,7 @@
 import { Remote, Settings, TestStage } from "../constants"
 import { debugAdapterEnabled } from "./_util"
 import { builtinTestEventListeners } from "./builtin-test-event-listeners"
+import { cliEventEmitter } from "./cli-events"
 import { fillConfig } from "./config"
 import { addMessageHandler, debugAdapterLogger, logLogger } from "./output"
 import { progressGuiListener, progressGuiLogger } from "./test-gui"
@@ -97,14 +98,16 @@ function doRunTests() {
   if (game !== undefined) game.tick_paused = false
 
   const headless = settings.startup[Settings.AutoStart]?.value === "headless"
-  if (!headless) {
+  if (headless) {
+    addTestListener(cliEventEmitter)
+  } else {
     addTestListener(progressGuiListener)
     addMessageHandler(progressGuiLogger)
   }
 
   if (debugAdapterEnabled) {
     addMessageHandler(debugAdapterLogger)
-  } else {
+  } else if (!headless) {
     addMessageHandler(logLogger)
   }
 

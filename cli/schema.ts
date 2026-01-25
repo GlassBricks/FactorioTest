@@ -26,6 +26,7 @@ export const cliConfigSchema = z.object({
   save: z.string().optional(),
   mods: z.array(z.string()).optional(),
   verbose: z.boolean().optional(),
+  quiet: z.boolean().optional(),
   showOutput: z.boolean().optional(),
   factorioArgs: z.array(z.string()).optional(),
   forbid_only: z.boolean().optional(),

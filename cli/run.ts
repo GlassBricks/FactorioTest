@@ -53,6 +53,7 @@ const thisCommand = (program as unknown as Command)
   )
   .option("--factorio-args <args...>", "Additional arguments to pass to the Factorio process.")
   .option("--show-output", "Print test output to stdout.", true)
+  .option("-q --quiet", "Suppress per-test output, show only final result.")
   .option("-v --verbose", "Enables more logging, and pipes the Factorio process output to stdout.")
   .option("--config <path>", "Path to config file")
 
@@ -73,6 +74,7 @@ async function runTests(
     dataDirectory: string
     graphics?: true
     save?: string
+    quiet?: true
     verbose?: true
     showOutput?: boolean
     mods?: string[]
@@ -96,7 +98,8 @@ async function runTests(
   options.mods ??= fileConfig.mods
   options.factorioArgs ??= fileConfig.factorioArgs
   options.verbose ??= fileConfig.verbose as true | undefined
-  options.showOutput ??= fileConfig.showOutput ?? true
+  options.quiet ??= fileConfig.quiet as true | undefined
+  options.showOutput ??= options.quiet ? false : (fileConfig.showOutput ?? true)
 
   setVerbose(!!options.verbose)
 

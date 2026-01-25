@@ -2,6 +2,9 @@ import { spawn } from "child_process"
 import * as path from "path"
 import { fileURLToPath } from "url"
 import BufferLineSplitter from "./buffer-line-splitter.js"
+import { parseEvent } from "./event-parser.js"
+import { TestRunCollector } from "./test-run-collector.js"
+import { OutputFormatter } from "./output-formatter.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -37,26 +40,65 @@ export function parseResultMessage(message: string): Pick<FactorioTestResult, "s
 }
 
 function createLineHandler(options: FactorioTestOptions, onResult: (msg: string) => void): (line: string) => void {
-  let isMessage = false
+  const collector = new TestRunCollector()
+  const formatter = new OutputFormatter({
+    verbose: options.verbose,
+    quiet: !options.showOutput,
+    showPassedLogs: options.verbose,
+  })
+  let inMessage = false
   let isMessageFirstLine = true
 
   return (line: string) => {
     if (line.startsWith("FACTORIO-TEST-RESULT:")) {
       onResult(line.slice("FACTORIO-TEST-RESULT:".length))
-    } else if (line === "FACTORIO-TEST-MESSAGE-START") {
-      isMessage = true
+      return
+    }
+
+    if (line === "FACTORIO-TEST-MESSAGE-START") {
+      inMessage = true
       isMessageFirstLine = true
-    } else if (line === "FACTORIO-TEST-MESSAGE-END") {
-      isMessage = false
-    } else if (options.verbose) {
+      return
+    }
+    if (line === "FACTORIO-TEST-MESSAGE-END") {
+      inMessage = false
+      return
+    }
+
+    const event = parseEvent(line)
+    if (event) {
+      collector.handleEvent(event)
+
+      if (
+        event.type === "testPassed" ||
+        event.type === "testFailed" ||
+        event.type === "testSkipped" ||
+        event.type === "testTodo"
+      ) {
+        const tests = collector.getData().tests
+        const lastTest = tests[tests.length - 1]
+        if (lastTest) {
+          formatter.formatTestResult(lastTest)
+        }
+      }
+
+      if (options.verbose) {
+        console.log(line)
+      }
+      return
+    }
+
+    if (options.verbose) {
       console.log(line)
-    } else if (isMessage && options.showOutput) {
+    } else if (inMessage && options.showOutput) {
       if (isMessageFirstLine) {
         console.log(line.slice(line.indexOf(": ") + 2))
         isMessageFirstLine = false
       } else {
         console.log("    " + line)
       }
+    } else {
+      collector.captureLog(line)
     }
   }
 }
