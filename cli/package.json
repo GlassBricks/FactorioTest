@@ -1,6 +1,6 @@
 {
   "name": "factorio-test-cli",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "A CLI to run FactorioTest.",
   "license": "MIT",
   "repository": {
@@ -15,7 +15,7 @@
     "node": ">=18.0.0"
   },
   "files": [
-    "*.js",
+    "**/*.js",
     "headless-save.zip"
   ],
   "dependencies": {

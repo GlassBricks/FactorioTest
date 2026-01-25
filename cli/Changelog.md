@@ -1,3 +1,9 @@
+## v3.0.1
+
+### Bugfixes
+
+- Fix missing config/ directory in published package.
+
 ## v3.0.0
 
 See also: [mod changelog](../mod/changelog.txt) for in-game test framework changes.
