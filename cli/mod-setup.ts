@@ -2,6 +2,7 @@ import * as fsp from "fs/promises"
 import * as fs from "fs"
 import * as path from "path"
 import { runScript, runProcess } from "./process-utils.js"
+import { getFactorioPlayerDataPath } from "./factorio-paths.js"
 
 export async function configureModToTest(
   modsDir: string,
@@ -68,7 +69,8 @@ export async function installFactorioTest(modsDir: string): Promise<void> {
   const exists = await checkModExists(modsDir, "factorio-test")
   if (!exists) {
     console.log("Downloading factorio-test from mod portal using fmtk.")
-    await runScript("fmtk mods install", "--modsPath", modsDir, "factorio-test")
+    const playerDataPath = getFactorioPlayerDataPath()
+    await runScript("fmtk mods install", "--modsPath", modsDir, "--playerData", playerDataPath, "factorio-test")
   }
 }
 
@@ -133,4 +135,46 @@ export async function resetAutorunSettings(modsDir: string, verbose?: boolean): 
   if (verbose) console.log("Disabling auto-start settings")
   await runScript("fmtk settings set startup factorio-test-auto-start", "false", "--modsPath", modsDir)
   await runScript("fmtk settings set startup factorio-test-auto-start-mod", '""', "--modsPath", modsDir)
+}
+
+export function parseRequiredDependencies(dependencies: string[]): string[] {
+  const result: string[] = []
+  for (const dep of dependencies) {
+    const trimmed = dep.trim()
+    if (trimmed.startsWith("?") || trimmed.startsWith("!") || trimmed.startsWith("(?)")) {
+      continue
+    }
+    const withoutPrefix = trimmed.startsWith("~") ? trimmed.slice(1).trim() : trimmed
+    const modName = withoutPrefix.split(/\s/)[0]
+    if (modName && modName !== "base") {
+      result.push(modName)
+    }
+  }
+  return result
+}
+
+export async function installModDependencies(modsDir: string, modPath: string, verbose?: boolean): Promise<string[]> {
+  const infoJsonPath = path.join(modPath, "info.json")
+  let infoJson: { dependencies?: string[] }
+  try {
+    infoJson = JSON.parse(await fsp.readFile(infoJsonPath, "utf8")) as { dependencies?: string[] }
+  } catch {
+    return []
+  }
+
+  const dependencies = infoJson.dependencies
+  if (!Array.isArray(dependencies)) return []
+
+  const required = parseRequiredDependencies(dependencies)
+  const playerDataPath = getFactorioPlayerDataPath()
+
+  for (const modName of required) {
+    const exists = await checkModExists(modsDir, modName)
+    if (exists) continue
+
+    if (verbose) console.log(`Installing dependency: ${modName}`)
+    await runScript("fmtk mods install", "--modsPath", modsDir, "--playerData", playerDataPath, modName)
+  }
+
+  return required
 }

@@ -10,6 +10,7 @@ import { autoDetectFactorioPath } from "./factorio-detect.js"
 import {
   configureModToTest,
   installFactorioTest,
+  installModDependencies,
   ensureConfigIni,
   setSettingsForAutorun,
   resetAutorunSettings,
@@ -112,11 +113,15 @@ async function runTests(
   await fsp.mkdir(modsDir, { recursive: true })
 
   const modToTest = await configureModToTest(modsDir, options.modPath, options.modName, options.verbose)
+  const modDependencies = options.modPath
+    ? await installModDependencies(modsDir, path.resolve(options.modPath), options.verbose)
+    : []
   await installFactorioTest(modsDir)
 
   const enableModsOptions = [
     "factorio-test=true",
     `${modToTest}=true`,
+    ...modDependencies.map((m) => `${m}=true`),
     ...(options.mods?.map((m) => (m.includes("=") ? m : `${m}=true`)) ?? []),
   ]
 
