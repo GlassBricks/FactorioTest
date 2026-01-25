@@ -1,4 +1,5 @@
 import { Remote, Settings, TestStage } from "../constants"
+import { getAutoStartMod, isHeadlessMode } from "./auto-start-config"
 import { debugAdapterEnabled } from "./_util"
 import { builtinTestEventListeners } from "./builtin-test-event-listeners"
 import { cliEventEmitter } from "./cli-events"
@@ -57,8 +58,7 @@ function loadTests(files: string[], partialConfig: Partial<Config>): void {
   resetTestState(config)
   const state = getTestState()
 
-  // load files
-  const autoStartMod = settings.startup[Settings.AutoStartMod]!.value
+  const autoStartMod = getAutoStartMod()
   const manualMod = settings.global[Settings.ModToTest]!.value
   const modToTest = autoStartMod || manualMod
   const _require = modToTest === "factorio-test" ? require : ____originalRequire
@@ -97,7 +97,7 @@ function doRunTests() {
   builtinTestEventListeners.forEach(addTestListener)
   if (game !== undefined) game.tick_paused = false
 
-  const headless = settings.startup[Settings.AutoStart]?.value === "headless"
+  const headless = isHeadlessMode()
   if (headless) {
     addTestListener(cliEventEmitter)
   } else {

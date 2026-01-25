@@ -1,12 +1,12 @@
-import { Settings } from "../constants"
 import { logListener } from "./output"
 import { resultCollector } from "./results"
 import { TestEventListener } from "./test-events"
 import { cleanupTestState } from "./state"
+import { isHeadlessMode } from "./auto-start-config"
 
 function emitResult(status: string) {
   print("FACTORIO-TEST-RESULT:" + status)
-  if (settings.startup[Settings.AutoStart]?.value === "headless") {
+  if (isHeadlessMode()) {
     error("FACTORIO-TEST-EXIT")
   }
 }

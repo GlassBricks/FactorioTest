@@ -1,10 +1,7 @@
 import "./control/index"
-import { Settings } from "./constants"
+import { isAutoStartEnabled, getAutoStartMod } from "./factorio-test/auto-start-config"
 
-// Only load self-tests with auto start, so users get less confused
-if (
-  settings.startup[Settings.AutoStart]!.value !== "false" &&
-  settings.startup[Settings.AutoStartMod]!.value === script.mod_name
-) {
+const shouldAutoStart = isAutoStartEnabled() && getAutoStartMod() === script.mod_name
+if (shouldAutoStart) {
   require("__factorio-test__/init")(["test.meta.test", "test.reload.test"])
 }

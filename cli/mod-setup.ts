@@ -127,14 +127,21 @@ export async function setSettingsForAutorun(
     }
   }
   if (verbose) console.log("Setting autorun settings")
-  await runScript("fmtk settings set startup factorio-test-auto-start", mode, "--modsPath", modsDir)
-  await runScript("fmtk settings set startup factorio-test-auto-start-mod", modToTest, "--modsPath", modsDir)
+  const autoStartConfig = JSON.stringify({
+    mod: modToTest,
+    headless: mode === "headless",
+  })
+  await runScript(
+    "fmtk settings set startup factorio-test-auto-start-config",
+    `'${autoStartConfig}'`,
+    "--modsPath",
+    modsDir,
+  )
 }
 
 export async function resetAutorunSettings(modsDir: string, verbose?: boolean): Promise<void> {
   if (verbose) console.log("Disabling auto-start settings")
-  await runScript("fmtk settings set startup factorio-test-auto-start", "false", "--modsPath", modsDir)
-  await runScript("fmtk settings set startup factorio-test-auto-start-mod", '""', "--modsPath", modsDir)
+  await runScript("fmtk settings set startup factorio-test-auto-start-config", "{}", "--modsPath", modsDir)
 }
 
 export function parseRequiredDependencies(dependencies: string[]): string[] {
