@@ -24,6 +24,7 @@
     "prettier": "^3.8.1"
   },
   "scripts": {
+    "lint": "eslint integration-tests",
     "prettier:check": "prettier --check \"**/*.{ts,json}\"",
     "prettier:fix": "prettier --write \"**/*.{ts,json}\"",
     "build:usage-test-mod": "tstl -p integration-tests/fixtures/usage-test-mod/tsconfig.json",
