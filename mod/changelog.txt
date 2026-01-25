@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 3.0.1
-Date: ????
+Date: 2026-01-25
   Features:
     - Warn when duplicate test or describe names are detected at registration time.
     - Improved error logging when reload tests fail due to structure mismatches.
