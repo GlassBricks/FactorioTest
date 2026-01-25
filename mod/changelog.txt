@@ -1,7 +1,15 @@
 ---------------------------------------------------------------------------------------------------
-Version: 2.0.2
+Version: 3.0.0
 Date: ????
+  Features:
+    - Cancel button in GUI for early test termination.
+    - Jest-like template syntax for `.each()` test names: `$property`, `%#`, `%p`, `%d`, `%s`.
+    - `reorder_failed_first` config option to run previously failed tests first.
   Changes:
+    - BREAKING: Removed luassert library.
+  UI:
+    - Simplified GUI with summary line and always-enabled close button.
+    - Show "(.only)" indicator in GUI title when focused tests are present.
 ---------------------------------------------------------------------------------------------------
 Version: 2.0.1
 Date: 2024-11-29
