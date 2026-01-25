@@ -3,7 +3,6 @@ import * as fsp from "fs/promises"
 import * as path from "path"
 import chalk from "chalk"
 import type { Command } from "@commander-js/extra-typings"
-import * as process from "node:process"
 import { loadConfig, mergeTestConfig } from "./config.js"
 import { registerTestRunnerOptions, parseCliTestOptions } from "./schema.js"
 import { setVerbose, runScript } from "./process-utils.js"
@@ -26,14 +25,14 @@ const thisCommand = (program as unknown as Command)
   .command("run")
   .summary("Runs tests with Factorio test.")
   .description("Runs tests for the specified mod with Factorio test. Exits with code 0 only if all tests pass.\n")
-  .argument(
-    "[mod-path]",
+  .argument("[filter...]", "Test patterns to filter (OR logic)")
+  .option(
+    "--mod-path <path>",
     "The path to the mod (folder containing info.json). A symlink will be created in the mods folder to this folder. Either this or --mod-name must be specified.",
   )
-  .argument("[patterns...]", "Test patterns to filter (OR logic)")
   .option(
     "--mod-name <name>",
-    "The name of the mod to test. To use this option, the mod must already be present in the mods directory (see --data-directory). Either this or [mod-path] must be specified.",
+    "The name of the mod to test. To use this option, the mod must already be present in the mods directory (see --data-directory). Either this or --mod-path must be specified.",
   )
   .option(
     "--factorio-path <path>",
@@ -51,29 +50,22 @@ const thisCommand = (program as unknown as Command)
     'Adjust mods. By default, only the mod to test and "factorio-test" are enabled, and all others are disabled! ' +
       'Same format as "fmtk mods adjust". Example: "--mods mod1 mod2=1.2.3" will enable mod1 any version, and mod2 version 1.2.3.',
   )
+  .option("--factorio-args <args...>", "Additional arguments to pass to the Factorio process.")
   .option("--show-output", "Print test output to stdout.", true)
   .option("-v --verbose", "Enables more logging, and pipes the Factorio process output to stdout.")
   .option("--config <path>", "Path to config file")
 
 registerTestRunnerOptions(thisCommand)
 
-thisCommand
-  .addHelpText("after", 'Arguments after "--" are passed to the Factorio process.')
-  .addHelpText("after", 'Suggested factorio arguments: "--cache-sprite-atlas", "--disable-audio"')
-  .action((modPath, patterns, options) => {
-    const actualPatterns: string[] = []
-    for (const p of patterns) {
-      if (p.startsWith("-")) break
-      actualPatterns.push(p)
-    }
-    runTests(modPath, actualPatterns, options)
-  })
+thisCommand.action((patterns, options) => {
+  runTests(patterns, options)
+})
 
 async function runTests(
-  modPath: string | undefined,
   patterns: string[],
   options: {
     config?: string
+    modPath?: string
     factorioPath?: string
     modName?: string
     dataDirectory: string
@@ -82,6 +74,7 @@ async function runTests(
     verbose?: true
     showOutput?: boolean
     mods?: string[]
+    factorioArgs?: string[]
     testPattern?: string
     tagWhitelist?: string[]
     tagBlacklist?: string[]
@@ -93,20 +86,21 @@ async function runTests(
 ) {
   const fileConfig = loadConfig(options.config)
 
-  modPath ??= fileConfig.modPath
+  options.modPath ??= fileConfig.modPath
   options.modName ??= fileConfig.modName
   options.factorioPath ??= fileConfig.factorioPath
   options.dataDirectory ??= fileConfig.dataDirectory ?? "./factorio-test-data-dir"
   options.mods ??= fileConfig.mods
+  options.factorioArgs ??= fileConfig.factorioArgs
   options.verbose ??= fileConfig.verbose as true | undefined
   options.showOutput ??= fileConfig.showOutput ?? true
 
   setVerbose(!!options.verbose)
 
-  if (modPath !== undefined && options.modName !== undefined) {
+  if (options.modPath !== undefined && options.modName !== undefined) {
     throw new Error("Only one of --mod-path or --mod-name can be specified.")
   }
-  if (modPath === undefined && options.modName === undefined) {
+  if (options.modPath === undefined && options.modName === undefined) {
     throw new Error("One of --mod-path or --mod-name must be specified.")
   }
 
@@ -115,7 +109,7 @@ async function runTests(
   const modsDir = path.join(dataDir, "mods")
   await fsp.mkdir(modsDir, { recursive: true })
 
-  const modToTest = await configureModToTest(modsDir, modPath, options.modName, options.verbose)
+  const modToTest = await configureModToTest(modsDir, options.modPath, options.modName, options.verbose)
   await installFactorioTest(modsDir)
 
   const enableModsOptions = [
@@ -153,19 +147,17 @@ async function runTests(
     )
   }
 
-  const args = process.argv
-  const index = args.indexOf("--")
-  const additionalArgs = index >= 0 ? args.slice(index + 1) : []
+  const factorioArgs = options.factorioArgs ?? []
 
   let result: FactorioTestResult
   try {
     result =
       mode === "headless"
-        ? await runFactorioTestsHeadless(factorioPath, dataDir, savePath, additionalArgs, {
+        ? await runFactorioTestsHeadless(factorioPath, dataDir, savePath, factorioArgs, {
             verbose: options.verbose,
             showOutput: options.showOutput,
           })
-        : await runFactorioTestsGraphics(factorioPath, dataDir, savePath, additionalArgs, {
+        : await runFactorioTestsGraphics(factorioPath, dataDir, savePath, factorioArgs, {
             verbose: options.verbose,
             showOutput: options.showOutput,
           })
