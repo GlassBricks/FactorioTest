@@ -8,7 +8,7 @@
   "package": {
     "scripts": {
       "prepackage": "npm run prepare-package",
-      "prepublish": "npm run test:integration:full"
+      "prepublish": "npm run test"
     },
     "git_publish_branch": "main",
     "ignore": ["**/tsconfig*.json", "**/package*.json", "**/*.ts", "**/*.xcf"],
