@@ -135,7 +135,7 @@ async function runTests(
   ]
 
   if (options.verbose) console.log("Adjusting mods")
-  await runScript("fmtk mods adjust", "--modsPath", modsDir, "--disableExtra", ...enableModsOptions)
+  await runScript("fmtk", "mods", "adjust", "--modsPath", modsDir, "--disableExtra", ...enableModsOptions)
   await ensureConfigIni(dataDir)
 
   const mode = options.graphics ? "graphics" : "headless"
@@ -166,8 +166,12 @@ async function runTests(
 
   if (Object.keys(testConfig).length > 0) {
     await runScript(
-      "fmtk settings set runtime-global factorio-test-config",
-      `'${JSON.stringify(testConfig)}'`,
+      "fmtk",
+      "settings",
+      "set",
+      "runtime-global",
+      "factorio-test-config",
+      JSON.stringify(testConfig),
       "--modsPath",
       modsDir,
     )
@@ -189,7 +193,7 @@ async function runTests(
           })
   } finally {
     await resetAutorunSettings(modsDir, options.verbose)
-    await runScript("fmtk settings set runtime-global factorio-test-config", "{}", "--modsPath", modsDir)
+    await runScript("fmtk", "settings", "set", "runtime-global", "factorio-test-config", "{}", "--modsPath", modsDir)
   }
 
   if (outputPath && result.data) {

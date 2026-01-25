@@ -129,12 +129,14 @@ export async function installFactorioTest(modsDir: string): Promise<void> {
 
   if (!version) {
     console.log("Downloading factorio-test from mod portal using fmtk.")
-    await runScript("fmtk mods install", "--modsPath", modsDir, "--playerData", playerDataPath, "factorio-test")
+    await runScript("fmtk", "mods", "install", "--modsPath", modsDir, "--playerData", playerDataPath, "factorio-test")
     version = await getInstalledModVersion(modsDir, "factorio-test")
   } else if (compareVersions(version, MIN_FACTORIO_TEST_VERSION) < 0) {
     console.log(`factorio-test ${version} is outdated, downloading latest version.`)
     await runScript(
-      "fmtk mods install",
+      "fmtk",
+      "mods",
+      "install",
       "--force",
       "--modsPath",
       modsDir,
@@ -196,7 +198,7 @@ export async function setSettingsForAutorun(
     const dummySaveFile = path.join(dataDir, "____dummy_save_file.zip")
     await runProcess(
       false,
-      `"${factorioPath}"`,
+      factorioPath,
       "--create",
       dummySaveFile,
       "--mod-directory",
@@ -216,8 +218,12 @@ export async function setSettingsForAutorun(
     ...(options?.lastFailedTests?.length && { last_failed_tests: options.lastFailedTests }),
   })
   await runScript(
-    "fmtk settings set startup factorio-test-auto-start-config",
-    `'${autoStartConfig}'`,
+    "fmtk",
+    "settings",
+    "set",
+    "startup",
+    "factorio-test-auto-start-config",
+    autoStartConfig,
     "--modsPath",
     modsDir,
   )
@@ -225,7 +231,7 @@ export async function setSettingsForAutorun(
 
 export async function resetAutorunSettings(modsDir: string, verbose?: boolean): Promise<void> {
   if (verbose) console.log("Disabling auto-start settings")
-  await runScript("fmtk settings set startup factorio-test-auto-start-config", "{}", "--modsPath", modsDir)
+  await runScript("fmtk", "settings", "set", "startup", "factorio-test-auto-start-config", "{}", "--modsPath", modsDir)
 }
 
 export function parseRequiredDependencies(dependencies: string[]): string[] {
@@ -264,7 +270,7 @@ export async function installModDependencies(modsDir: string, modPath: string, v
     if (exists) continue
 
     if (verbose) console.log(`Installing dependency: ${modName}`)
-    await runScript("fmtk mods install", "--modsPath", modsDir, "--playerData", playerDataPath, modName)
+    await runScript("fmtk", "mods", "install", "--modsPath", modsDir, "--playerData", playerDataPath, modName)
   }
 
   return required

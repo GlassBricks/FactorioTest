@@ -15,7 +15,6 @@ export function runProcess(inheritStdio: boolean, command: string, ...args: stri
   if (verbose) console.log("Running:", command, ...args)
   const proc = spawn(command, args, {
     stdio: inheritStdio ? "inherit" : "ignore",
-    shell: true,
   })
   return new Promise<void>((resolve, reject) => {
     proc.on("error", reject)
