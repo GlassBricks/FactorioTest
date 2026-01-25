@@ -14,7 +14,7 @@ See also: [mod changelog](../mod/changelog.txt) for in-game test framework chang
 - **Graphics mode**: Use `--graphics` flag to run with the in-game GUI, with same config options. GUI will persist after tests finish.
 - **Test runner options in config**: Options previously only configurable in Lua (`game_speed`, `default_timeout`, `tag_whitelist`, `tag_blacklist`, `log_passed_tests`, `log_skipped_tests`) can now be set in config file or via CLI.
 - **Config file support**: Configure options via `factorio-test.json` or `package.json["factorio-test"]`. CLI options override file settings.
-- **`--watch` flag**: Monitor files and automatically rerun tests on changes.
+- **`--watch` flag**: Monitor files and automatically rerun tests on changes. Now works with `--graphics` mode using UDP-triggered reloads.
 - **`--bail <n>` option**: Stop test execution after n failures.
 - **`--forbid-only` flag**: Fail when `.only` tests are present (useful for CI).
 - **`--quiet` flag**: Suppress per-test output for cleaner logs.

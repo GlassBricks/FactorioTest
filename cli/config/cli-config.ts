@@ -7,6 +7,7 @@ interface CliOptionMeta {
   description: string
   default?: string
   negatable?: boolean
+  parseArg?: (value: string) => unknown
 }
 
 interface FieldDef {
@@ -91,6 +92,14 @@ const cliConfigFields = {
       description: "Glob patterns to watch (default: info.json, **/*.lua)",
     },
   },
+  udpPort: {
+    schema: z.number().int().positive().optional(),
+    cli: {
+      flags: "--udp-port <port>",
+      description: "UDP port for graphics watch mode rerun trigger (default: 14434)",
+      parseArg: (v) => parseInt(v, 10),
+    },
+  },
 } satisfies Record<string, FieldDef>
 
 export const cliConfigSchema = z.object({
@@ -106,7 +115,9 @@ export function registerCliConfigOptions(command: Command<unknown[], Record<stri
   for (const field of Object.values(cliConfigFields) as FieldDef[]) {
     if (!field.cli) continue
     const cli = field.cli
-    if ("default" in cli && cli.default !== undefined) {
+    if (cli.parseArg) {
+      command.option(cli.flags, cli.description, cli.parseArg, cli.default)
+    } else if ("default" in cli && cli.default !== undefined) {
       command.option(cli.flags, cli.description, cli.default)
     } else {
       command.option(cli.flags, cli.description)
@@ -131,5 +142,5 @@ export interface CliOnlyOptions {
 export function registerCliOnlyOptions(command: Command<unknown[], Record<string, unknown>>): void {
   command.option("--config <path>", "Path to config file")
   command.option("--graphics", "Run with graphics (interactive mode). Default: headless.")
-  command.option("-w --watch", "Watch mod directory and rerun tests on changes (headless only)")
+  command.option("-w --watch", "Watch mod directory and rerun tests on changes. With --graphics, uses UDP to trigger reloads (see --udp-port)")
 }

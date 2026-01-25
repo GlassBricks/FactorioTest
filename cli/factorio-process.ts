@@ -166,12 +166,16 @@ export async function runFactorioTestsHeadless(
   return { ...parsed, message: resultMessage, data: collector.getData() }
 }
 
+export interface GraphicsTestOptions extends FactorioTestOptions {
+  resolveOnResult?: boolean
+}
+
 export async function runFactorioTestsGraphics(
   factorioPath: string,
   dataDir: string,
   savePath: string,
   additionalArgs: string[],
-  options: FactorioTestOptions,
+  options: GraphicsTestOptions,
 ): Promise<FactorioTestResult> {
   const args = [
     "--load-game",
@@ -191,15 +195,21 @@ export async function runFactorioTestsGraphics(
   const { handler, collector, printer, progress } = createOutputComponents(options)
 
   let resultMessage: string | undefined
+  let resolvePromise: (() => void) | undefined
+
   handler.on("result", (msg) => {
     resultMessage = msg
     progress.finish()
     printer.resetMessage()
+    if (options.resolveOnResult && resolvePromise) {
+      resolvePromise()
+    }
   })
 
   new BufferLineSplitter(factorioProcess.stdout).on("line", (line) => handler.handleLine(line))
 
   await new Promise<void>((resolve, reject) => {
+    resolvePromise = resolve
     factorioProcess.on("exit", (code, signal) => {
       if (resultMessage !== undefined) {
         resolve()

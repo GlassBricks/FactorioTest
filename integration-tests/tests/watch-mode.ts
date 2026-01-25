@@ -2,7 +2,7 @@ import * as child_process from "child_process"
 import * as fs from "fs"
 import * as os from "os"
 import * as path from "path"
-import { root, symlinkLocalFactorioTest, sleep, waitForOutput, TestResult } from "../test-utils.js"
+import { root, sleep, symlinkLocalFactorioTest, TestResult, waitForOutput } from "../test-utils.js"
 
 async function testWatchModeRerunsOnFileChange(): Promise<TestResult> {
   const messages: string[] = []

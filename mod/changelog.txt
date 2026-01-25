@@ -7,6 +7,7 @@ Date: ????
     - `reorder_failed_first` config option to run previously failed tests first.
   Changes:
     - BREAKING: Removed luassert library.
+    - If using cli, requires factorio-test-cli v3.0.
   UI:
     - Simplified GUI with summary line and always-enabled close button.
     - Show "(.only)" indicator in GUI title when focused tests are present.

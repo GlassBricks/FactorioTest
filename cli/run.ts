@@ -1,6 +1,7 @@
 import { program } from "commander"
 import * as fsp from "fs/promises"
 import * as path from "path"
+import * as dgram from "dgram"
 import chalk from "chalk"
 import type { Command } from "@commander-js/extra-typings"
 import {
@@ -66,6 +67,7 @@ interface TestRunContext {
   testConfig: TestRunnerConfig
   options: RunOptions
   fileConfig: CliConfig
+  udpPort: number | undefined
 }
 
 async function setupTestRun(patterns: string[], options: RunOptions): Promise<TestRunContext> {
@@ -79,9 +81,6 @@ async function setupTestRun(patterns: string[], options: RunOptions): Promise<Te
   }
   if (options.modPath === undefined && options.modName === undefined) {
     throw new CliError("One of --mod-path or --mod-name must be specified.")
-  }
-  if (options.watch && options.graphics) {
-    throw new CliError("--watch is only supported in headless mode")
   }
 
   const factorioPath = options.factorioPath ?? autoDetectFactorioPath()
@@ -116,6 +115,12 @@ async function setupTestRun(patterns: string[], options: RunOptions): Promise<Te
 
   const testConfig = buildTestConfig(fileConfig, options, patterns)
 
+  const udpPort = options.watch && options.graphics ? (options.udpPort ?? fileConfig.udpPort ?? 14434) : undefined
+  const factorioArgs = [...(options.factorioArgs ?? [])]
+  if (udpPort !== undefined) {
+    factorioArgs.push(`--enable-lua-udp=${udpPort}`)
+  }
+
   return {
     factorioPath,
     dataDir,
@@ -124,16 +129,24 @@ async function setupTestRun(patterns: string[], options: RunOptions): Promise<Te
     mode,
     savePath,
     outputPath,
-    factorioArgs: options.factorioArgs ?? [],
+    factorioArgs,
     testConfig,
     options,
     fileConfig,
+    udpPort,
   }
 }
 
-async function executeTestRun(ctx: TestRunContext, signal?: AbortSignal): Promise<TestRunResult> {
+interface ExecuteOptions {
+  signal?: AbortSignal
+  skipResetAutorun?: boolean
+  resolveOnResult?: boolean
+}
+
+async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions): Promise<TestRunResult> {
   const { factorioPath, dataDir, modsDir, modToTest, mode, savePath, outputPath, factorioArgs, testConfig, options } =
     ctx
+  const { signal, skipResetAutorun, resolveOnResult } = execOptions ?? {}
 
   const reorderEnabled = options.reorderFailedFirst ?? ctx.fileConfig.test?.reorder_failed_first ?? true
   const lastFailedTests = reorderEnabled && outputPath ? await readPreviousFailedTests(outputPath) : []
@@ -168,10 +181,13 @@ async function executeTestRun(ctx: TestRunContext, signal?: AbortSignal): Promis
         : await runFactorioTestsGraphics(factorioPath, dataDir, savePath, factorioArgs, {
             verbose: options.verbose,
             showOutput: options.showOutput,
+            resolveOnResult,
           })
   } finally {
-    await resetAutorunSettings(modsDir, options.verbose)
-    await runScript("fmtk", "settings", "set", "runtime-global", "factorio-test-config", "{}", "--modsPath", modsDir)
+    if (!skipResetAutorun) {
+      await resetAutorunSettings(modsDir, options.verbose)
+      await runScript("fmtk", "settings", "set", "runtime-global", "factorio-test-config", "{}", "--modsPath", modsDir)
+    }
   }
 
   if (result.status === "cancelled") {
@@ -206,7 +222,32 @@ const DEFAULT_WATCH_PATTERNS = ["info.json", "**/*.lua"]
 async function runTests(patterns: string[], options: RunOptions): Promise<void> {
   const ctx = await setupTestRun(patterns, options)
 
-  if (options.watch) {
+  if (options.watch && options.graphics) {
+    const watchPatterns = options.watchPatterns ?? ctx.fileConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS
+    const target = await resolveModWatchTarget(ctx.modsDir, options.modPath, options.modName)
+    console.log(chalk.gray(`Watching ${target.path} for patterns: ${watchPatterns.join(", ")}`))
+
+    await executeTestRun(ctx, { skipResetAutorun: true, resolveOnResult: true })
+
+    const udpClient = dgram.createSocket("udp4")
+    const onFileChange = () => {
+      console.log(chalk.cyan("File change detected, triggering rerun..."))
+      udpClient.send("rerun", ctx.udpPort!, "127.0.0.1")
+    }
+
+    const watcher =
+      target.type === "directory"
+        ? watchDirectory(target.path, onFileChange, { patterns: watchPatterns })
+        : watchFile(target.path, onFileChange)
+
+    process.on("SIGINT", () => {
+      watcher.close()
+      udpClient.close()
+      process.exit(0)
+    })
+
+    await new Promise(() => {})
+  } else if (options.watch) {
     const watchPatterns = options.watchPatterns ?? ctx.fileConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS
     const target = await resolveModWatchTarget(ctx.modsDir, options.modPath, options.modName)
 
@@ -221,7 +262,7 @@ async function runTests(patterns: string[], options: RunOptions): Promise<void> 
       isRunning = true
       console.log("\n" + "─".repeat(60))
       try {
-        await executeTestRun(ctx, abortController.signal)
+        await executeTestRun(ctx, { signal: abortController.signal })
       } catch (e) {
         if (e instanceof CliError) {
           console.error(chalk.red(e.message))
