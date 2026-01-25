@@ -8,9 +8,7 @@ import {
   loadConfig,
   mergeCliConfig,
   buildTestConfig,
-  registerCliOnlyOptions,
-  registerCliConfigOptions,
-  registerTestConfigOptions,
+  registerAllCliOptions,
   type RunOptions,
   type CliConfig,
   type TestRunnerConfig,
@@ -42,9 +40,7 @@ const thisCommand = (program as unknown as Command)
   .description("Runs tests for the specified mod with Factorio test. Exits with code 0 only if all tests pass.\n")
   .argument("[filter...]", "Test patterns to filter (OR logic)")
 
-registerCliOnlyOptions(thisCommand)
-registerCliConfigOptions(thisCommand)
-registerTestConfigOptions(thisCommand)
+registerAllCliOptions(thisCommand)
 
 thisCommand.action((patterns, options) => {
   runTests(patterns, options as RunOptions)

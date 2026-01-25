@@ -19,42 +19,70 @@ interface FieldDef {
 const testConfigFields = {
   test_pattern: {
     schema: z.string().optional(),
-    cli: { flags: "--test-pattern <pattern>", description: "Pattern to filter tests" },
+    cli: {
+      flags: "--test-pattern <pattern>",
+      description: "Filter tests by name pattern.",
+    },
   },
   tag_whitelist: {
     schema: z.array(z.string()).optional(),
-    cli: { flags: "--tag-whitelist <tags...>", description: "Only run tests with these tags" },
+    cli: {
+      flags: "--tag-whitelist <tags...>",
+      description: "Only run tests with these tags.",
+    },
   },
   tag_blacklist: {
     schema: z.array(z.string()).optional(),
-    cli: { flags: "--tag-blacklist <tags...>", description: "Skip tests with these tags" },
+    cli: {
+      flags: "--tag-blacklist <tags...>",
+      description: "Skip tests with these tags.",
+    },
   },
   default_timeout: {
     schema: z.number().int().positive().optional(),
-    cli: { flags: "--default-timeout <ticks>", description: "Default test timeout in ticks", parseArg: parseInt },
+    cli: {
+      flags: "--default-timeout <ticks>",
+      description: "Default async test timeout in ticks.",
+      parseArg: parseInt,
+    },
   },
   game_speed: {
     schema: z.number().int().positive().optional(),
-    cli: { flags: "--game-speed <speed>", description: "Game speed multiplier", parseArg: parseInt },
-  },
-  log_passed_tests: {
-    schema: z.boolean().optional(),
-    cli: { flags: "--log-passed-tests", description: "Log passed test names", negatable: true },
-  },
-  log_skipped_tests: {
-    schema: z.boolean().optional(),
-    cli: { flags: "--log-skipped-tests", description: "Log skipped test names" },
-  },
-  reorder_failed_first: {
-    schema: z.boolean().optional(),
-    cli: { flags: "--reorder-failed-first", description: "Run previously failed tests first", negatable: true },
+    cli: {
+      flags: "--game-speed <speed>",
+      description: "Game speed multiplier.",
+      parseArg: parseInt,
+    },
   },
   bail: {
     schema: z.number().int().positive().optional(),
     cli: {
-      flags: "--bail [count]",
-      description: "Stop after n failures (default: 1)",
+      flags: "-b --bail [count]",
+      description: "Stop after n failures (default: 1 when flag present).",
       parseArg: (v: string | undefined) => (v === undefined ? 1 : parseInt(v)),
+    },
+  },
+  reorder_failed_first: {
+    schema: z.boolean().optional(),
+    cli: {
+      flags: "--reorder-failed-first",
+      description: "Run previously failed tests first (default: enabled).",
+      negatable: true,
+    },
+  },
+  log_passed_tests: {
+    schema: z.boolean().optional(),
+    cli: {
+      flags: "--log-passed-tests",
+      description: "Log passed test names (default: enabled).",
+      negatable: true,
+    },
+  },
+  log_skipped_tests: {
+    schema: z.boolean().optional(),
+    cli: {
+      flags: "--log-skipped-tests",
+      description: "Log skipped test names.",
     },
   },
 } satisfies Record<string, FieldDef>
@@ -75,7 +103,7 @@ export function registerTestConfigOptions(command: Command<unknown[], Record<str
     }
     if (cli.negatable) {
       const flagName = cli.flags.split(" ")[0].replace("--", "")
-      command.option(`--no-${flagName}`, `Don't ${cli.description.toLowerCase()}`)
+      command.option(`--no-${flagName}`, `Disable ${cli.description.toLowerCase().replace(/\.$/, "")}`)
     }
   }
 }

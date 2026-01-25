@@ -1,6 +1,6 @@
 import type { Command } from "@commander-js/extra-typings"
 import { z } from "zod"
-import { testRunnerConfigSchema } from "./test-config.js"
+import { testRunnerConfigSchema, registerTestConfigOptions } from "./test-config.js"
 
 interface CliOptionMeta {
   flags: string
@@ -21,78 +21,94 @@ const cliConfigFields = {
   modPath: {
     schema: z.string().optional(),
     cli: {
-      flags: "--mod-path <path>",
-      description: "Path to the mod folder (containing info.json). Either this or --mod-name must be specified.",
+      flags: "-p --mod-path <path>",
+      description: "Path to the mod folder (containing info.json). Will create a symlink from mods folder to here.",
     },
   },
   modName: {
     schema: z.string().optional(),
     cli: {
       flags: "--mod-name <name>",
-      description: "Name of the mod to test. The mod must already be in the data directory.",
+      description: "Name of a mod already in the configured data directory.",
     },
   },
   factorioPath: {
     schema: z.string().optional(),
     cli: {
       flags: "--factorio-path <path>",
-      description: "The path to the factorio binary. If not specified, attempts to auto-detect the path.",
+      description: "Path to the Factorio binary. If not specified, will attempt to be auto-detected.",
     },
   },
   dataDirectory: {
     schema: z.string().optional(),
     cli: {
       flags: "-d --data-directory <path>",
-      description: "Factorio user data directory for the testing instance.",
+      description: "Factorio data directory, where mods, saves, config etc. will be.",
       default: DEFAULT_DATA_DIRECTORY,
     },
   },
   save: {
     schema: z.string().optional(),
-    cli: { flags: "--save <path>", description: "Path to save file" },
+    cli: {
+      flags: "--save <path>",
+      description: "Path to save file. Default: uses a bundled save with empty lab-tile world.",
+    },
   },
   mods: {
     schema: z.array(z.string()).optional(),
     cli: {
       flags: "--mods <mods...>",
-      description: 'Additional mods to enable. Example: "--mods mod1 mod2=1.2.3".',
+      description: "Additional mods to enable besides the mod under test (e.g., --mods mod1 mod2=1.2.3).",
+    },
+  },
+  factorioArgs: {
+    schema: z.array(z.string()).optional(),
+    cli: {
+      flags: "--factorio-args <args...>",
+      description: "Additional arguments to pass to Factorio process.",
     },
   },
   verbose: {
     schema: z.boolean().optional(),
     cli: {
       flags: "-v --verbose",
-      description: "Enables more logging, and pipes the Factorio process output to stdout.",
+      description: "Enable verbose logging; pipe Factorio output to stdout.",
     },
   },
   quiet: {
     schema: z.boolean().optional(),
-    cli: { flags: "-q --quiet", description: "Suppress per-test output, show only final result." },
-  },
-  factorioArgs: {
-    schema: z.array(z.string()).optional(),
-    cli: { flags: "--factorio-args <args...>", description: "Additional arguments to pass to the Factorio process." },
-  },
-  forbidOnly: {
-    schema: z.boolean().optional(),
-    cli: { flags: "--forbid-only", description: "Fail if .only tests are present (default: true)", negatable: true },
+    cli: {
+      flags: "-q --quiet",
+      description: "Suppress per-test output, show only final result.",
+    },
   },
   outputFile: {
     schema: z.string().optional(),
-    cli: { flags: "--output-file <path>", description: "Path to write test results JSON file" },
+    cli: {
+      flags: "--output-file <path>",
+      description: "Path for test results JSON file. Used to reorder failed tests first on subsequent runs.",
+    },
+  },
+  forbidOnly: {
+    schema: z.boolean().optional(),
+    cli: {
+      flags: "--forbid-only",
+      description: "Fail if .only tests are present (default: enabled). Useful for CI.",
+      negatable: true,
+    },
   },
   watchPatterns: {
     schema: z.array(z.string()).optional(),
     cli: {
       flags: "--watch-patterns <patterns...>",
-      description: "Glob patterns to watch (default: info.json, **/*.lua)",
+      description: "Glob patterns to watch (default: info.json, **/*.lua).",
     },
   },
   udpPort: {
     schema: z.number().int().positive().optional(),
     cli: {
       flags: "--udp-port <port>",
-      description: "UDP port for graphics watch mode rerun trigger (default: 14434)",
+      description: "UDP port to use for --graphics --watch mode reload trigger (default: 14434).",
       parseArg: (v) => parseInt(v, 10),
     },
   },
@@ -107,26 +123,21 @@ export const cliConfigSchema = z.object({
 
 export type CliConfig = z.infer<typeof cliConfigSchema>
 
-export function registerCliConfigOptions(command: Command<unknown[], Record<string, unknown>>): void {
-  for (const field of Object.values(cliConfigFields) as FieldDef[]) {
-    if (!field.cli) continue
-    const cli = field.cli
-    if (cli.parseArg) {
-      command.option(cli.flags, cli.description, cli.parseArg, cli.default)
-    } else if ("default" in cli && cli.default !== undefined) {
-      command.option(cli.flags, cli.description, cli.default)
-    } else {
-      command.option(cli.flags, cli.description)
-    }
-    if (cli.negatable) {
-      const flagName = cli.flags
-        .split(" ")[0]
-        .replace(/^-+/, "")
-        .replace(/^[a-z] --/, "")
-      command.option(`--no-${flagName}`, `Disable ${flagName}`)
-    }
+function addOption(command: Command<unknown[], Record<string, unknown>>, cli: CliOptionMeta): void {
+  if (cli.parseArg) {
+    command.option(cli.flags, cli.description, cli.parseArg, cli.default)
+  } else if ("default" in cli && cli.default !== undefined) {
+    command.option(cli.flags, cli.description, cli.default)
+  } else {
+    command.option(cli.flags, cli.description)
   }
-  command.option("--no-output-file", "Disable writing test results file")
+  if (cli.negatable) {
+    const flagName = cli.flags
+      .split(" ")[0]
+      .replace(/^-+/, "")
+      .replace(/^[a-z] --/, "")
+    command.option(`--no-${flagName}`, `Disable ${flagName}`)
+  }
 }
 
 export interface CliOnlyOptions {
@@ -135,11 +146,30 @@ export interface CliOnlyOptions {
   watch?: true
 }
 
-export function registerCliOnlyOptions(command: Command<unknown[], Record<string, unknown>>): void {
-  command.option("--config <path>", "Path to config file")
-  command.option("--graphics", "Run with graphics (interactive mode). Default: headless.")
-  command.option(
-    "-w --watch",
-    "Watch mod directory and rerun tests on changes. With --graphics, uses UDP to trigger reloads (see --udp-port)",
-  )
+export function registerAllCliOptions(command: Command<unknown[], Record<string, unknown>>): void {
+  const f = cliConfigFields
+
+  command.option("-c --config <path>", "Path to config file")
+  command.option("-g --graphics", "Launch Factorio with graphics (interactive mode) instead of headless")
+  command.option("-w --watch", "Watch for file changes and rerun tests")
+
+  addOption(command, f.modPath.cli!)
+  addOption(command, f.modName.cli!)
+
+  addOption(command, f.factorioPath.cli!)
+  addOption(command, f.dataDirectory.cli!)
+  addOption(command, f.save.cli!)
+  addOption(command, f.mods.cli!)
+  addOption(command, f.factorioArgs.cli!)
+
+  registerTestConfigOptions(command)
+
+  addOption(command, f.verbose.cli!)
+  addOption(command, f.quiet.cli!)
+  addOption(command, f.outputFile.cli!)
+  command.option("--no-output-file", "Disable writing test results file")
+  addOption(command, f.forbidOnly.cli!)
+
+  addOption(command, f.watchPatterns.cli!)
+  addOption(command, f.udpPort.cli!)
 }
