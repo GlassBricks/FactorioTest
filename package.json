@@ -31,8 +31,6 @@
     "build:only-test-mod": "tstl -p integration-tests/fixtures/only-test-mod/tsconfig.json",
     "build:test-mods": "concurrently npm:build:usage-test-mod npm:build:only-test-mod",
     "pretest:integration": "conc \"npm run pretest -w mod\" npm:build:test-mods",
-    "test:integration": "conc npm:test:integration:concurrent npm:test:integration:watch",
-    "test:integration:concurrent": "tsx integration-tests/test-runner.ts",
-    "test:integration:watch": "tsx integration-tests/tests/watch-mode.ts"
+    "test:integration": "tsx integration-tests/test-runner.ts"
   }
 }
