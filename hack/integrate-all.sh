@@ -79,7 +79,7 @@ while IFS= read -r line; do
   fi
 
   echo "    Resetting $BRANCH..."
-  git -C "$WORKTREE_PATH" reset --hard main
+  git -C "$WORKTREE_PATH" reset --keep main
 done < <(git worktree list)
 
 echo ""
