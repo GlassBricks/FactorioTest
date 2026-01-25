@@ -1,4 +1,5 @@
 import "./deprecated-cli-check"
+import "./start-tests"
 import "./mod-select-gui"
 import "./test-gui"
 import "./auto-start"

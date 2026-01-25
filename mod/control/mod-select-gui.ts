@@ -2,6 +2,7 @@ import * as modGui from "mod-gui"
 import { Locale, Misc, Prototypes, Remote, Settings, TestStage } from "../constants"
 import { guiAction } from "./guiAction"
 import { postLoadAction } from "./post-load-action"
+import { startTests } from "./start-tests"
 import {
   ButtonGuiElement,
   CustomEventId,
@@ -224,11 +225,10 @@ const ReloadMods = guiAction("refresh", () => {
 })
 
 const callRunTests = postLoadAction("runTests", () => {
-  if (!remote.interfaces[Remote.FactorioTest]) {
+  if (!startTests()) {
     game.print([ConfigGui.ModNotRegisteredTests])
     return
   }
-  remote.call(Remote.FactorioTest, "runTests")
   updateConfigGui()
 })
 

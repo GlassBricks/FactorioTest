@@ -142,5 +142,8 @@ export interface CliOnlyOptions {
 export function registerCliOnlyOptions(command: Command<unknown[], Record<string, unknown>>): void {
   command.option("--config <path>", "Path to config file")
   command.option("--graphics", "Run with graphics (interactive mode). Default: headless.")
-  command.option("-w --watch", "Watch mod directory and rerun tests on changes. With --graphics, uses UDP to trigger reloads (see --udp-port)")
+  command.option(
+    "-w --watch",
+    "Watch mod directory and rerun tests on changes. With --graphics, uses UDP to trigger reloads (see --udp-port)",
+  )
 }

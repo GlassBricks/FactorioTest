@@ -1,9 +1,11 @@
 import { Remote } from "../constants"
 import { getAutoStartConfig, isAutoStartEnabled, isHeadlessMode } from "../factorio-test/auto-start-config"
 import { LocalisedString } from "factorio:runtime"
+import { hasAutoStarted, markAutoStarted, startTests } from "./start-tests"
 
 script.on_load(() => {
   if (!isAutoStartEnabled()) return
+  if (hasAutoStarted()) return
 
   const headless = isHeadlessMode()
   const modToTest = getAutoStartConfig().mod!
@@ -25,10 +27,11 @@ script.on_load(() => {
       return autoStartError(`Cannot auto-start tests: mod ${modToTest} is not active.`)
     }
 
-    if (remote.interfaces[Remote.FactorioTest] == undefined) {
+    if (!remote.interfaces[Remote.FactorioTest]) {
       return autoStartError("Cannot auto-start tests: the selected mod is not registered with Factorio Test.")
     }
 
-    remote.call(Remote.FactorioTest, "runTests", modToTest)
+    markAutoStarted()
+    startTests(modToTest)
   })
 })
