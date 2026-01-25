@@ -72,9 +72,9 @@ const testCases: TestCase[] = [
     expectExitCode: 0,
   },
   {
-    name: "Config file forbid_only: false allows .only tests",
+    name: "Config file forbidOnly: false allows .only tests",
     modPath: "../integration-tests/fixtures/only-test-mod",
-    configFile: { forbid_only: false },
+    configFile: { forbidOnly: false },
     expectedOutput: ["only-test-mod: completed", "Test run result: passed"],
     expectExitCode: 0,
   },

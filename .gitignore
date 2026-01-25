@@ -128,4 +128,4 @@ dist
 factorio-test-data-dir/
 factorio-test-data-dir-mod/
 
-cli/*.js
+cli/**/*.js

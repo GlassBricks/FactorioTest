@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import * as fs from "fs"
 import * as path from "path"
-import { loadConfig, mergeTestConfig } from "./config.js"
+import { loadConfig, mergeTestConfig } from "./config/index.js"
 
 const testDir = path.join(import.meta.dirname, "__test_fixtures__")
 

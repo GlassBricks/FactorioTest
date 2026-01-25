@@ -3,13 +3,16 @@ import * as fsp from "fs/promises"
 import * as path from "path"
 import chalk from "chalk"
 import type { Command } from "@commander-js/extra-typings"
-import { loadConfig, mergeTestConfig, CliConfig } from "./config.js"
 import {
-  registerTestRunnerOptions,
+  loadConfig,
+  mergeCliConfig,
+  buildTestConfig,
   registerCliOnlyOptions,
-  registerWatchOptions,
-  parseCliTestOptions,
-} from "./schema.js"
+  registerCliConfigOptions,
+  registerTestConfigOptions,
+  type RunOptions,
+  type CliConfig,
+} from "./config/index.js"
 import { setVerbose, runScript } from "./process-utils.js"
 import { autoDetectFactorioPath } from "./factorio-discovery.js"
 import { CliError } from "./cli-error.js"
@@ -36,74 +39,14 @@ const thisCommand = (program as unknown as Command)
   .summary("Runs tests with Factorio test.")
   .description("Runs tests for the specified mod with Factorio test. Exits with code 0 only if all tests pass.\n")
   .argument("[filter...]", "Test patterns to filter (OR logic)")
-  .option(
-    "--mod-path <path>",
-    "Path to the mod folder (containing info.json). Either this or --mod-name must be specified.",
-  )
-  .option(
-    "--mod-name <name>",
-    "Name of the mod to test. The mod must already be in the data directory. Either this or --mod-path must be specified.",
-  )
-  .option(
-    "--factorio-path <path>",
-    "The path to the factorio binary. If not specified, attempts to auto-detect the path.",
-  )
-  .option(
-    "-d --data-directory <path>",
-    "Factorio user data directory for the testing instance.",
-    "./factorio-test-data-dir",
-  )
-  .option("--graphics", "Run with graphics (interactive mode). Default: headless.")
-  .option("-w --watch", "Watch mod directory and rerun tests on changes (headless only)")
-  .option("--save <path>", "Path to save file")
-  .option(
-    "--mods <mods...>",
-    'Additional mods to enable. Example: "--mods mod1 mod2=1.2.3". All other mods are disabled by default.',
-  )
-  .option("--factorio-args <args...>", "Additional arguments to pass to the Factorio process.")
-  .option("--show-output", "Print test output to stdout.", true)
-  .option("-q --quiet", "Suppress per-test output, show only final result.")
-  .option("-v --verbose", "Enables more logging, and pipes the Factorio process output to stdout.")
-  .option("--config <path>", "Path to config file")
-  .option("--output-file <path>", "Path to write test results JSON file")
-  .option("--no-output-file", "Disable writing test results file")
 
-registerTestRunnerOptions(thisCommand)
 registerCliOnlyOptions(thisCommand)
-registerWatchOptions(thisCommand)
+registerCliConfigOptions(thisCommand)
+registerTestConfigOptions(thisCommand)
 
 thisCommand.action((patterns, options) => {
-  runTests(patterns, options)
+  runTests(patterns, options as RunOptions)
 })
-
-interface RunOptions {
-  config?: string
-  modPath?: string
-  factorioPath?: string
-  modName?: string
-  dataDirectory: string
-  graphics?: true
-  watch?: true
-  watchPattern?: string[]
-  save?: string
-  quiet?: true
-  verbose?: true
-  showOutput?: boolean
-  mods?: string[]
-  factorioArgs?: string[]
-  testPattern?: string
-  tagWhitelist?: string[]
-  tagBlacklist?: string[]
-  defaultTimeout?: number
-  gameSpeed?: number
-  logPassedTests?: boolean
-  logSkippedTests?: boolean
-  reorderFailedFirst?: boolean
-  bail?: number
-  forbidOnly?: boolean
-  outputFile?: string | false
-  [key: string]: unknown
-}
 
 interface TestRunResult {
   exitCode: number
@@ -126,16 +69,7 @@ interface TestRunContext {
 
 async function setupTestRun(patterns: string[], options: RunOptions): Promise<TestRunContext> {
   const fileConfig = loadConfig(options.config)
-
-  options.modPath ??= fileConfig.modPath
-  options.modName ??= fileConfig.modName
-  options.factorioPath ??= fileConfig.factorioPath
-  options.dataDirectory ??= fileConfig.dataDirectory ?? "./factorio-test-data-dir"
-  options.mods ??= fileConfig.mods
-  options.factorioArgs ??= fileConfig.factorioArgs
-  options.verbose ??= fileConfig.verbose as true | undefined
-  options.quiet ??= fileConfig.quiet as true | undefined
-  options.showOutput ??= options.quiet ? false : (fileConfig.showOutput ?? true)
+  mergeCliConfig(fileConfig, options)
 
   setVerbose(!!options.verbose)
 
@@ -179,16 +113,7 @@ async function setupTestRun(patterns: string[], options: RunOptions): Promise<Te
       ? undefined
       : (options.outputFile ?? fileConfig.outputFile ?? getDefaultOutputPath(dataDir))
 
-  const cliTestOptions = parseCliTestOptions(options)
-  const allPatterns = [fileConfig.test?.test_pattern, cliTestOptions.test_pattern, ...patterns].filter(
-    Boolean,
-  ) as string[]
-  const combinedPattern = allPatterns.length > 0 ? allPatterns.map((p) => `(${p})`).join("|") : undefined
-
-  const testConfig = mergeTestConfig(fileConfig.test, {
-    ...cliTestOptions,
-    test_pattern: combinedPattern,
-  })
+  const testConfig = buildTestConfig(fileConfig, options, patterns)
 
   return {
     factorioPath,
@@ -266,7 +191,7 @@ async function executeTestRun(ctx: TestRunContext, signal?: AbortSignal): Promis
     resultStatus == "passed" ? chalk.greenBright : resultStatus == "todo" ? chalk.yellowBright : chalk.redBright
   console.log("Test run result:", color(resultStatus))
 
-  const forbidOnly = options.forbidOnly ?? ctx.fileConfig.forbid_only ?? true
+  const forbidOnly = options.forbidOnly ?? ctx.fileConfig.forbidOnly ?? true
   if (result.hasFocusedTests && forbidOnly) {
     console.log(chalk.redBright("Error: .only tests are present but --forbid-only is enabled"))
     return { exitCode: 1, status: resultStatus }
@@ -281,7 +206,7 @@ async function runTests(patterns: string[], options: RunOptions): Promise<void> 
   const ctx = await setupTestRun(patterns, options)
 
   if (options.watch) {
-    const watchPatterns = options.watchPattern ?? ctx.fileConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS
+    const watchPatterns = options.watchPatterns ?? ctx.fileConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS
     const target = await resolveModWatchTarget(ctx.modsDir, options.modPath, options.modName)
 
     let abortController: AbortController | undefined

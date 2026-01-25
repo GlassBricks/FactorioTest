@@ -1,8 +1,22 @@
 import * as fs from "fs"
 import * as path from "path"
 import { ZodError } from "zod"
-import { cliConfigSchema, type CliConfig, type TestRunnerConfig } from "./schema.js"
-import { CliError } from "./cli-error.js"
+import { CliError } from "../cli-error.js"
+import { cliConfigSchema, DEFAULT_DATA_DIRECTORY, type CliConfig, type CliOnlyOptions } from "./cli-config.js"
+import { parseCliTestOptions, TestRunnerConfig } from "./test-config.js"
+
+type SnakeToCamel<S extends string> = S extends `${infer T}_${infer U}` ? `${T}${Capitalize<SnakeToCamel<U>>}` : S
+
+type CamelCaseTestConfig = {
+  [K in keyof TestRunnerConfig as SnakeToCamel<K & string>]?: TestRunnerConfig[K]
+}
+
+export type RunOptions = CliOnlyOptions &
+  Omit<CliConfig, "test" | "outputFile"> &
+  CamelCaseTestConfig & {
+    outputFile?: string | false
+    dataDirectory: string
+  }
 
 function formatZodError(error: ZodError, filePath: string): string {
   const issues = error.issues.map((issue) => {
@@ -40,7 +54,7 @@ function resolveConfigPaths(config: CliConfig, configDir: string): CliConfig {
     ...config,
     modPath: config.modPath ? path.resolve(configDir, config.modPath) : undefined,
     factorioPath: config.factorioPath ? path.resolve(configDir, config.factorioPath) : undefined,
-    dataDirectory: config.dataDirectory ? path.resolve(configDir, config.dataDirectory) : undefined,
+    dataDirectory: path.resolve(configDir, config.dataDirectory ?? DEFAULT_DATA_DIRECTORY),
     save: config.save ? path.resolve(configDir, config.save) : undefined,
   }
 }
@@ -72,4 +86,24 @@ export function mergeTestConfig(
   }
 }
 
-export { type CliConfig, type TestRunnerConfig }
+export function mergeCliConfig(fileConfig: CliConfig, options: RunOptions): RunOptions {
+  options.modPath ??= fileConfig.modPath
+  options.modName ??= fileConfig.modName
+  options.factorioPath ??= fileConfig.factorioPath
+  options.dataDirectory ??= fileConfig.dataDirectory ?? DEFAULT_DATA_DIRECTORY
+  options.mods ??= fileConfig.mods
+  options.factorioArgs ??= fileConfig.factorioArgs
+  options.verbose ??= fileConfig.verbose as true | undefined
+  options.quiet ??= fileConfig.quiet as true | undefined
+  options.showOutput ??= options.quiet ? false : (fileConfig.showOutput ?? true)
+  return options
+}
+
+export function buildTestConfig(fileConfig: CliConfig, options: RunOptions, patterns: string[]): TestRunnerConfig {
+  const cliTestOptions = parseCliTestOptions(options as unknown as Record<string, unknown>)
+  const allPatterns = [fileConfig.test?.test_pattern, cliTestOptions.test_pattern, ...patterns].filter(
+    Boolean,
+  ) as string[]
+  const combinedPattern = allPatterns.length > 0 ? allPatterns.map((p) => `(${p})`).join("|") : undefined
+  return mergeTestConfig(fileConfig.test, { ...cliTestOptions, test_pattern: combinedPattern })
+}

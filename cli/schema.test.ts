@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { testRunnerConfigSchema, cliConfigSchema, parseCliTestOptions } from "./schema.js"
+import { testRunnerConfigSchema, cliConfigSchema, parseCliTestOptions } from "./config/index.js"
 
 describe("testRunnerConfigSchema", () => {
   it("parses valid config with snake_case keys", () => {
@@ -37,13 +37,13 @@ describe("cliConfigSchema", () => {
     expect(() => cliConfigSchema.strict().parse({ unknownKey: true })).toThrow()
   })
 
-  it("accepts forbid_only boolean", () => {
-    const config = { forbid_only: false }
+  it("accepts forbidOnly boolean", () => {
+    const config = { forbidOnly: false }
     expect(cliConfigSchema.parse(config)).toEqual(config)
   })
 
-  it("defaults forbid_only to undefined", () => {
-    expect(cliConfigSchema.parse({}).forbid_only).toBeUndefined()
+  it("defaults forbidOnly to undefined", () => {
+    expect(cliConfigSchema.parse({}).forbidOnly).toBeUndefined()
   })
 })
 
