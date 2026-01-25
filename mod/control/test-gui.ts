@@ -4,6 +4,7 @@ import { guiAction } from "./guiAction"
 
 guiAction(Misc.CloseTestGui, () => {
   if (remote.interfaces[Remote.FactorioTest]) {
+    remote.call(Remote.FactorioTest, "cancelTestRun")
     remote.call(Remote.FactorioTest, "fireCustomEvent", "closeProgressGui")
   }
   getPlayer().gui.screen[Misc.TestGui]?.destroy()

@@ -2,17 +2,15 @@ import {
   ButtonGuiElement,
   FrameGuiElement,
   LabelGuiElement,
+  LocalisedString,
   LuaGuiElement,
   LuaPlayer,
-  LuaStyle,
   ProgressBarGuiElement,
   ScrollPaneGuiElement,
-  SpriteButtonGuiElement,
-  TableGuiElement,
 } from "factorio:runtime"
 import { Locale, Misc, Prototypes } from "../constants"
 import { getPlayer } from "./_util"
-import { Colors, MessageColor, MessageHandler } from "./output"
+import { MessageHandler } from "./output"
 import { TestRunResults } from "./results"
 import { TestState } from "./state"
 import { TestEventListener } from "./test-events"
@@ -23,11 +21,10 @@ import ConfigGui = Locale.ConfigGui
 interface TestGui {
   player: LuaPlayer
   mainFrame: FrameGuiElement
-  closeButton: SpriteButtonGuiElement
   statusText: LabelGuiElement
   progressBar: ProgressBarGuiElement
   progressLabel: LabelGuiElement
-  testCounts: TableGuiElement
+  testSummary: LabelGuiElement
   output: ScrollPaneGuiElement
   actionButton: ButtonGuiElement
 
@@ -73,28 +70,10 @@ function ProgressBar(parent: LuaGuiElement): {
   }
 }
 
-function TestCount(parent: LuaGuiElement) {
-  const table = parent.add<"table">({
-    type: "table",
-    column_count: 5,
-    style: "bordered_table",
-  })
-
-  function addLabel() {
-    const result = table.add({ type: "label" })
-    const style: LuaStyle = result.style
-    style.horizontally_stretchable = true
-    style.horizontal_align = "center"
-    style.font = "default-bold"
-    style.width = 80
-    return result
-  }
-  const colors = [MessageColor.Red, MessageColor.Red, MessageColor.Yellow, MessageColor.Purple, MessageColor.Green]
-  for (const color of colors) {
-    const label = addLabel()
-    label.style.font_color = Colors[color]
-  }
-  return table
+function TestSummary(parent: LuaGuiElement): LabelGuiElement {
+  const label = parent.add({ type: "label" })
+  label.style.font = "default-bold"
+  return label
 }
 
 function TestOutput(parent: LuaGuiElement): ScrollPaneGuiElement {
@@ -185,7 +164,7 @@ function createTestProgressGui(state: TestState): TestGui {
     style.height = 24
   }
 
-  const closeButton = titleBar.add({
+  titleBar.add({
     type: "sprite-button",
     style: "frame_action_button",
     sprite: "utility/close",
@@ -197,7 +176,6 @@ function createTestProgressGui(state: TestState): TestGui {
       modName: "factorio-test",
       on_gui_click: Misc.CloseTestGui,
     },
-    enabled: false,
   })
 
   const contentFlow = mainFrame.add({
@@ -214,10 +192,9 @@ function createTestProgressGui(state: TestState): TestGui {
     player,
     mainFrame,
     totalTests: countActiveTests(state.rootBlock, state),
-    closeButton,
     statusText: StatusText(topFrame),
     ...ProgressBar(topFrame),
-    testCounts: TestCount(topFrame),
+    testSummary: TestSummary(topFrame),
     output: TestOutput(contentFlow),
     ...bottomButtonsBar(contentFlow),
   }
@@ -235,17 +212,26 @@ function getTestProgressGui() {
   return gui
 }
 
+function buildTestSummary(results: TestRunResults): LocalisedString {
+  const parts: LocalisedString[] = []
+  if (results.passed > 0) parts.push([ProgressGui.NPassed, results.passed])
+  if (results.failed > 0) parts.push([ProgressGui.NFailed, results.failed])
+  if (results.describeBlockErrors > 0) parts.push([ProgressGui.NErrors, results.describeBlockErrors])
+  if (results.skipped > 0) parts.push([ProgressGui.NSkipped, results.skipped])
+  if (results.todo > 0) parts.push([ProgressGui.NTodo, results.todo])
+  if (parts.length === 0) return ""
+  const result: LocalisedString = [""]
+  for (const [i, part] of ipairs(parts)) {
+    if (i > 1) result.push(", ")
+    result.push(part)
+  }
+  return result
+}
+
 function updateTestCounts(gui: TestGui, results: TestRunResults) {
   gui.progressBar.value = gui.totalTests === 0 ? 1 : results.ran / gui.totalTests
   gui.progressLabel.caption = ["", results.ran, "/", gui.totalTests]
-
-  const testCounts = gui.testCounts.children
-
-  if (results.failed > 0) testCounts[0]!.caption = [ProgressGui.NFailed, results.failed]
-  if (results.describeBlockErrors > 0) testCounts[1]!.caption = [ProgressGui.NErrors, results.describeBlockErrors]
-  if (results.skipped > 0) testCounts[2]!.caption = [ProgressGui.NSkipped, results.skipped]
-  if (results.todo > 0) testCounts[3]!.caption = [ProgressGui.NTodo, results.todo]
-  if (results.passed > 0) testCounts[4]!.caption = [ProgressGui.NPassed, results.passed]
+  gui.testSummary.caption = buildTestSummary(results)
 }
 
 export const progressGuiListener: TestEventListener = (event, state) => {
@@ -306,21 +292,18 @@ export const progressGuiListener: TestEventListener = (event, state) => {
             : ProgressGui.TestsFailed
 
       gui.statusText.caption = [statusLocale]
-      gui.closeButton.enabled = true
       gui.actionButton.caption = [ConfigGui.RerunTests]
       gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
       break
     }
     case "testRunCancelled": {
       gui.statusText.caption = [ProgressGui.TestsCancelled]
-      gui.closeButton.enabled = true
       gui.actionButton.caption = [ConfigGui.RerunTests]
       gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
       break
     }
     case "loadError": {
       gui.statusText.caption = [ProgressGui.LoadError]
-      gui.closeButton.enabled = true
       gui.actionButton.caption = [ConfigGui.RerunTests]
       gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
       break
