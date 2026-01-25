@@ -25,6 +25,7 @@
     "prepare-test": "npm run pretest --workspace=mod",
     "test:usage-test": "tsx integration-tests/test-usage-test-mod.ts",
     "test:config-options": "tsx integration-tests/test-config-options.ts",
-    "test:integration": "npm run test:usage-test && npm run test:config-options"
+    "test:integration": "npm run test:usage-test && npm run test:config-options",
+    "test:integration:full": "npm run build --workspace=cli && npm run build --workspace=mod && npm run test:integration"
   }
 }

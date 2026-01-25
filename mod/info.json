@@ -7,7 +7,8 @@
   "factorio_version": "2.0",
   "package": {
     "scripts": {
-      "prepackage": "npm run prepare-package"
+      "prepackage": "npm run prepare-package",
+      "prepublish": "npm run test:integration:full"
     },
     "git_publish_branch": "main",
     "ignore": ["**/tsconfig*.json", "**/package*.json", "**/*.ts", "**/*.xcf"],
