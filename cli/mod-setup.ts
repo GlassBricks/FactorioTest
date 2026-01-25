@@ -4,6 +4,23 @@ import * as path from "path"
 import { runScript, runProcess } from "./process-utils.js"
 import { getFactorioPlayerDataPath } from "./factorio-paths.js"
 
+const MIN_FACTORIO_TEST_VERSION = "3.0.0"
+
+type Version = [number, number, number]
+
+function parseVersion(version: string): Version {
+  const parts = version.split(".").map(Number)
+  return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0]
+}
+
+function compareVersions(a: string, b: string): number {
+  const [aMajor, aMinor, aPatch] = parseVersion(a)
+  const [bMajor, bMinor, bPatch] = parseVersion(b)
+  if (aMajor !== bMajor) return aMajor - bMajor
+  if (aMinor !== bMinor) return aMinor - bMinor
+  return aPatch - bPatch
+}
+
 export async function configureModToTest(
   modsDir: string,
   modPath?: string,
@@ -64,13 +81,73 @@ export async function checkModExists(modsDir: string, modName: string): Promise<
   })
 }
 
+async function getInstalledModVersion(modsDir: string, modName: string): Promise<string | undefined> {
+  const stat = await fsp.stat(modsDir).catch(() => undefined)
+  if (!stat?.isDirectory()) return undefined
+
+  const files = await fsp.readdir(modsDir)
+  for (const f of files) {
+    const fullPath = path.join(modsDir, f)
+    const fileStat = fs.statSync(fullPath, { throwIfNoEntry: false })
+
+    if (fileStat?.isDirectory()) {
+      if (f === modName) {
+        const infoPath = path.join(fullPath, "info.json")
+        try {
+          const info = JSON.parse(await fsp.readFile(infoPath, "utf8")) as { version?: string }
+          if (info.version) return info.version
+        } catch {
+          continue
+        }
+      }
+      const versionedMatch = f.match(new RegExp(`^${modName}_(\\d+\\.\\d+\\.\\d+)$`))
+      if (versionedMatch) {
+        const infoPath = path.join(fullPath, "info.json")
+        try {
+          const info = JSON.parse(await fsp.readFile(infoPath, "utf8")) as { version?: string }
+          if (info.version) return info.version
+        } catch {
+          return versionedMatch[1]
+        }
+      }
+    }
+
+    if (fileStat?.isFile()) {
+      const zipMatch = f.match(new RegExp(`^${modName}_(\\d+\\.\\d+\\.\\d+)\\.zip$`))
+      if (zipMatch) return zipMatch[1]
+    }
+  }
+  return undefined
+}
+
 export async function installFactorioTest(modsDir: string): Promise<void> {
   await fsp.mkdir(modsDir, { recursive: true })
-  const exists = await checkModExists(modsDir, "factorio-test")
-  if (!exists) {
+  const playerDataPath = getFactorioPlayerDataPath()
+
+  let version = await getInstalledModVersion(modsDir, "factorio-test")
+
+  if (!version) {
     console.log("Downloading factorio-test from mod portal using fmtk.")
-    const playerDataPath = getFactorioPlayerDataPath()
     await runScript("fmtk mods install", "--modsPath", modsDir, "--playerData", playerDataPath, "factorio-test")
+    version = await getInstalledModVersion(modsDir, "factorio-test")
+  } else if (compareVersions(version, MIN_FACTORIO_TEST_VERSION) < 0) {
+    console.log(`factorio-test ${version} is outdated, downloading latest version.`)
+    await runScript(
+      "fmtk mods install",
+      "--force",
+      "--modsPath",
+      modsDir,
+      "--playerData",
+      playerDataPath,
+      "factorio-test",
+    )
+    version = await getInstalledModVersion(modsDir, "factorio-test")
+  }
+
+  if (!version || compareVersions(version, MIN_FACTORIO_TEST_VERSION) < 0) {
+    throw new Error(
+      `factorio-test mod version ${version ?? "unknown"} is below minimum required ${MIN_FACTORIO_TEST_VERSION}`,
+    )
   }
 }
 

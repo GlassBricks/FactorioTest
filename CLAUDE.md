@@ -40,3 +40,4 @@ npm run prettier:fix  # run lint and prettier fix after .ts/.json changes
 - Run format, lint, and tests after .ts file changes
 - If applicable include plan files in commits
 - Use parameterized tests where applicable
+- For integration tests, factorio-test mod should be symlinked from dev folder (not downloaded by CLI)
