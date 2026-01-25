@@ -1,6 +1,13 @@
 import chalk from "chalk"
 import { CapturedTest, TestRunData } from "./test-run-collector.js"
 
+function formatDuration(ms: number): string {
+  if (ms >= 1000) {
+    return `${(ms / 1000).toFixed(2)}s`
+  }
+  return `${ms.toFixed(1)}ms`
+}
+
 export interface FormatterOptions {
   verbose?: boolean
   quiet?: boolean
@@ -22,7 +29,7 @@ export class OutputFormatter {
     }
 
     const prefix = this.getPrefix(test.result)
-    const duration = test.duration ? ` (${test.duration})` : ""
+    const duration = test.durationMs !== undefined ? ` (${formatDuration(test.durationMs)})` : ""
     console.log(`${prefix} ${test.path}${duration}`)
 
     if (test.result === "failed") {

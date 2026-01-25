@@ -6,7 +6,6 @@ export interface SourceLocation {
 export interface TestInfo {
   path: string
   source?: SourceLocation
-  duration?: string
 }
 
 export interface BlockInfo {
@@ -23,7 +22,6 @@ export interface TestRunSummary {
   cancelled: number
   describeBlockErrors: number
   status: "passed" | "failed" | "todo" | "cancelled"
-  duration?: string
 }
 
 export type TestRunnerEvent =

@@ -10,18 +10,15 @@ describe("TestRunCollector", () => {
 
   it("handles testStarted followed by testPassed", () => {
     collector.handleEvent({ type: "testStarted", test: { path: "root > test1" } })
-    collector.handleEvent({ type: "testPassed", test: { path: "root > test1", duration: "1.5 ms" } })
+    collector.handleEvent({ type: "testPassed", test: { path: "root > test1" } })
 
     const data = collector.getData()
     expect(data.tests).toHaveLength(1)
-    expect(data.tests[0]).toEqual({
-      path: "root > test1",
-      source: undefined,
-      result: "passed",
-      errors: [],
-      logs: [],
-      duration: "1.5 ms",
-    })
+    expect(data.tests[0].path).toBe("root > test1")
+    expect(data.tests[0].result).toBe("passed")
+    expect(data.tests[0].errors).toEqual([])
+    expect(data.tests[0].logs).toEqual([])
+    expect(typeof data.tests[0].durationMs).toBe("number")
   })
 
   it("handles testStarted followed by testFailed with errors", () => {

@@ -6,7 +6,7 @@ export interface CapturedTest {
   result: "passed" | "failed" | "skipped" | "todo"
   errors: string[]
   logs: string[]
-  duration?: string
+  durationMs?: number
 }
 
 export interface TestRunData {
@@ -18,11 +18,13 @@ export class TestRunCollector {
   private data: TestRunData = { tests: [] }
   private currentTest: CapturedTest | undefined
   private currentLogs: string[] = []
+  private testStartTime: number | undefined
 
   handleEvent(event: TestRunnerEvent): void {
     switch (event.type) {
       case "testStarted":
         this.flushCurrentTest()
+        this.testStartTime = performance.now()
         this.currentTest = {
           path: event.test.path,
           source: event.test.source,
@@ -36,7 +38,9 @@ export class TestRunCollector {
       case "testPassed":
         if (this.currentTest) {
           this.currentTest.result = "passed"
-          this.currentTest.duration = event.test.duration
+          if (this.testStartTime !== undefined) {
+            this.currentTest.durationMs = performance.now() - this.testStartTime
+          }
           this.currentTest.logs = [...this.currentLogs]
         }
         this.flushCurrentTest()
@@ -46,7 +50,9 @@ export class TestRunCollector {
         if (this.currentTest) {
           this.currentTest.result = "failed"
           this.currentTest.errors = event.errors
-          this.currentTest.duration = event.test.duration
+          if (this.testStartTime !== undefined) {
+            this.currentTest.durationMs = performance.now() - this.testStartTime
+          }
           this.currentTest.logs = [...this.currentLogs]
         }
         this.flushCurrentTest()
@@ -100,6 +106,7 @@ export class TestRunCollector {
       this.data.tests.push(this.currentTest)
       this.currentTest = undefined
       this.currentLogs = []
+      this.testStartTime = undefined
     }
   }
 }

@@ -22,7 +22,7 @@ describe("OutputFormatter", () => {
     result: "passed",
     errors: [],
     logs: [],
-    duration: "1.23 ms",
+    durationMs: 1.23,
   }
 
   const failedTest: CapturedTest = {
@@ -30,7 +30,7 @@ describe("OutputFormatter", () => {
     result: "failed",
     errors: ["assertion failed", "at test.ts:10"],
     logs: ["debug output"],
-    duration: "0.5 ms",
+    durationMs: 0.5,
   }
 
   it("formats passed test with duration", () => {
@@ -40,7 +40,7 @@ describe("OutputFormatter", () => {
     expect(output).toHaveLength(1)
     expect(output[0]).toContain("PASS")
     expect(output[0]).toContain("root > test1")
-    expect(output[0]).toContain("1.23 ms")
+    expect(output[0]).toContain("1.2ms")
   })
 
   it("formats failed test with errors", () => {

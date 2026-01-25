@@ -19,7 +19,6 @@ function testToInfo(test: Test): TestInfo {
   const result: TestInfo = { path: test.path }
   const source = sourceToLocation(test.source)
   if (source) result.source = source
-  if (test.profiler) result.duration = tostring(test.profiler)
   return result
 }
 
@@ -72,7 +71,6 @@ export const cliEventEmitter: TestEventListener = (event, state) => {
         ...state.results,
         status: state.results.status!,
       }
-      if (state.profiler) (results as { duration?: string }).duration = tostring(state.profiler)
       emitEvent({ type: "testRunFinished", results })
       break
     }
