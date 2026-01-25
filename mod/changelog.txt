@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 3.0.0
-Date: ????
+Date: 2026-01-25
   Features:
     - Cancel button in GUI for early test termination.
     - Jest-like template syntax for `.each()` test names: `$property`, `%#`, `%p`, `%d`, `%s`.
