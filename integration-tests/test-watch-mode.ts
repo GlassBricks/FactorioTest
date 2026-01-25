@@ -61,7 +61,6 @@ async function testWatchModeRerunsOnFileChange(): Promise<TestResult> {
     child = child_process.spawn("npm", args, {
       stdio: ["inherit", "pipe", "pipe"],
       cwd: root,
-      shell: true,
     })
 
     child.stdout?.on("data", (data) => {
@@ -151,7 +150,6 @@ async function testWatchModeIgnoresNonMatchingFiles(): Promise<TestResult> {
     child = child_process.spawn("npm", args, {
       stdio: ["inherit", "pipe", "pipe"],
       cwd: root,
-      shell: true,
     })
 
     child.stdout?.on("data", (data) => {

@@ -26,7 +26,6 @@ try {
     {
       stdio: ["inherit", "pipe", "inherit"],
       cwd: root,
-      shell: true,
     },
   )
   let stdOut = ""

@@ -149,7 +149,6 @@ async function runTest(tc: TestCase, index: number): Promise<TestResult> {
       const child = child_process.spawn("npm", args, {
         stdio: ["inherit", "pipe", "pipe"],
         cwd: root,
-        shell: true,
       })
 
       let stdout = ""

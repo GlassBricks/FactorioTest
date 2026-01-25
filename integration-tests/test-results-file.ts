@@ -26,7 +26,6 @@ function runCli(dataDir: string, extraArgs: string[] = []): Promise<{ stdout: st
     const child = child_process.spawn("npm", args, {
       stdio: ["inherit", "pipe", "pipe"],
       cwd: root,
-      shell: true,
     })
 
     let stdout = ""

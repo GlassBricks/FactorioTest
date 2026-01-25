@@ -35,6 +35,6 @@
     "test:config-options": "tsx integration-tests/test-config-options.ts",
     "test:results-file": "tsx integration-tests/test-results-file.ts",
     "test:watch-mode": "tsx integration-tests/test-watch-mode.ts",
-    "test:integration": "concurrently --kill-others-on-fail npm:test:usage-test npm:test:config-options && npm run test:results-file && npm run test:watch-mode"
+    "test:integration": "concurrently --kill-others-on-fail npm:test:usage-test npm:test:config-options npm:test:results-file npm:test:watch-mode"
   }
 }
