@@ -8,6 +8,6 @@
     "index.d.ts"
   ],
   "peerDependencies": {
-    "typed-factorio": ">=1.14.0"
+    "typed-factorio": ">=2.0.0"
   }
 }
