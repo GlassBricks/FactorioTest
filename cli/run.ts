@@ -30,11 +30,11 @@ const thisCommand = (program as unknown as Command)
   .argument("[filter...]", "Test patterns to filter (OR logic)")
   .option(
     "--mod-path <path>",
-    "The path to the mod (folder containing info.json). A symlink will be created in the mods folder to this folder. Either this or --mod-name must be specified.",
+    "Path to the mod folder (containing info.json). Either this or --mod-name must be specified.",
   )
   .option(
     "--mod-name <name>",
-    "The name of the mod to test. To use this option, the mod must already be present in the mods directory (see --data-directory). Either this or --mod-path must be specified.",
+    "Name of the mod to test. The mod must already be in the data directory. Either this or --mod-path must be specified.",
   )
   .option(
     "--factorio-path <path>",
@@ -42,15 +42,14 @@ const thisCommand = (program as unknown as Command)
   )
   .option(
     "-d --data-directory <path>",
-    'The path to the factorio data directory that the testing instance will use. The "config.ini" file and the "mods" folder will be in this directory.',
+    "Factorio user data directory for the testing instance.",
     "./factorio-test-data-dir",
   )
-  .option("--graphics", "Run with graphics (interactive mode). By default, runs headless using benchmark mode.")
-  .option("--save <path>", "Path to save file (default: bundled headless-save.zip)")
+  .option("--graphics", "Run with graphics (interactive mode). Default: headless.")
+  .option("--save <path>", "Path to save file")
   .option(
     "--mods <mods...>",
-    'Adjust mods. By default, only the mod to test and "factorio-test" are enabled, and all others are disabled! ' +
-      'Same format as "fmtk mods adjust". Example: "--mods mod1 mod2=1.2.3" will enable mod1 any version, and mod2 version 1.2.3.',
+    'Additional mods to enable. Example: "--mods mod1 mod2=1.2.3". All other mods are disabled by default.',
   )
   .option("--factorio-args <args...>", "Additional arguments to pass to the Factorio process.")
   .option("--show-output", "Print test output to stdout.", true)
