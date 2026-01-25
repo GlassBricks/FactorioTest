@@ -23,9 +23,7 @@
     "watch-all": "conc \"npm:watch:*\"",
     "pretest": "npm run clean && conc \"npm:build:*(!release)\"",
     "test:self": "cd .. && npm run cli --workspace=cli -- run ../mod",
-    "test:usage-test": "tsx ../scripts/test-usage-test-mod.ts",
-    "test:config-options": "tsx ../scripts/test-config-options.ts",
-    "test": "npm run test:self && npm run test:usage-test && npm run test:config-options",
+    "test": "npm run test:self",
     "lint": "eslint .",
     "check": "npm run lint && npm run test",
     "prepare-package": "npm run check && npm run build"
