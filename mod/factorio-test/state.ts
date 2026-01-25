@@ -19,6 +19,7 @@ export interface TestState {
 
   // run
   currentTestRun?: TestRun | undefined
+  cancelRequested: boolean
 
   results: TestRunResults
   profiler?: LuaProfiler
@@ -78,6 +79,7 @@ export function resetTestState(config: Config): void {
     rootBlock,
     currentBlock: rootBlock,
     hasFocusedTests: false,
+    cancelRequested: false,
     results: createEmptyRunResults(),
     getTestStage: getGlobalTestStage,
     setTestStage: setGlobalTestStage,

@@ -46,6 +46,9 @@ export interface DescribeBlockFailed extends BaseTestEvent {
 export interface TestRunFinished extends BaseTestEvent {
   type: "testRunFinished"
 }
+export interface TestRunCancelled extends BaseTestEvent {
+  type: "testRunCancelled"
+}
 export interface LoadError extends BaseTestEvent {
   type: "loadError"
 }
@@ -67,6 +70,7 @@ export type TestEvent =
   | DescribeBlockFinished
   | DescribeBlockFailed
   | TestRunFinished
+  | TestRunCancelled
   | LoadError
   | CustomEvent
 

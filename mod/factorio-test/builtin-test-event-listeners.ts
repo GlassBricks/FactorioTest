@@ -29,6 +29,14 @@ const setupListener: TestEventListener = (event, state) => {
 
     const focusedSuffix = state.hasFocusedTests ? ":focused" : ""
     emitResult(status + focusedSuffix)
+  } else if (event.type === "testRunCancelled") {
+    game.speed = 1
+    if (state.config.sound_effects) {
+      game.play_sound({ path: "utility/console_message" })
+    }
+    state.config.after_test_run?.()
+    cleanupTestState()
+    emitResult("cancelled")
   } else if (event.type === "loadError") {
     game.speed = 1
     game.play_sound({ path: "utility/console_message" })

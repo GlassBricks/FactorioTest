@@ -7,8 +7,8 @@ import { DescribeBlock, Test, collectHooks, formatSource, isSkippedTest } from "
 
 export interface TestRunner {
   tick(): void
-
   isDone(): boolean
+  requestCancel(): void
 }
 
 interface TestTasks {
@@ -52,6 +52,10 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
   nextTask: Task | undefined = { task: "init" }
 
   tick(): void {
+    if (this.state.cancelRequested && this.nextTask) {
+      this.nextTask = this.cancelTestRun()
+      return
+    }
     if (this.ticksToWait > 0) {
       if (--this.ticksToWait > 0) return
     }
@@ -66,6 +70,50 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
 
   isDone() {
     return this.nextTask === undefined
+  }
+
+  requestCancel(): void {
+    this.state.cancelRequested = true
+  }
+
+  private cancelTestRun(): Task | undefined {
+    const { state } = this
+    let startBlock: DescribeBlock | undefined
+    if (state.currentTestRun) {
+      const { test, afterTestFuncs } = state.currentTestRun
+      startBlock = test.parent
+      const afterEach = [...afterTestFuncs, ...collectHooks(test.parent, "afterEach", "descendants-first")]
+      for (const hook of afterEach) {
+        __factorio_test__pcallWithStacktrace(hook)
+      }
+      test.profiler?.stop()
+      state.currentTestRun = undefined
+    } else {
+      startBlock = this.getBlockFromNextTask()
+    }
+    let block: DescribeBlock | undefined = startBlock ?? state.rootBlock
+    while (block) {
+      const hooks = block.hooks.filter((x) => x.type === "afterAll")
+      for (const hook of hooks) {
+        __factorio_test__pcallWithStacktrace(hook.func)
+      }
+      state.raiseTestEvent({ type: "describeBlockFinished", block })
+      block = block.parent
+    }
+    state.profiler?.stop()
+    state.setTestStage(TestStage.Finished)
+    state.raiseTestEvent({ type: "testRunCancelled" })
+    return undefined
+  }
+
+  private getBlockFromNextTask(): DescribeBlock | undefined {
+    const task = this.nextTask
+    if (!task?.data) return undefined
+    const data = task.data as Test | DescribeBlock | TestRun
+    if ("type" in data) {
+      return data.type === "test" ? data.parent : data.type === "describeBlock" ? data : undefined
+    }
+    return "test" in data ? data.test.parent : undefined
   }
 
   private runTask(task: Task): Task | undefined {

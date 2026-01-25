@@ -29,7 +29,7 @@ interface TestGui {
   progressLabel: LabelGuiElement
   testCounts: TableGuiElement
   output: ScrollPaneGuiElement
-  rerunButton: ButtonGuiElement
+  actionButton: ButtonGuiElement
 
   totalTests: number
 }
@@ -123,17 +123,16 @@ function bottomButtonsBar(parent: LuaGuiElement) {
   })
   spacer.style.horizontally_stretchable = true
 
-  const rerunButton = flow.add({
+  const actionButton = flow.add({
     type: "button",
-    caption: [ConfigGui.RerunTests],
+    caption: [ProgressGui.Cancel],
     tags: {
       modName: "factorio-test",
-      on_gui_click: Misc.RunTests,
+      on_gui_click: Misc.CancelTestRun,
     },
-    enabled: false,
   })
   return {
-    rerunButton,
+    actionButton,
   }
 }
 
@@ -200,8 +199,6 @@ function createTestProgressGui(state: TestState): TestGui {
     },
     enabled: false,
   })
-  // the on_click handler is handled by factorio-test mod, not the mod under test
-  // this is so factorio-test does not need to "hack" into yet another event handler
 
   const contentFlow = mainFrame.add({
     type: "flow",
@@ -310,12 +307,22 @@ export const progressGuiListener: TestEventListener = (event, state) => {
 
       gui.statusText.caption = [statusLocale]
       gui.closeButton.enabled = true
-      gui.rerunButton.enabled = true
+      gui.actionButton.caption = [ConfigGui.RerunTests]
+      gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
+      break
+    }
+    case "testRunCancelled": {
+      gui.statusText.caption = [ProgressGui.TestsCancelled]
+      gui.closeButton.enabled = true
+      gui.actionButton.caption = [ConfigGui.RerunTests]
+      gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
       break
     }
     case "loadError": {
       gui.statusText.caption = [ProgressGui.LoadError]
       gui.closeButton.enabled = true
+      gui.actionButton.caption = [ConfigGui.RerunTests]
+      gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
       break
     }
     case "customEvent": {

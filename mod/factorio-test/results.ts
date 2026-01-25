@@ -6,16 +6,10 @@ export interface TestRunResults {
   failed: number
   skipped: number
   todo: number
+  cancelled: number
   describeBlockErrors: number
 
-  // tests: {
-  //   path: string
-  //   source: Source
-  //   errors: string[]
-  //   result: "passed" | "failed" | "skipped" | "todo"
-  // }[]
-
-  status?: "passed" | "failed" | "todo"
+  status?: "passed" | "failed" | "todo" | "cancelled"
 }
 
 export function createEmptyRunResults(): TestRunResults {
@@ -25,8 +19,8 @@ export function createEmptyRunResults(): TestRunResults {
     ran: 0,
     skipped: 0,
     todo: 0,
+    cancelled: 0,
     describeBlockErrors: 0,
-    // tests: [],
   }
 }
 
@@ -95,6 +89,9 @@ export const resultCollector: TestEventListener = (event, state) => {
       } else {
         results.status = "passed"
       }
+      break
+    case "testRunCancelled":
+      results.status = "cancelled"
       break
   }
 }

@@ -8,3 +8,9 @@ guiAction(Misc.CloseTestGui, () => {
   }
   getPlayer().gui.screen[Misc.TestGui]?.destroy()
 })
+
+guiAction(Misc.CancelTestRun, () => {
+  if (remote.interfaces[Remote.FactorioTest]) {
+    remote.call(Remote.FactorioTest, "cancelTestRun")
+  }
+})

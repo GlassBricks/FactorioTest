@@ -23,6 +23,7 @@ export = function (files: string[], config: Partial<Config>): void {
   loadTests(files, config)
   remote.add_interface(Remote.FactorioTest, {
     runTests,
+    cancelTestRun,
     modName: () => script.mod_name,
     getTestStage: () => getTestState().getTestStage(),
     isRunning,
@@ -75,12 +76,18 @@ function tryContinueTests() {
   }
 }
 
+let currentRunner: TestRunner | undefined
+
 function runTests() {
   if (isRunning()) return
 
   log(`Running tests for ${script.mod_name}`)
   getTestState().setTestStage(TestStage.Ready)
   doRunTests()
+}
+
+function cancelTestRun() {
+  currentRunner?.requestCancel()
 }
 
 function doRunTests() {
@@ -101,13 +108,13 @@ function doRunTests() {
     addMessageHandler(logLogger)
   }
 
-  let runner: TestRunner | undefined
   tapEvent(defines.events.on_tick, () => {
-    if (!runner) {
-      runner = createTestRunner(state)
+    if (!currentRunner) {
+      currentRunner = createTestRunner(state)
     }
-    runner.tick()
-    if (runner.isDone()) {
+    currentRunner.tick()
+    if (currentRunner.isDone()) {
+      currentRunner = undefined
       revertTappedEvents()
     }
   })
