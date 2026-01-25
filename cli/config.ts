@@ -28,10 +28,20 @@ export function loadConfig(configPath?: string): CliConfig {
     if (!result.success) {
       throw new Error(formatZodError(result.error, filePath))
     }
-    return result.data
+    return resolveConfigPaths(result.data, path.dirname(filePath))
   }
 
   return {}
+}
+
+function resolveConfigPaths(config: CliConfig, configDir: string): CliConfig {
+  return {
+    ...config,
+    modPath: config.modPath ? path.resolve(configDir, config.modPath) : undefined,
+    factorioPath: config.factorioPath ? path.resolve(configDir, config.factorioPath) : undefined,
+    dataDirectory: config.dataDirectory ? path.resolve(configDir, config.dataDirectory) : undefined,
+    save: config.save ? path.resolve(configDir, config.save) : undefined,
+  }
 }
 
 export function mergeTestConfig(

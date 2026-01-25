@@ -20,7 +20,7 @@
     "watch:factorio-test": "tstl -p factorio-test/tsconfig.json --watch",
     "watch-all": "conc \"npm:watch:*\"",
     "pretest": "npm run clean && conc \"npm:build:*(!release)\"",
-    "test:self": "cd .. && npm run cli --workspace=cli -- run",
+    "test:self": "cd .. && npm run cli --workspace=cli -- run --config ../factorio-test.json",
     "test": "npm run test:self",
     "lint": "eslint .",
     "check": "npm run lint && npm run test",
