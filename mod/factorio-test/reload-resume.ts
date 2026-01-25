@@ -91,8 +91,13 @@ function describeBlockStructuresMatch(saved: SavedDescribeBlockData, current: De
   if (saved.ticksBetweenTests !== current.ticksBetweenTests) return false
   if (saved.children.length !== current.children.length) return false
 
-  return saved.children.every((child, i) => {
-    const currentChild = current.children[i]
+  const currentByPath = new LuaMap<string, Test | DescribeBlock>()
+  for (const child of current.children) {
+    currentByPath.set(child.path, child)
+  }
+
+  return saved.children.every((child) => {
+    const currentChild = currentByPath.get(child.path)
     if (!currentChild || currentChild.type !== child.type) return false
     return child.type === "test"
       ? structuresMatch(child, currentChild as Test)
@@ -110,9 +115,13 @@ function restoreDescribeBlockState(saved: SavedDescribeBlockData, current: Descr
   current.errors.length = 0
   current.errors.push(...saved.errors)
 
-  for (let i = 0; i < saved.children.length; i++) {
-    const savedChild = saved.children[i]!
-    const currentChild = current.children[i]!
+  const currentByPath = new LuaMap<string, Test | DescribeBlock>()
+  for (const child of current.children) {
+    currentByPath.set(child.path, child)
+  }
+
+  for (const savedChild of saved.children) {
+    const currentChild = currentByPath.get(savedChild.path)!
     if (savedChild.type === "test") {
       restoreTestState(savedChild, currentChild as Test)
     } else {

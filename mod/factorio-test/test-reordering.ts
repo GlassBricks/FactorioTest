@@ -46,6 +46,10 @@ export function reorderChildren(block: DescribeBlock): void {
     if (!aPriority && bPriority) return false
     return a.indexInParent < b.indexInParent
   })
+
+  for (const [i, child] of ipairs(block.children)) {
+    child.indexInParent = i - 1
+  }
 }
 
 function hasPriority(node: Test | DescribeBlock): boolean {

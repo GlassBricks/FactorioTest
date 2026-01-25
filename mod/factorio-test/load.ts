@@ -94,13 +94,14 @@ function cancelTestRun() {
 function doRunTests() {
   const state = getTestState()
   clearTestListeners()
-  builtinTestEventListeners.forEach(addTestListener)
-  if (game !== undefined) game.tick_paused = false
-
   const headless = isHeadlessMode()
   if (headless) {
     addTestListener(cliEventEmitter)
-  } else {
+  }
+  builtinTestEventListeners.forEach(addTestListener)
+  if (game !== undefined) game.tick_paused = false
+
+  if (!headless) {
     addTestListener(progressGuiListener)
     addMessageHandler(progressGuiLogger)
   }

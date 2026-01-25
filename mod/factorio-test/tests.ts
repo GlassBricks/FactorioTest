@@ -44,7 +44,7 @@ export interface Test {
 
   readonly source: Source
   readonly parent: DescribeBlock
-  readonly indexInParent: number
+  indexInParent: number
 
   readonly parts: {
     func: TestFn
@@ -110,7 +110,7 @@ export interface DescribeBlock {
 
   readonly parent: DescribeBlock | undefined
   readonly children: (Test | DescribeBlock)[]
-  readonly indexInParent: number
+  indexInParent: number
 
   readonly hooks: Hook[]
 
