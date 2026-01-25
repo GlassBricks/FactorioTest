@@ -3,6 +3,7 @@ import { getAutoStartMod, isHeadlessMode } from "./auto-start-config"
 import { debugAdapterEnabled } from "./_util"
 import { builtinTestEventListeners } from "./builtin-test-event-listeners"
 import { cliEventEmitter } from "./cli-events"
+import { initializeFailedTestsFromConfig } from "./failed-test-storage"
 import { fillConfig } from "./config"
 import { addMessageHandler, debugAdapterLogger, logLogger } from "./output"
 import { progressGuiListener, progressGuiLogger } from "./test-gui"
@@ -93,6 +94,7 @@ function cancelTestRun() {
 
 function doRunTests() {
   const state = getTestState()
+  initializeFailedTestsFromConfig()
   clearTestListeners()
   const headless = isHeadlessMode()
   if (headless) {

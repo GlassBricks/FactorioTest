@@ -3,6 +3,7 @@ import { resultCollector } from "./results"
 import { TestEventListener } from "./test-events"
 import { cleanupTestState } from "./state"
 import { isHeadlessMode } from "./auto-start-config"
+import { failedTestCollector } from "./failed-test-storage"
 
 function emitResult(status: string) {
   print("FACTORIO-TEST-RESULT:" + status)
@@ -45,4 +46,9 @@ const setupListener: TestEventListener = (event, state) => {
   }
 }
 
-export const builtinTestEventListeners: TestEventListener[] = [resultCollector, setupListener, logListener]
+export const builtinTestEventListeners: TestEventListener[] = [
+  resultCollector,
+  setupListener,
+  logListener,
+  failedTestCollector,
+]

@@ -1,18 +1,13 @@
 import { DescribeBlock, Test } from "./tests"
-import { getAutoStartConfig } from "./auto-start-config"
 import { TestState } from "./state"
+import { getFailedTestsSet, hasFailedTests } from "./failed-test-storage"
 
 export function shouldReorderFailedFirst(state: TestState): boolean {
-  const config = getAutoStartConfig()
-  return state.config.reorder_failed_first !== false && (config.last_failed_tests?.length ?? 0) > 0
+  return state.config.reorder_failed_first !== false && hasFailedTests()
 }
 
 export function markFailedTestsAndDescendants(block: DescribeBlock): void {
-  const failedPaths = new LuaSet<string>()
-  for (const path of getAutoStartConfig().last_failed_tests ?? []) {
-    failedPaths.add(path)
-  }
-  markRecursive(block, failedPaths)
+  markRecursive(block, getFailedTestsSet())
 }
 
 function markRecursive(block: DescribeBlock, failedPaths: LuaSet<string>): boolean {
