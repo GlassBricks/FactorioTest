@@ -3,6 +3,7 @@ import * as fs from "fs"
 import * as path from "path"
 import { runScript, runProcess } from "./process-utils.js"
 import { getFactorioPlayerDataPath } from "./factorio-paths.js"
+import { CliError } from "./cli-error.js"
 
 const MIN_FACTORIO_TEST_VERSION = "3.0.0"
 
@@ -43,11 +44,11 @@ async function configureModPath(modPath: string, modsDir: string): Promise<strin
   try {
     infoJson = JSON.parse(await fsp.readFile(infoJsonFile, "utf8")) as { name: unknown }
   } catch (e) {
-    throw new Error(`Could not read info.json file from ${modPath}`, { cause: e })
+    throw new CliError(`Could not read info.json file from ${modPath}`, { cause: e })
   }
   const modName = infoJson.name
   if (typeof modName !== "string") {
-    throw new Error(`info.json file at ${infoJsonFile} does not contain a string property "name".`)
+    throw new CliError(`info.json file at ${infoJsonFile} does not contain a string property "name".`)
   }
   const resultPath = path.join(modsDir, modName)
   const stat = await fsp.stat(resultPath).catch(() => undefined)
@@ -60,7 +61,7 @@ async function configureModPath(modPath: string, modsDir: string): Promise<strin
 async function configureModName(modsDir: string, modName: string): Promise<void> {
   const exists = await checkModExists(modsDir, modName)
   if (!exists) {
-    throw new Error(`Mod ${modName} not found in ${modsDir}.`)
+    throw new CliError(`Mod ${modName} not found in ${modsDir}.`)
   }
 }
 
@@ -145,7 +146,7 @@ export async function installFactorioTest(modsDir: string): Promise<void> {
   }
 
   if (!version || compareVersions(version, MIN_FACTORIO_TEST_VERSION) < 0) {
-    throw new Error(
+    throw new CliError(
       `factorio-test mod version ${version ?? "unknown"} is below minimum required ${MIN_FACTORIO_TEST_VERSION}`,
     )
   }

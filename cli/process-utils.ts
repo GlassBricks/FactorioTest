@@ -1,4 +1,5 @@
 import { spawn } from "child_process"
+import { CliError } from "./cli-error.js"
 
 let verbose = false
 
@@ -22,7 +23,7 @@ export function runProcess(inheritStdio: boolean, command: string, ...args: stri
       if (code === 0) {
         resolve()
       } else {
-        reject(new Error(`Command exited with code ${code}: ${command} ${args.join(" ")}`))
+        reject(new CliError(`Command exited with code ${code}: ${command} ${args.join(" ")}`))
       }
     })
   })

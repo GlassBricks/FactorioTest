@@ -7,6 +7,7 @@ import { loadConfig, mergeTestConfig } from "./config.js"
 import { registerTestRunnerOptions, registerCliOnlyOptions, parseCliTestOptions } from "./schema.js"
 import { setVerbose, runScript } from "./process-utils.js"
 import { autoDetectFactorioPath } from "./factorio-detect.js"
+import { CliError } from "./cli-error.js"
 import {
   configureModToTest,
   installFactorioTest,
@@ -108,10 +109,10 @@ async function runTests(
   setVerbose(!!options.verbose)
 
   if (options.modPath !== undefined && options.modName !== undefined) {
-    throw new Error("Only one of --mod-path or --mod-name can be specified.")
+    throw new CliError("Only one of --mod-path or --mod-name can be specified.")
   }
   if (options.modPath === undefined && options.modName === undefined) {
-    throw new Error("One of --mod-path or --mod-name must be specified.")
+    throw new CliError("One of --mod-path or --mod-name must be specified.")
   }
 
   const factorioPath = options.factorioPath ?? autoDetectFactorioPath()

@@ -2,6 +2,7 @@ import * as fs from "fs"
 import * as path from "path"
 import { ZodError } from "zod"
 import { cliConfigSchema, type CliConfig, type TestRunnerConfig } from "./schema.js"
+import { CliError } from "./cli-error.js"
 
 function formatZodError(error: ZodError, filePath: string): string {
   const issues = error.issues.map((issue) => {
@@ -26,7 +27,7 @@ export function loadConfig(configPath?: string): CliConfig {
 
     const result = cliConfigSchema.strict().safeParse(rawConfig)
     if (!result.success) {
-      throw new Error(formatZodError(result.error, filePath))
+      throw new CliError(formatZodError(result.error, filePath))
     }
     return resolveConfigPaths(result.data, path.dirname(filePath))
   }

@@ -6,6 +6,7 @@ import { FactorioOutputHandler } from "./factorio-output-handler.js"
 import { OutputPrinter } from "./output-formatter.js"
 import { ProgressRenderer } from "./progress-renderer.js"
 import { TestRunCollector, TestRunData } from "./test-run-collector.js"
+import { CliError } from "./cli-error.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -137,11 +138,11 @@ export async function runFactorioTestsHeadless(
     factorioProcess.on("exit", (code, signal) => {
       clearTimeout(startupTimeout)
       if (startupTimedOut) {
-        reject(new Error("Factorio unresponsive: no test run started within 10 seconds"))
+        reject(new CliError("Factorio unresponsive: no test run started within 10 seconds"))
       } else if (resultMessage !== undefined) {
         resolve()
       } else {
-        reject(new Error(`Factorio exited with code ${code}, signal ${signal}, no result received`))
+        reject(new CliError(`Factorio exited with code ${code}, signal ${signal}, no result received`))
       }
     })
   })
@@ -188,7 +189,7 @@ export async function runFactorioTestsGraphics(
       if (resultMessage !== undefined) {
         resolve()
       } else {
-        reject(new Error(`Factorio exited with code ${code}, signal ${signal}`))
+        reject(new CliError(`Factorio exited with code ${code}, signal ${signal}`))
       }
     })
   })
