@@ -1,12 +1,11 @@
 ---
 allowed-tools:
-  - Bash(git worktree list:*)
+  - Bash(hack/integrate-main.sh:*)
   - Bash(git rebase:*)
   - Bash(git checkout:*)
   - Bash(git merge:*)
+  - Bash(git add:*)
 ---
 
-Check if using worktrees: !`git worktree list`
-Rebase current branch onto main: !`git rebase main`
-Switch to main and merge: `cd (main worktree)` or `git checkout main`, then `git merge --ff-only <current-branch>`
-If rebase or merge fails: fix conflicts and retry
+!`hack/integrate-main.sh`.
+If it fails, fix conflicts and retry. Otherwise just report success.

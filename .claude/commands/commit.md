@@ -6,10 +6,6 @@ allowed-tools:
   - Bash(git add:*)
   - Bash(git commit:*)
   - Bash(git log:*)
-  - Bash(git rebase:*)
-  - Bash(git worktree list:*)
-  - Bash(git checkout:*)
-  - Bash(git merge:*)
 ---
 
 # Commit Changes
@@ -44,11 +40,7 @@ You are tasked with creating git commits for the changes made during this sessio
    - Create commits with your planned messages
    - Show the result with `git log --oneline -n [number]`
 
-6. (Optional) **ONLY if user asks to integrate into main**:
-   - Rebase current branch onto main: `git rebase main`
-   - Check if using worktrees: `git worktree list`
-   - Switch to main and merge: `cd (main worktree)` or `git checkout main`, then `git merge --ff-only <current-branch>`
-   - If rebase or merge fails: fix conflicts and retry
+6. (Optional) **ONLY if user asks to integrate into main**: run `/integrate-main`
 
 ## Remember:
 
