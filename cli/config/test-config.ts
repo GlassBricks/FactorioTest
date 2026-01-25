@@ -1,6 +1,8 @@
 import type { Command } from "@commander-js/extra-typings"
 import { z } from "zod"
-import type { TestRunnerConfig as PublicTestRunnerConfig } from "../../types/config.js"
+import type { TestRunnerConfig } from "../../types/config.js"
+
+export type { TestRunnerConfig }
 
 interface CliOptionMeta {
   flags: string
@@ -57,16 +59,11 @@ const testConfigFields = {
   },
 } satisfies Record<string, FieldDef>
 
-export const testRunnerConfigSchema = z.strictObject(
+export const testRunnerConfigSchema: z.ZodType<TestRunnerConfig> = z.strictObject(
   Object.fromEntries(Object.entries(testConfigFields).map(([k, v]) => [k, v.schema])) as {
     [K in keyof typeof testConfigFields]: (typeof testConfigFields)[K]["schema"]
   },
 )
-
-export type TestRunnerConfig = z.infer<typeof testRunnerConfigSchema>
-
-const _typeCheck: PublicTestRunnerConfig = {} as TestRunnerConfig
-void _typeCheck
 
 export function registerTestConfigOptions(command: Command<unknown[], Record<string, unknown>>): void {
   for (const field of Object.values(testConfigFields) as FieldDef[]) {

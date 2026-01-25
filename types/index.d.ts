@@ -18,23 +18,19 @@ declare function tags(...tags: string[]): void
 /** @noSelf */
 declare namespace FactorioTest {
   interface Config {
-    default_timeout: number
-    default_ticks_between_tests: number
-
-    game_speed: number
-
-    log_passed_tests: boolean
-    log_skipped_tests: boolean
-    reorder_failed_first: boolean
-
     test_pattern?: string
     tag_whitelist?: string[]
     tag_blacklist?: string[]
+    default_timeout: number
+    game_speed: number
+    log_passed_tests: boolean
+    log_skipped_tests: boolean
+    reorder_failed_first: boolean
     bail?: number
 
+    default_ticks_between_tests: number
     before_test_run?(): void
     after_test_run?(): void
-
     sound_effects: boolean
   }
 

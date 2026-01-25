@@ -12,6 +12,7 @@ import {
   registerTestConfigOptions,
   type RunOptions,
   type CliConfig,
+  type TestRunnerConfig,
 } from "./config/index.js"
 import { setVerbose, runScript } from "./process-utils.js"
 import { autoDetectFactorioPath } from "./factorio-discovery.js"
@@ -62,7 +63,7 @@ interface TestRunContext {
   savePath: string
   outputPath: string | undefined
   factorioArgs: string[]
-  testConfig: Record<string, unknown>
+  testConfig: TestRunnerConfig
   options: RunOptions
   fileConfig: CliConfig
 }

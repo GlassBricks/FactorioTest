@@ -1,3 +1,6 @@
+/**
+ * Test runner configuration passed from CLI to the Factorio mod.
+ */
 export interface TestRunnerConfig {
   test_pattern?: string
   tag_whitelist?: string[]
