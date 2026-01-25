@@ -33,6 +33,7 @@ export const cliConfigSchema = z.object({
   factorioArgs: z.array(z.string()).optional(),
   forbid_only: z.boolean().optional(),
   outputFile: z.string().optional(),
+  watchPatterns: z.array(z.string()).optional(),
   test: testRunnerConfigSchema.optional(),
 })
 
@@ -83,6 +84,10 @@ export function registerTestRunnerOptions(command: Command<unknown[], Record<str
 export function registerCliOnlyOptions(command: Command<unknown[], Record<string, unknown>>): void {
   command.option("--forbid-only", "Fail if .only tests are present (default: true)")
   command.option("--no-forbid-only", "Allow .only tests")
+}
+
+export function registerWatchOptions(command: Command<unknown[], Record<string, unknown>>): void {
+  command.option("--watch-pattern <patterns...>", "Glob patterns to watch (default: info.json, **/*.lua)")
 }
 
 function snakeToCamel(str: string): string {

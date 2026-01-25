@@ -13,10 +13,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export interface FactorioTestOptions {
   verbose?: boolean
   showOutput?: boolean
+  signal?: AbortSignal
 }
 
 export interface FactorioTestResult {
-  status: "passed" | "failed" | "todo" | "loadError" | "could not auto start" | string
+  status: "passed" | "failed" | "todo" | "loadError" | "could not auto start" | "cancelled" | string
   hasFocusedTests: boolean
   message?: string
   data?: TestRunData
@@ -111,6 +112,7 @@ export async function runFactorioTestsHeadless(
   let resultMessage: string | undefined
   let testRunStarted = false
   let startupTimedOut = false
+  let wasCancelled = false
 
   handler.on("result", (msg) => {
     resultMessage = msg
@@ -131,13 +133,22 @@ export async function runFactorioTestsHeadless(
     }
   }, 10_000)
 
+  const abortHandler = () => {
+    wasCancelled = true
+    factorioProcess.kill()
+  }
+  options.signal?.addEventListener("abort", abortHandler)
+
   new BufferLineSplitter(factorioProcess.stdout).on("line", (line) => handler.handleLine(line))
   new BufferLineSplitter(factorioProcess.stderr).on("line", (line) => handler.handleLine(line))
 
   await new Promise<void>((resolve, reject) => {
     factorioProcess.on("exit", (code, signal) => {
       clearTimeout(startupTimeout)
-      if (startupTimedOut) {
+      options.signal?.removeEventListener("abort", abortHandler)
+      if (wasCancelled) {
+        resolve()
+      } else if (startupTimedOut) {
         reject(new CliError("Factorio unresponsive: no test run started within 10 seconds"))
       } else if (resultMessage !== undefined) {
         resolve()
@@ -146,6 +157,10 @@ export async function runFactorioTestsHeadless(
       }
     })
   })
+
+  if (wasCancelled) {
+    return { status: "cancelled", hasFocusedTests: false }
+  }
 
   const parsed = parseResultMessage(resultMessage!)
   return { ...parsed, message: resultMessage, data: collector.getData() }

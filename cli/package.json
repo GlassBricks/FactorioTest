@@ -20,6 +20,7 @@
     "commander": "^12.1.0",
     "factoriomod-debug": "^2.0.10",
     "log-update": "^7.0.2",
+    "minimatch": "^10.1.1",
     "zod": "^3.24.0"
   },
   "devDependencies": {

@@ -101,6 +101,12 @@ const testCases: TestCase[] = [
     unexpectedOutput: ["Bailed out after"],
     expectExitCode: 1,
   },
+  {
+    name: "--watch --graphics produces error",
+    args: ["--watch", "--graphics"],
+    expectedError: "--watch is only supported in headless mode",
+    expectExitCode: 1,
+  },
 ]
 
 interface TestResult {

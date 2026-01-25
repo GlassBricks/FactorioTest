@@ -3,8 +3,13 @@ import * as fsp from "fs/promises"
 import * as path from "path"
 import chalk from "chalk"
 import type { Command } from "@commander-js/extra-typings"
-import { loadConfig, mergeTestConfig } from "./config.js"
-import { registerTestRunnerOptions, registerCliOnlyOptions, parseCliTestOptions } from "./schema.js"
+import { loadConfig, mergeTestConfig, CliConfig } from "./config.js"
+import {
+  registerTestRunnerOptions,
+  registerCliOnlyOptions,
+  registerWatchOptions,
+  parseCliTestOptions,
+} from "./schema.js"
 import { setVerbose, runScript } from "./process-utils.js"
 import { autoDetectFactorioPath } from "./factorio-discovery.js"
 import { CliError } from "./cli-error.js"
@@ -15,6 +20,7 @@ import {
   ensureConfigIni,
   setSettingsForAutorun,
   resetAutorunSettings,
+  resolveModWatchTarget,
 } from "./mod-setup.js"
 import { writeResultsFile, readPreviousFailedTests, getDefaultOutputPath } from "./results-writer.js"
 import {
@@ -23,6 +29,7 @@ import {
   runFactorioTestsGraphics,
   FactorioTestResult,
 } from "./factorio-process.js"
+import { watchDirectory, watchFile } from "./file-watcher.js"
 
 const thisCommand = (program as unknown as Command)
   .command("run")
@@ -47,6 +54,7 @@ const thisCommand = (program as unknown as Command)
     "./factorio-test-data-dir",
   )
   .option("--graphics", "Run with graphics (interactive mode). Default: headless.")
+  .option("-w --watch", "Watch mod directory and rerun tests on changes (headless only)")
   .option("--save <path>", "Path to save file")
   .option(
     "--mods <mods...>",
@@ -62,39 +70,61 @@ const thisCommand = (program as unknown as Command)
 
 registerTestRunnerOptions(thisCommand)
 registerCliOnlyOptions(thisCommand)
+registerWatchOptions(thisCommand)
 
 thisCommand.action((patterns, options) => {
   runTests(patterns, options)
 })
 
-async function runTests(
-  patterns: string[],
-  options: {
-    config?: string
-    modPath?: string
-    factorioPath?: string
-    modName?: string
-    dataDirectory: string
-    graphics?: true
-    save?: string
-    quiet?: true
-    verbose?: true
-    showOutput?: boolean
-    mods?: string[]
-    factorioArgs?: string[]
-    testPattern?: string
-    tagWhitelist?: string[]
-    tagBlacklist?: string[]
-    defaultTimeout?: number
-    gameSpeed?: number
-    logPassedTests?: boolean
-    logSkippedTests?: boolean
-    reorderFailedFirst?: boolean
-    bail?: number
-    forbidOnly?: boolean
-    outputFile?: string | false
-  },
-) {
+interface RunOptions {
+  config?: string
+  modPath?: string
+  factorioPath?: string
+  modName?: string
+  dataDirectory: string
+  graphics?: true
+  watch?: true
+  watchPattern?: string[]
+  save?: string
+  quiet?: true
+  verbose?: true
+  showOutput?: boolean
+  mods?: string[]
+  factorioArgs?: string[]
+  testPattern?: string
+  tagWhitelist?: string[]
+  tagBlacklist?: string[]
+  defaultTimeout?: number
+  gameSpeed?: number
+  logPassedTests?: boolean
+  logSkippedTests?: boolean
+  reorderFailedFirst?: boolean
+  bail?: number
+  forbidOnly?: boolean
+  outputFile?: string | false
+  [key: string]: unknown
+}
+
+interface TestRunResult {
+  exitCode: number
+  status: string
+}
+
+interface TestRunContext {
+  factorioPath: string
+  dataDir: string
+  modsDir: string
+  modToTest: string
+  mode: "headless" | "graphics"
+  savePath: string
+  outputPath: string | undefined
+  factorioArgs: string[]
+  testConfig: Record<string, unknown>
+  options: RunOptions
+  fileConfig: CliConfig
+}
+
+async function setupTestRun(patterns: string[], options: RunOptions): Promise<TestRunContext> {
   const fileConfig = loadConfig(options.config)
 
   options.modPath ??= fileConfig.modPath
@@ -114,6 +144,9 @@ async function runTests(
   }
   if (options.modPath === undefined && options.modName === undefined) {
     throw new CliError("One of --mod-path or --mod-name must be specified.")
+  }
+  if (options.watch && options.graphics) {
+    throw new CliError("--watch is only supported in headless mode")
   }
 
   const factorioPath = options.factorioPath ?? autoDetectFactorioPath()
@@ -145,13 +178,6 @@ async function runTests(
     options.outputFile === false
       ? undefined
       : (options.outputFile ?? fileConfig.outputFile ?? getDefaultOutputPath(dataDir))
-  const reorderEnabled = options.reorderFailedFirst ?? fileConfig.test?.reorder_failed_first ?? true
-  const lastFailedTests = reorderEnabled && outputPath ? await readPreviousFailedTests(outputPath) : []
-
-  await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest, mode, {
-    verbose: options.verbose,
-    lastFailedTests,
-  })
 
   const cliTestOptions = parseCliTestOptions(options)
   const allPatterns = [fileConfig.test?.test_pattern, cliTestOptions.test_pattern, ...patterns].filter(
@@ -162,6 +188,33 @@ async function runTests(
   const testConfig = mergeTestConfig(fileConfig.test, {
     ...cliTestOptions,
     test_pattern: combinedPattern,
+  })
+
+  return {
+    factorioPath,
+    dataDir,
+    modsDir,
+    modToTest,
+    mode,
+    savePath,
+    outputPath,
+    factorioArgs: options.factorioArgs ?? [],
+    testConfig,
+    options,
+    fileConfig,
+  }
+}
+
+async function executeTestRun(ctx: TestRunContext, signal?: AbortSignal): Promise<TestRunResult> {
+  const { factorioPath, dataDir, modsDir, modToTest, mode, savePath, outputPath, factorioArgs, testConfig, options } =
+    ctx
+
+  const reorderEnabled = options.reorderFailedFirst ?? ctx.fileConfig.test?.reorder_failed_first ?? true
+  const lastFailedTests = reorderEnabled && outputPath ? await readPreviousFailedTests(outputPath) : []
+
+  await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest, mode, {
+    verbose: options.verbose,
+    lastFailedTests,
   })
 
   if (Object.keys(testConfig).length > 0) {
@@ -177,8 +230,6 @@ async function runTests(
     )
   }
 
-  const factorioArgs = options.factorioArgs ?? []
-
   let result: FactorioTestResult
   try {
     result =
@@ -186,6 +237,7 @@ async function runTests(
         ? await runFactorioTestsHeadless(factorioPath, dataDir, savePath, factorioArgs, {
             verbose: options.verbose,
             showOutput: options.showOutput,
+            signal,
           })
         : await runFactorioTestsGraphics(factorioPath, dataDir, savePath, factorioArgs, {
             verbose: options.verbose,
@@ -194,6 +246,10 @@ async function runTests(
   } finally {
     await resetAutorunSettings(modsDir, options.verbose)
     await runScript("fmtk", "settings", "set", "runtime-global", "factorio-test-config", "{}", "--modsPath", modsDir)
+  }
+
+  if (result.status === "cancelled") {
+    return { exitCode: 0, status: "cancelled" }
   }
 
   if (outputPath && result.data) {
@@ -210,11 +266,67 @@ async function runTests(
     resultStatus == "passed" ? chalk.greenBright : resultStatus == "todo" ? chalk.yellowBright : chalk.redBright
   console.log("Test run result:", color(resultStatus))
 
-  const forbidOnly = options.forbidOnly ?? fileConfig.forbid_only ?? true
+  const forbidOnly = options.forbidOnly ?? ctx.fileConfig.forbid_only ?? true
   if (result.hasFocusedTests && forbidOnly) {
     console.log(chalk.redBright("Error: .only tests are present but --forbid-only is enabled"))
-    process.exit(1)
+    return { exitCode: 1, status: resultStatus }
   }
 
-  process.exit(resultStatus === "passed" ? 0 : 1)
+  return { exitCode: resultStatus === "passed" ? 0 : 1, status: resultStatus }
+}
+
+const DEFAULT_WATCH_PATTERNS = ["info.json", "**/*.lua"]
+
+async function runTests(patterns: string[], options: RunOptions): Promise<void> {
+  const ctx = await setupTestRun(patterns, options)
+
+  if (options.watch) {
+    const watchPatterns = options.watchPattern ?? ctx.fileConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS
+    const target = await resolveModWatchTarget(ctx.modsDir, options.modPath, options.modName)
+
+    let abortController: AbortController | undefined
+    let isRunning = false
+
+    const runOnce = async () => {
+      if (isRunning) {
+        abortController?.abort()
+      }
+      abortController = new AbortController()
+      isRunning = true
+      console.log("\n" + "─".repeat(60))
+      try {
+        await executeTestRun(ctx, abortController.signal)
+      } catch (e) {
+        if (e instanceof CliError) {
+          console.error(chalk.red(e.message))
+        } else {
+          throw e
+        }
+      } finally {
+        isRunning = false
+      }
+    }
+
+    await runOnce()
+
+    const onFileChange = () => {
+      console.log(chalk.cyan("File change detected, rerunning tests..."))
+      runOnce()
+    }
+
+    const watcher =
+      target.type === "directory"
+        ? watchDirectory(target.path, onFileChange, { patterns: watchPatterns })
+        : watchFile(target.path, onFileChange)
+
+    process.on("SIGINT", () => {
+      watcher.close()
+      process.exit(0)
+    })
+
+    await new Promise(() => {})
+  } else {
+    const result = await executeTestRun(ctx)
+    process.exit(result.exitCode)
+  }
 }

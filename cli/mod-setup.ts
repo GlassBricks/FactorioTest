@@ -275,3 +275,45 @@ export async function installModDependencies(modsDir: string, modPath: string, v
 
   return required
 }
+
+export interface ModWatchTarget {
+  type: "directory" | "file"
+  path: string
+}
+
+export async function resolveModWatchTarget(
+  modsDir: string,
+  modPath?: string,
+  modName?: string,
+): Promise<ModWatchTarget> {
+  if (modPath) {
+    return { type: "directory", path: path.resolve(modPath) }
+  }
+
+  const files = await fsp.readdir(modsDir)
+  for (const file of files) {
+    const fullPath = path.join(modsDir, file)
+    const fileStat = await fsp.lstat(fullPath).catch(() => undefined)
+    if (!fileStat) continue
+
+    const isDirectoryMatch =
+      fileStat.isDirectory() || fileStat.isSymbolicLink()
+        ? file === modName || file.match(new RegExp(`^${modName}_\\d+\\.\\d+\\.\\d+$`))
+        : false
+
+    if (isDirectoryMatch) {
+      const targetPath = fileStat.isSymbolicLink() ? await fsp.realpath(fullPath) : fullPath
+      return { type: "directory", path: targetPath }
+    }
+
+    const isFileMatch = fileStat.isFile()
+      ? file === modName + ".zip" || file.match(new RegExp(`^${modName}_\\d+\\.\\d+\\.\\d+\\.zip$`))
+      : false
+
+    if (isFileMatch) {
+      return { type: "file", path: fullPath }
+    }
+  }
+
+  throw new CliError(`Could not find mod ${modName} in ${modsDir} for watching`)
+}
