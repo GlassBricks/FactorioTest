@@ -6,7 +6,7 @@ import { fileURLToPath } from "url"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const root = path.resolve(__dirname, "..")
-const customConfigPath = path.join(root, "cli", "custom-test-config.json")
+const customConfigPath = path.join(root, "scripts", "custom-test-config.json")
 
 interface TestCase {
   name: string
@@ -67,7 +67,7 @@ const testCases: TestCase[] = [
   },
 ]
 
-const configFilePath = path.join(root, "cli", "factorio-test.json")
+const configFilePath = path.join(root, "scripts", "test-config.json")
 
 async function runTest(tc: TestCase): Promise<boolean> {
   console.log(`\n=== ${tc.name} ===`)
@@ -82,20 +82,16 @@ async function runTest(tc: TestCase): Promise<boolean> {
     fs.writeFileSync(tc.customConfigFile.path, JSON.stringify(tc.customConfigFile.content, null, 2))
   }
 
+  const configArgs = tc.configFile || tc.customConfigFile ? ["--config", tc.customConfigFile?.path ?? configFilePath] : []
   const args = [
     "run",
     "cli",
     "--workspace=cli",
     "--",
     "run",
-    "../usage-test-mod",
+    "--mod-path=./usage-test-mod",
+    ...configArgs,
     ...(tc.args ?? []),
-    "--",
-    "--cache-sprite-atlas",
-    "true",
-    "--disable-audio",
-    "--fullscreen",
-    "false",
   ]
 
   return new Promise((resolve) => {

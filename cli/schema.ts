@@ -1,5 +1,5 @@
-import { z } from "zod"
 import type { Command } from "@commander-js/extra-typings"
+import { z } from "zod"
 import type { TestRunnerConfig as PublicTestRunnerConfig } from "../types/config.js"
 
 export const testRunnerConfigSchema = z.strictObject({

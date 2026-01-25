@@ -1,8 +1,8 @@
 // Usage test mod result: passed
 
 import * as child_process from "child_process"
-import { fileURLToPath } from "url"
 import * as path from "path"
+import { fileURLToPath } from "url"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -10,7 +10,7 @@ const root = path.resolve(__dirname, "..")
 
 const child = child_process.spawn(
   "npm",
-  ["run", "cli", "--workspace=cli", "--", "run", "../usage-test-mod", "--", ...process.argv.slice(3)],
+  ["run", "cli", "--workspace=cli", "--", "run", "--mod-path=./usage-test-mod", ...process.argv.slice(3)],
   {
     stdio: ["inherit", "pipe", "inherit"],
     cwd: root,
