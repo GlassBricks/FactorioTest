@@ -148,7 +148,9 @@ function createTestProgressGui(state: TestState): TestGui {
   style.height = 28
   titleBar.add({
     type: "label",
-    caption: [ProgressGui.Title, script.mod_name],
+    caption: state.hasFocusedTests
+      ? ["", [ProgressGui.Title, script.mod_name], " (.only)"]
+      : [ProgressGui.Title, script.mod_name],
     style: "frame_title",
     ignored_by_interaction: true,
   })
