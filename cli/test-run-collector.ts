@@ -1,3 +1,4 @@
+import { EventEmitter } from "events"
 import { TestRunnerEvent, TestRunSummary, SourceLocation } from "../types/events.js"
 
 export interface CapturedTest {
@@ -14,7 +15,12 @@ export interface TestRunData {
   summary?: TestRunSummary
 }
 
-export class TestRunCollector {
+interface CollectorEvents {
+  testFinished: [CapturedTest]
+  runFinished: [TestRunData]
+}
+
+export class TestRunCollector extends EventEmitter<CollectorEvents> {
   private data: TestRunData = { tests: [] }
   private currentTest: CapturedTest | undefined
   private currentLogs: string[] = []
@@ -60,7 +66,7 @@ export class TestRunCollector {
 
       case "testSkipped":
         this.flushCurrentTest()
-        this.data.tests.push({
+        this.finishTest({
           path: event.test.path,
           source: event.test.source,
           result: "skipped",
@@ -71,7 +77,7 @@ export class TestRunCollector {
 
       case "testTodo":
         this.flushCurrentTest()
-        this.data.tests.push({
+        this.finishTest({
           path: event.test.path,
           source: event.test.source,
           result: "todo",
@@ -83,6 +89,7 @@ export class TestRunCollector {
       case "testRunFinished":
         this.flushCurrentTest()
         this.data.summary = event.results
+        this.emit("runFinished", this.data)
         break
 
       case "testRunCancelled":
@@ -103,10 +110,15 @@ export class TestRunCollector {
 
   private flushCurrentTest(): void {
     if (this.currentTest) {
-      this.data.tests.push(this.currentTest)
+      this.finishTest(this.currentTest)
       this.currentTest = undefined
       this.currentLogs = []
       this.testStartTime = undefined
     }
+  }
+
+  private finishTest(test: CapturedTest): void {
+    this.data.tests.push(test)
+    this.emit("testFinished", test)
   }
 }

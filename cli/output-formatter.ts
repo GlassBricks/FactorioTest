@@ -59,3 +59,48 @@ export class OutputFormatter {
     }
   }
 }
+
+export interface OutputPrinterOptions {
+  verbose?: boolean
+  quiet?: boolean
+  showOutput?: boolean
+}
+
+export class OutputPrinter {
+  private formatter: OutputFormatter
+  private isMessageFirstLine = true
+
+  constructor(private options: OutputPrinterOptions) {
+    this.formatter = new OutputFormatter({
+      verbose: options.verbose,
+      quiet: options.quiet,
+      showPassedLogs: options.verbose,
+    })
+  }
+
+  printTestResult(test: CapturedTest): void {
+    if (!this.options.quiet) {
+      this.formatter.formatTestResult(test)
+    }
+  }
+
+  printMessage(line: string): void {
+    if (!this.options.showOutput) return
+    if (this.isMessageFirstLine) {
+      console.log(line.slice(line.indexOf(": ") + 2))
+      this.isMessageFirstLine = false
+    } else {
+      console.log("    " + line)
+    }
+  }
+
+  resetMessage(): void {
+    this.isMessageFirstLine = true
+  }
+
+  printVerbose(line: string): void {
+    if (this.options.verbose) {
+      console.log(line)
+    }
+  }
+}

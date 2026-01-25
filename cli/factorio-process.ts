@@ -2,9 +2,9 @@ import { spawn } from "child_process"
 import * as path from "path"
 import { fileURLToPath } from "url"
 import BufferLineSplitter from "./buffer-line-splitter.js"
-import { parseEvent } from "./event-parser.js"
-import { TestRunCollector } from "./test-run-collector.js"
-import { OutputFormatter } from "./output-formatter.js"
+import { FactorioOutputHandler } from "./factorio-output-handler.js"
+import { TestRunCollector, TestRunData } from "./test-run-collector.js"
+import { OutputPrinter } from "./output-formatter.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -17,6 +17,7 @@ export interface FactorioTestResult {
   status: "passed" | "failed" | "todo" | "loadError" | "could not auto start" | string
   hasFocusedTests: boolean
   message?: string
+  data?: TestRunData
 }
 
 export function getHeadlessSavePath(overridePath?: string): string {
@@ -39,68 +40,34 @@ export function parseResultMessage(message: string): Pick<FactorioTestResult, "s
   }
 }
 
-function createLineHandler(options: FactorioTestOptions, onResult: (msg: string) => void): (line: string) => void {
+interface OutputComponents {
+  handler: FactorioOutputHandler
+  collector: TestRunCollector
+  printer: OutputPrinter
+}
+
+function createOutputComponents(options: FactorioTestOptions): OutputComponents {
+  const handler = new FactorioOutputHandler()
   const collector = new TestRunCollector()
-  const formatter = new OutputFormatter({
+  const printer = new OutputPrinter({
     verbose: options.verbose,
     quiet: !options.showOutput,
-    showPassedLogs: options.verbose,
+    showOutput: options.showOutput,
   })
-  let inMessage = false
-  let isMessageFirstLine = true
 
-  return (line: string) => {
-    if (line.startsWith("FACTORIO-TEST-RESULT:")) {
-      onResult(line.slice("FACTORIO-TEST-RESULT:".length))
-      return
-    }
+  handler.on("event", (event) => {
+    collector.handleEvent(event)
+    if (options.verbose) console.log(JSON.stringify(event))
+  })
+  handler.on("log", (line) => {
+    collector.captureLog(line)
+    printer.printVerbose(line)
+  })
+  handler.on("message", (line) => printer.printMessage(line))
 
-    if (line === "FACTORIO-TEST-MESSAGE-START") {
-      inMessage = true
-      isMessageFirstLine = true
-      return
-    }
-    if (line === "FACTORIO-TEST-MESSAGE-END") {
-      inMessage = false
-      return
-    }
+  collector.on("testFinished", (test) => printer.printTestResult(test))
 
-    const event = parseEvent(line)
-    if (event) {
-      collector.handleEvent(event)
-
-      if (
-        event.type === "testPassed" ||
-        event.type === "testFailed" ||
-        event.type === "testSkipped" ||
-        event.type === "testTodo"
-      ) {
-        const tests = collector.getData().tests
-        const lastTest = tests[tests.length - 1]
-        if (lastTest) {
-          formatter.formatTestResult(lastTest)
-        }
-      }
-
-      if (options.verbose) {
-        console.log(line)
-      }
-      return
-    }
-
-    if (options.verbose) {
-      console.log(line)
-    } else if (inMessage && options.showOutput) {
-      if (isMessageFirstLine) {
-        console.log(line.slice(line.indexOf(": ") + 2))
-        isMessageFirstLine = false
-      } else {
-        console.log("    " + line)
-      }
-    } else {
-      collector.captureLog(line)
-    }
-  }
+  return { handler, collector, printer }
 }
 
 export async function runFactorioTestsHeadless(
@@ -127,13 +94,16 @@ export async function runFactorioTestsHeadless(
     stdio: ["inherit", "pipe", "pipe"],
   })
 
+  const { handler, collector, printer } = createOutputComponents(options)
+
   let resultMessage: string | undefined
-  const handleLine = createLineHandler(options, (msg) => {
+  handler.on("result", (msg) => {
     resultMessage = msg
+    printer.resetMessage()
   })
 
-  new BufferLineSplitter(factorioProcess.stdout).on("line", handleLine)
-  new BufferLineSplitter(factorioProcess.stderr).on("line", handleLine)
+  new BufferLineSplitter(factorioProcess.stdout).on("line", (line) => handler.handleLine(line))
+  new BufferLineSplitter(factorioProcess.stderr).on("line", (line) => handler.handleLine(line))
 
   await new Promise<void>((resolve, reject) => {
     factorioProcess.on("exit", (code, signal) => {
@@ -146,7 +116,7 @@ export async function runFactorioTestsHeadless(
   })
 
   const parsed = parseResultMessage(resultMessage!)
-  return { ...parsed, message: resultMessage }
+  return { ...parsed, message: resultMessage, data: collector.getData() }
 }
 
 export async function runFactorioTestsGraphics(
@@ -171,12 +141,15 @@ export async function runFactorioTestsGraphics(
     stdio: ["inherit", "pipe", "inherit"],
   })
 
+  const { handler, collector, printer } = createOutputComponents(options)
+
   let resultMessage: string | undefined
-  const handleLine = createLineHandler(options, (msg) => {
+  handler.on("result", (msg) => {
     resultMessage = msg
+    printer.resetMessage()
   })
 
-  new BufferLineSplitter(factorioProcess.stdout).on("line", handleLine)
+  new BufferLineSplitter(factorioProcess.stdout).on("line", (line) => handler.handleLine(line))
 
   await new Promise<void>((resolve, reject) => {
     factorioProcess.on("exit", (code, signal) => {
@@ -189,5 +162,5 @@ export async function runFactorioTestsGraphics(
   })
 
   const parsed = parseResultMessage(resultMessage!)
-  return { ...parsed, message: resultMessage }
+  return { ...parsed, message: resultMessage, data: collector.getData() }
 }
