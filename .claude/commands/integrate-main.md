@@ -7,5 +7,5 @@ allowed-tools:
   - Bash(git add:*)
 ---
 
-!`hack/integrate-main.sh`.
+!`hack/integrate-main.sh || echo 'integrate-main.sh failed'`.
 If it fails, fix conflicts and retry. Otherwise just report success.

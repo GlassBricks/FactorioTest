@@ -9,5 +9,5 @@ allowed-tools:
   - Bash(git add:*)
 ---
 
-!`hack/integrate-all.sh`
+!`hack/integrate-all.sh || echo 'integrate-all.sh failed'`
 If this fails, fix conflicts and retry. Otherwise just report success.
