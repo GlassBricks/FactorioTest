@@ -33,3 +33,8 @@ npx prettier --write .  # run lint and prettier fix after changes
 - `runner.ts` uses state machine with task queue for async/tick/reload handling
 - Reload tests save state to Factorio's `global`, resume after reload
 - Shared constants in `mod/constants.d.ts`
+
+## Notes
+- You can run tests, they are run in headless mode
+- Run format, lint, and tests after .ts file changes
+- If applicable include plan files in commits
