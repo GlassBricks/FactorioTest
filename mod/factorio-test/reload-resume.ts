@@ -66,39 +66,90 @@ function saveDescribeBlock(block: DescribeBlock): SavedDescribeBlockData {
 }
 
 function structuresMatch(saved: SavedTestData, current: Test): boolean {
-  return (
-    saved.path === current.path &&
-    compare(saved.tags, current.tags) &&
-    compare(saved.source, current.source) &&
-    saved.numParts === current.parts.length &&
-    saved.mode === current.mode &&
-    saved.ticksBefore === current.ticksBefore
-  )
+  if (saved.path !== current.path) {
+    log(`Structure mismatch: path "${saved.path}" !== "${current.path}"`)
+    return false
+  }
+  if (!compare(saved.tags, current.tags)) {
+    log(`Structure mismatch in "${saved.path}": tags differ`)
+    return false
+  }
+  if (!compare(saved.source, current.source)) {
+    log(
+      `Structure mismatch in "${saved.path}": source ${serpent.line(saved.source)} !== ${serpent.line(current.source)}`,
+    )
+    return false
+  }
+  if (saved.numParts !== current.parts.length) {
+    log(`Structure mismatch in "${saved.path}": numParts ${saved.numParts} !== ${current.parts.length}`)
+    return false
+  }
+  if (saved.mode !== current.mode) {
+    log(`Structure mismatch in "${saved.path}": mode "${saved.mode}" !== "${current.mode}"`)
+    return false
+  }
+  if (saved.ticksBefore !== current.ticksBefore) {
+    log(`Structure mismatch in "${saved.path}": ticksBefore ${saved.ticksBefore} !== ${current.ticksBefore}`)
+    return false
+  }
+  return true
 }
 
 function describeBlockStructuresMatch(saved: SavedDescribeBlockData, current: DescribeBlock): boolean {
-  if (saved.path !== current.path) return false
-  if (!compare(saved.tags, current.tags)) return false
-  if (!compare(saved.source, current.source)) return false
+  if (saved.path !== current.path) {
+    log(`Block mismatch: path "${saved.path}" !== "${current.path}"`)
+    return false
+  }
+  if (!compare(saved.tags, current.tags)) {
+    log(`Block mismatch in "${saved.path}": tags differ`)
+    return false
+  }
+  if (!compare(saved.source, current.source)) {
+    log(
+      `Block mismatch in "${saved.path}": source ${serpent.line(saved.source)} !== ${serpent.line(current.source)}`,
+    )
+    return false
+  }
   if (
     !compare(
       saved.hookTypes,
       current.hooks.map((hook) => hook.type),
     )
-  )
+  ) {
+    log(`Block mismatch in "${saved.path}": hookTypes differ`)
     return false
-  if (saved.mode !== current.mode) return false
-  if (saved.ticksBetweenTests !== current.ticksBetweenTests) return false
-  if (saved.children.length !== current.children.length) return false
+  }
+  if (saved.mode !== current.mode) {
+    log(`Block mismatch in "${saved.path}": mode "${saved.mode}" !== "${current.mode}"`)
+    return false
+  }
+  if (saved.ticksBetweenTests !== current.ticksBetweenTests) {
+    log(`Block mismatch in "${saved.path}": ticksBetweenTests ${saved.ticksBetweenTests} !== ${current.ticksBetweenTests}`)
+    return false
+  }
+  if (saved.children.length !== current.children.length) {
+    log(`Block mismatch in "${saved.path}": children.length ${saved.children.length} !== ${current.children.length}`)
+    return false
+  }
 
   const currentByPath = new LuaMap<string, Test | DescribeBlock>()
   for (const child of current.children) {
+    if (currentByPath.has(child.path)) {
+      log(`Duplicate test/describe path "${child.path}" - this will cause reload issues`)
+    }
     currentByPath.set(child.path, child)
   }
 
   return saved.children.every((child) => {
     const currentChild = currentByPath.get(child.path)
-    if (!currentChild || currentChild.type !== child.type) return false
+    if (!currentChild) {
+      log(`Block mismatch in "${saved.path}": child "${child.path}" not found in current`)
+      return false
+    }
+    if (currentChild.type !== child.type) {
+      log(`Block mismatch in "${saved.path}": child "${child.path}" type "${child.type}" !== "${currentChild.type}"`)
+      return false
+    }
     return child.type === "test"
       ? structuresMatch(child, currentChild as Test)
       : describeBlockStructuresMatch(child, currentChild as DescribeBlock)

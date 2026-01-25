@@ -69,10 +69,16 @@ export function addTest(
   declaredMode: TestMode,
   tags: TestTags,
 ): Test {
+  const path = parent.path + " > " + name
+  for (const sibling of parent.children) {
+    if (sibling.path === path) {
+      log(`Warning: Duplicate test name "${name}" in "${parent.path}" at ${formatSource(source)} (first at ${formatSource(sibling.source)})`)
+    }
+  }
   const test: Test = {
     type: "test",
     name,
-    path: parent.path + " > " + name,
+    path,
     tags,
     parent,
     source,
@@ -132,10 +138,16 @@ export function addDescribeBlock(
   declaredMode: TestMode,
   tags: TestTags,
 ): DescribeBlock {
+  const path = parent.path !== "" ? parent.path + " > " + name : name
+  for (const sibling of parent.children) {
+    if (sibling.path === path) {
+      log(`Warning: Duplicate describe name "${name}" in "${parent.path}" at ${formatSource(source)} (first at ${formatSource(sibling.source)})`)
+    }
+  }
   const block: DescribeBlock = {
     type: "describeBlock",
     name,
-    path: parent.path !== "" ? parent.path + " > " + name : name,
+    path,
     tags,
     parent,
     indexInParent: parent?.children.length ?? -1,
