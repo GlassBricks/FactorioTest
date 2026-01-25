@@ -63,18 +63,9 @@ export function mergeTestConfig(
   configFile: TestRunnerConfig | undefined,
   cliOptions: Partial<TestRunnerConfig>,
 ): TestRunnerConfig {
-  const baseTestPattern = configFile?.test_pattern
-  const cliTestPattern = cliOptions.test_pattern
-  const mergedTestPattern =
-    cliTestPattern !== undefined
-      ? baseTestPattern
-        ? `(${baseTestPattern})|(${cliTestPattern})`
-        : cliTestPattern
-      : baseTestPattern
-
   return {
     ...configFile,
-    test_pattern: mergedTestPattern,
+    test_pattern: cliOptions.test_pattern ?? configFile?.test_pattern,
     tag_whitelist: cliOptions.tag_whitelist ?? configFile?.tag_whitelist,
     tag_blacklist: cliOptions.tag_blacklist ?? configFile?.tag_blacklist,
     default_timeout: cliOptions.default_timeout ?? configFile?.default_timeout,
@@ -100,9 +91,9 @@ export function mergeCliConfig(fileConfig: CliConfig, options: RunOptions): RunO
 
 export function buildTestConfig(fileConfig: CliConfig, options: RunOptions, patterns: string[]): TestRunnerConfig {
   const cliTestOptions = parseCliTestOptions(options as unknown as Record<string, unknown>)
-  const allPatterns = [fileConfig.test?.test_pattern, cliTestOptions.test_pattern, ...patterns].filter(
-    Boolean,
-  ) as string[]
-  const combinedPattern = allPatterns.length > 0 ? allPatterns.map((p) => `(${p})`).join("|") : undefined
-  return mergeTestConfig(fileConfig.test, { ...cliTestOptions, test_pattern: combinedPattern })
+  const testPattern =
+    patterns.length > 0
+      ? patterns.map((p) => `(${p})`).join("|")
+      : (cliTestOptions.test_pattern ?? fileConfig.test?.test_pattern)
+  return mergeTestConfig(fileConfig.test, { ...cliTestOptions, test_pattern: testPattern })
 }

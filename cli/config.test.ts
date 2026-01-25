@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, assertType } from "vitest"
 import * as fs from "fs"
 import * as path from "path"
-import { loadConfig, mergeTestConfig, type TestRunnerConfig } from "./config/index.js"
+import { loadConfig, mergeTestConfig, buildTestConfig, type TestRunnerConfig } from "./config/index.js"
 
 const testDir = path.join(import.meta.dirname, "__test_fixtures__")
 
@@ -77,14 +77,41 @@ describe("mergeTestConfig", () => {
     expect(result.game_speed).toBe(200)
   })
 
-  it("combines test patterns with OR", () => {
+  it("CLI test pattern overrides config file", () => {
     const result = mergeTestConfig({ test_pattern: "foo" }, { test_pattern: "bar" })
-    expect(result.test_pattern).toBe("(foo)|(bar)")
+    expect(result.test_pattern).toBe("bar")
   })
 
   it("preserves config file values when CLI undefined", () => {
     const result = mergeTestConfig({ game_speed: 100, log_passed_tests: true }, {})
     expect(result.game_speed).toBe(100)
     expect(result.log_passed_tests).toBe(true)
+  })
+})
+
+describe("buildTestConfig test pattern priority", () => {
+  const baseOptions = { dataDirectory: "." }
+
+  it("positional patterns override CLI option and config file", () => {
+    const result = buildTestConfig({ test: { test_pattern: "config" } }, { ...baseOptions, testPattern: "cli" }, [
+      "pos1",
+      "pos2",
+    ])
+    expect(result.test_pattern).toBe("(pos1)|(pos2)")
+  })
+
+  it("CLI option overrides config file when no positional patterns", () => {
+    const result = buildTestConfig({ test: { test_pattern: "config" } }, { ...baseOptions, testPattern: "cli" }, [])
+    expect(result.test_pattern).toBe("cli")
+  })
+
+  it("uses config file when no CLI option or positional patterns", () => {
+    const result = buildTestConfig({ test: { test_pattern: "config" } }, baseOptions, [])
+    expect(result.test_pattern).toBe("config")
+  })
+
+  it("undefined when no patterns specified anywhere", () => {
+    const result = buildTestConfig({}, baseOptions, [])
+    expect(result.test_pattern).toBeUndefined()
   })
 })
