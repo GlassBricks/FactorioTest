@@ -15,7 +15,7 @@ See also: [mod changelog](../mod/changelog.txt) for in-game test framework chang
 - **Config file support**: Configure options via `factorio-test.json` or `package.json["factorio-test"]`. CLI options override file settings.
 - **`--watch` flag**: Monitor files and automatically rerun tests on changes. Now works with `--graphics` mode using UDP-triggered reloads.
 - **`--bail <n>` option**: Stop test execution after n failures.
-- **`--forbid-only` flag**: Fail when `.only` tests are present (useful for CI).
+- **`--forbid-only` (default) / `--no-forbid-only`**: Fail when `.only` tests are present. Enabled by default; use `--no-forbid-only` to allow `.only` tests.
 - **`--quiet` flag**: Suppress per-test output for cleaner logs.
 - **Progress bar**: Display test progress during TTY execution.
 - **`test-results.json` output**: Test results saved to file for failed test reordering.
