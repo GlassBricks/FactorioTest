@@ -32,6 +32,7 @@
     "build": "npm run clean && tsc",
     "cli": "tsx cli.ts",
     "lint": "eslint .",
+    "pretest": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepublishOnly": "npm run build && npm --prefix .. run test:integration:full",
