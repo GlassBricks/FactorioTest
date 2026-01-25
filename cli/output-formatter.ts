@@ -64,6 +64,7 @@ export interface OutputPrinterOptions {
   verbose?: boolean
   quiet?: boolean
   showOutput?: boolean
+  useProgressBar?: boolean
 }
 
 export class OutputPrinter {
@@ -79,8 +80,15 @@ export class OutputPrinter {
   }
 
   printTestResult(test: CapturedTest): void {
-    if (!this.options.quiet) {
-      this.formatter.formatTestResult(test)
+    if (this.options.quiet || this.options.useProgressBar) return
+    this.formatter.formatTestResult(test)
+  }
+
+  printFailures(tests: CapturedTest[]): void {
+    for (const test of tests) {
+      if (test.result === "failed") {
+        this.formatter.formatTestResult(test)
+      }
     }
   }
 

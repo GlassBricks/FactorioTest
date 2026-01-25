@@ -25,7 +25,7 @@ export interface TestRunSummary {
 }
 
 export type TestRunnerEvent =
-  | { type: "testRunStarted" }
+  | { type: "testRunStarted"; total: number }
   | { type: "testStarted"; test: TestInfo }
   | { type: "testPassed"; test: TestInfo }
   | { type: "testFailed"; test: TestInfo; errors: string[] }

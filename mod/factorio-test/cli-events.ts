@@ -1,5 +1,5 @@
 import { TestEventListener } from "./test-events"
-import { DescribeBlock, Source, Test } from "./tests"
+import { countActiveTests, DescribeBlock, Source, Test } from "./tests"
 import { TestInfo, BlockInfo, SourceLocation, TestRunnerEvent } from "../../types/events"
 
 const EVENT_PREFIX = "FACTORIO-TEST-EVENT:"
@@ -32,7 +32,7 @@ function blockToInfo(block: DescribeBlock): BlockInfo {
 export const cliEventEmitter: TestEventListener = (event, state) => {
   switch (event.type) {
     case "testRunStarted":
-      emitEvent({ type: "testRunStarted" })
+      emitEvent({ type: "testRunStarted", total: countActiveTests(state.rootBlock, state) })
       break
     case "testStarted":
       emitEvent({ type: "testStarted", test: testToInfo(event.test) })

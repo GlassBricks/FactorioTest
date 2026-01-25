@@ -3,8 +3,9 @@ import * as path from "path"
 import { fileURLToPath } from "url"
 import BufferLineSplitter from "./buffer-line-splitter.js"
 import { FactorioOutputHandler } from "./factorio-output-handler.js"
-import { TestRunCollector, TestRunData } from "./test-run-collector.js"
 import { OutputPrinter } from "./output-formatter.js"
+import { ProgressRenderer } from "./progress-renderer.js"
+import { TestRunCollector, TestRunData } from "./test-run-collector.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -44,6 +45,7 @@ interface OutputComponents {
   handler: FactorioOutputHandler
   collector: TestRunCollector
   printer: OutputPrinter
+  progress: ProgressRenderer
 }
 
 function createOutputComponents(options: FactorioTestOptions): OutputComponents {
@@ -54,20 +56,29 @@ function createOutputComponents(options: FactorioTestOptions): OutputComponents 
     quiet: !options.showOutput,
     showOutput: options.showOutput,
   })
+  const progress = new ProgressRenderer()
 
   handler.on("event", (event) => {
     collector.handleEvent(event)
-    if (options.verbose) console.log(JSON.stringify(event))
+    progress.handleEvent(event)
+    if (options.verbose) {
+      progress.withPermanentOutput(() => console.log(JSON.stringify(event)))
+    }
   })
   handler.on("log", (line) => {
     collector.captureLog(line)
-    printer.printVerbose(line)
+    progress.withPermanentOutput(() => printer.printVerbose(line))
   })
-  handler.on("message", (line) => printer.printMessage(line))
+  handler.on("message", (line) => {
+    progress.withPermanentOutput(() => printer.printMessage(line))
+  })
 
-  collector.on("testFinished", (test) => printer.printTestResult(test))
+  collector.on("testFinished", (test) => {
+    progress.handleTestFinished(test)
+    progress.withPermanentOutput(() => printer.printTestResult(test))
+  })
 
-  return { handler, collector, printer }
+  return { handler, collector, printer, progress }
 }
 
 export async function runFactorioTestsHeadless(
@@ -94,11 +105,12 @@ export async function runFactorioTestsHeadless(
     stdio: ["inherit", "pipe", "pipe"],
   })
 
-  const { handler, collector, printer } = createOutputComponents(options)
+  const { handler, collector, printer, progress } = createOutputComponents(options)
 
   let resultMessage: string | undefined
   handler.on("result", (msg) => {
     resultMessage = msg
+    progress.finish()
     printer.resetMessage()
   })
 
@@ -141,11 +153,12 @@ export async function runFactorioTestsGraphics(
     stdio: ["inherit", "pipe", "inherit"],
   })
 
-  const { handler, collector, printer } = createOutputComponents(options)
+  const { handler, collector, printer, progress } = createOutputComponents(options)
 
   let resultMessage: string | undefined
   handler.on("result", (msg) => {
     resultMessage = msg
+    progress.finish()
     printer.resetMessage()
   })
 
