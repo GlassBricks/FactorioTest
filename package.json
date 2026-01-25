@@ -26,6 +26,7 @@
   "scripts": {
     "lint": "npm run lint --workspaces --if-present && eslint integration-tests",
     "test": "npm run test --workspaces --if-present",
+    "check": "npm run lint && npm run test && npm run test:integration",
     "prettier:check": "prettier --check \"**/*.{ts,json}\"",
     "prettier:fix": "prettier --write \"**/*.{ts,json}\"",
     "build:usage-test-mod": "tstl -p integration-tests/fixtures/usage-test-mod/tsconfig.json",
