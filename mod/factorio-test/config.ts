@@ -14,6 +14,7 @@ const defaultConfig: Config = {
   log_passed_tests: true,
   log_skipped_tests: false,
   sound_effects: false,
+  reorder_failed_first: true,
 }
 
 export function fillConfig(modConfig: Partial<Config>): Config {

@@ -57,6 +57,8 @@ export interface Test {
 
   readonly errors: string[]
   profiler?: LuaProfiler | undefined
+
+  _previouslyFailed?: boolean
 }
 
 export function addTest(
@@ -118,6 +120,9 @@ export interface DescribeBlock {
   ticksBetweenTests: number
 
   errors: string[]
+
+  _hasFailedDescendant?: boolean
+  _reordered?: boolean
 }
 
 export function addDescribeBlock(

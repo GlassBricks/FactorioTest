@@ -6,4 +6,5 @@ export interface TestRunnerConfig {
   game_speed?: number
   log_passed_tests?: boolean
   log_skipped_tests?: boolean
+  reorder_failed_first?: boolean
 }

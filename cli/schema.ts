@@ -10,6 +10,7 @@ export const testRunnerConfigSchema = z.strictObject({
   game_speed: z.number().int().positive().optional(),
   log_passed_tests: z.boolean().optional(),
   log_skipped_tests: z.boolean().optional(),
+  reorder_failed_first: z.boolean().optional(),
 })
 
 export type TestRunnerConfig = z.infer<typeof testRunnerConfigSchema>
@@ -30,6 +31,7 @@ export const cliConfigSchema = z.object({
   showOutput: z.boolean().optional(),
   factorioArgs: z.array(z.string()).optional(),
   forbid_only: z.boolean().optional(),
+  outputFile: z.string().optional(),
   test: testRunnerConfigSchema.optional(),
 })
 
@@ -53,6 +55,7 @@ const testRunnerCliOptions: Record<keyof TestRunnerConfig, CliOptionMeta> = {
   game_speed: { flags: "--game-speed <speed>", description: "Game speed multiplier", parseArg: parseInt },
   log_passed_tests: { flags: "--log-passed-tests", description: "Log passed test names" },
   log_skipped_tests: { flags: "--log-skipped-tests", description: "Log skipped test names" },
+  reorder_failed_first: { flags: "--reorder-failed-first", description: "Run previously failed tests first" },
 }
 
 export function registerTestRunnerOptions(command: Command<unknown[], Record<string, unknown>>): void {
@@ -64,6 +67,9 @@ export function registerTestRunnerOptions(command: Command<unknown[], Record<str
     }
     if (key === "log_passed_tests") {
       command.option("--no-log-passed-tests", "Don't log passed test names")
+    }
+    if (key === "reorder_failed_first") {
+      command.option("--no-reorder-failed-first", "Don't run failed tests first")
     }
   }
 }

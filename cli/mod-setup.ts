@@ -99,17 +99,22 @@ locale=
   }
 }
 
+export interface AutorunOptions {
+  verbose?: boolean
+  lastFailedTests?: string[]
+}
+
 export async function setSettingsForAutorun(
   factorioPath: string,
   dataDir: string,
   modsDir: string,
   modToTest: string,
   mode: "headless" | "graphics",
-  verbose?: boolean,
+  options?: AutorunOptions,
 ): Promise<void> {
   const settingsDat = path.join(modsDir, "mod-settings.dat")
   if (!fs.existsSync(settingsDat)) {
-    if (verbose) console.log("Creating mod-settings.dat file by running factorio")
+    if (options?.verbose) console.log("Creating mod-settings.dat file by running factorio")
     const dummySaveFile = path.join(dataDir, "____dummy_save_file.zip")
     await runProcess(
       false,
@@ -126,10 +131,11 @@ export async function setSettingsForAutorun(
       await fsp.rm(dummySaveFile)
     }
   }
-  if (verbose) console.log("Setting autorun settings")
+  if (options?.verbose) console.log("Setting autorun settings")
   const autoStartConfig = JSON.stringify({
     mod: modToTest,
     headless: mode === "headless",
+    ...(options?.lastFailedTests?.length && { last_failed_tests: options.lastFailedTests }),
   })
   await runScript(
     "fmtk settings set startup factorio-test-auto-start-config",

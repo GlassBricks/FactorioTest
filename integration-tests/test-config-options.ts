@@ -2,11 +2,7 @@ import * as child_process from "child_process"
 import * as fs from "fs"
 import * as os from "os"
 import * as path from "path"
-import { fileURLToPath } from "url"
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const root = path.resolve(__dirname, "..")
+import { root, symlinkLocalFactorioTest } from "./test-utils.js"
 
 interface TestCase {
   name: string
@@ -97,13 +93,6 @@ interface TestResult {
   name: string
   passed: boolean
   messages: string[]
-}
-
-async function symlinkLocalFactorioTest(modsDir: string) {
-  await fs.promises.mkdir(modsDir, { recursive: true })
-  const localModPath = path.join(root, "mod")
-  const symlinkPath = path.join(modsDir, "factorio-test")
-  await fs.promises.symlink(localModPath, symlinkPath, "junction")
 }
 
 async function runTest(tc: TestCase, index: number): Promise<TestResult> {

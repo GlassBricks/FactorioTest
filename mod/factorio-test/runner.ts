@@ -4,6 +4,7 @@ import { __factorio_test__pcallWithStacktrace, assertNever } from "./_util"
 import { resumeAfterReload } from "./reload-resume"
 import { TestRun, TestState, setToLoadErrorState } from "./state"
 import { DescribeBlock, Test, collectHooks, formatSource, isSkippedTest } from "./tests"
+import { shouldReorderFailedFirst, markFailedTestsAndDescendants, reorderChildren } from "./test-reordering"
 
 export interface TestRunner {
   tick(): void
@@ -147,6 +148,9 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     const { state } = this
     state.profiler = game.create_profiler()
     state.setTestStage(TestStage.Running)
+    if (shouldReorderFailedFirst(state)) {
+      markFailedTestsAndDescendants(state.rootBlock)
+    }
     state.raiseTestEvent({ type: "testRunStarted" })
     return { task: "enterDescribe", data: state.rootBlock }
   }
@@ -186,6 +190,10 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     }
     if (block.children.length === 0) {
       block.errors.push("No tests defined")
+    }
+
+    if (shouldReorderFailedFirst(this.state)) {
+      reorderChildren(block)
     }
 
     if (this.hasAnyTest(block)) {

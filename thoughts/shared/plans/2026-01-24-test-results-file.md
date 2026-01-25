@@ -721,8 +721,8 @@ const defaultConfig: Config = {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Build passes: `npm run build --workspace=cli && npm run build --workspace=mod`
-- [ ] Tests pass: `npm run test --workspace=cli`
+- [x] Build passes: `npm run build --workspace=cli && npm run build --workspace=mod`
+- [x] Tests pass: `npm run test --workspace=cli`
 
 ---
 
@@ -837,13 +837,13 @@ if (!options.noOutputFile && result.data) {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Build passes: `npm run build --workspace=cli`
-- [ ] Tests pass: `npm run test --workspace=cli`
-- [ ] Integration tests pass: `npm run test:integration`
+- [x] Build passes: `npm run build --workspace=cli`
+- [x] Tests pass: `npm run test --workspace=cli`
+- [x] Integration tests pass: `npm run test:integration`
 
 #### Manual Verification:
-- [ ] Run tests, verify JSON file created in data directory
-- [ ] Verify JSON structure matches specification
+- [x] Run tests, verify JSON file created in data directory (converted to integration test)
+- [x] Verify JSON structure matches specification (converted to integration test)
 
 ---
 
@@ -956,13 +956,13 @@ export interface DescribeBlock {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Build passes: `npm run build --workspace=mod`
-- [ ] Tests pass: `npm run test --workspace=mod`
-- [ ] Integration tests pass: `npm run test:integration`
+- [x] Build passes: `npm run build --workspace=mod`
+- [x] Tests pass: `npm run test --workspace=mod`
+- [x] Integration tests pass: `npm run test:integration`
 
 #### Manual Verification:
-- [ ] Run tests with failures, then run again
-- [ ] Verify console output shows failed tests running first
+- [x] Run tests with failures, then run again (converted to integration test)
+- [x] Verify console output shows failed tests running first (converted to integration test)
 
 ---
 
@@ -1068,7 +1068,7 @@ describe("getDefaultOutputPath", () => {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Tests pass: `npm run test --workspace=cli`
+- [x] Tests pass: `npm run test --workspace=cli`
 
 ---
 

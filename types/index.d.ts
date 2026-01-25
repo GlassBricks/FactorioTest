@@ -25,6 +25,7 @@ declare namespace FactorioTest {
 
     log_passed_tests: boolean
     log_skipped_tests: boolean
+    reorder_failed_first: boolean
 
     test_pattern?: string
     tag_whitelist?: string[]

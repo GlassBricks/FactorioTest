@@ -32,6 +32,7 @@
     "pretest:integration": "npm run pretest --workspace=mod && npm run build:test-mods",
     "test:usage-test": "tsx integration-tests/test-usage-test-mod.ts",
     "test:config-options": "tsx integration-tests/test-config-options.ts",
-    "test:integration": "concurrently --kill-others-on-fail npm:test:usage-test npm:test:config-options"
+    "test:results-file": "tsx integration-tests/test-results-file.ts",
+    "test:integration": "concurrently --kill-others-on-fail npm:test:usage-test npm:test:config-options && npm run test:results-file"
   }
 }

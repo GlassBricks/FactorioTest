@@ -15,6 +15,7 @@ import {
   setSettingsForAutorun,
   resetAutorunSettings,
 } from "./mod-setup.js"
+import { writeResultsFile, readPreviousFailedTests, getDefaultOutputPath } from "./results-writer.js"
 import {
   getHeadlessSavePath,
   runFactorioTestsHeadless,
@@ -56,6 +57,8 @@ const thisCommand = (program as unknown as Command)
   .option("-q --quiet", "Suppress per-test output, show only final result.")
   .option("-v --verbose", "Enables more logging, and pipes the Factorio process output to stdout.")
   .option("--config <path>", "Path to config file")
+  .option("--output-file <path>", "Path to write test results JSON file")
+  .option("--no-output-file", "Disable writing test results file")
 
 registerTestRunnerOptions(thisCommand)
 registerCliOnlyOptions(thisCommand)
@@ -86,7 +89,9 @@ async function runTests(
     gameSpeed?: number
     logPassedTests?: boolean
     logSkippedTests?: boolean
+    reorderFailedFirst?: boolean
     forbidOnly?: boolean
+    outputFile?: string | false
   },
 ) {
   const fileConfig = loadConfig(options.config)
@@ -135,7 +140,17 @@ async function runTests(
   const mode = options.graphics ? "graphics" : "headless"
   const savePath = getHeadlessSavePath(options.save ?? fileConfig.save)
 
-  await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest, mode, options.verbose)
+  const outputPath =
+    options.outputFile === false
+      ? undefined
+      : (options.outputFile ?? fileConfig.outputFile ?? getDefaultOutputPath(dataDir))
+  const reorderEnabled = options.reorderFailedFirst ?? fileConfig.test?.reorder_failed_first ?? true
+  const lastFailedTests = reorderEnabled && outputPath ? await readPreviousFailedTests(outputPath) : []
+
+  await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest, mode, {
+    verbose: options.verbose,
+    lastFailedTests,
+  })
 
   const cliTestOptions = parseCliTestOptions(options)
   const allPatterns = [fileConfig.test?.test_pattern, cliTestOptions.test_pattern, ...patterns].filter(
@@ -174,6 +189,11 @@ async function runTests(
   } finally {
     await resetAutorunSettings(modsDir, options.verbose)
     await runScript("fmtk settings set runtime-global factorio-test-config", "{}", "--modsPath", modsDir)
+  }
+
+  if (outputPath && result.data) {
+    await writeResultsFile(outputPath, modToTest, result.data)
+    if (options.verbose) console.log(`Results written to ${outputPath}`)
   }
 
   const resultStatus = result.status
