@@ -105,9 +105,7 @@ function describeBlockStructuresMatch(saved: SavedDescribeBlockData, current: De
     return false
   }
   if (!compare(saved.source, current.source)) {
-    log(
-      `Block mismatch in "${saved.path}": source ${serpent.line(saved.source)} !== ${serpent.line(current.source)}`,
-    )
+    log(`Block mismatch in "${saved.path}": source ${serpent.line(saved.source)} !== ${serpent.line(current.source)}`)
     return false
   }
   if (
@@ -124,7 +122,9 @@ function describeBlockStructuresMatch(saved: SavedDescribeBlockData, current: De
     return false
   }
   if (saved.ticksBetweenTests !== current.ticksBetweenTests) {
-    log(`Block mismatch in "${saved.path}": ticksBetweenTests ${saved.ticksBetweenTests} !== ${current.ticksBetweenTests}`)
+    log(
+      `Block mismatch in "${saved.path}": ticksBetweenTests ${saved.ticksBetweenTests} !== ${current.ticksBetweenTests}`,
+    )
     return false
   }
   if (saved.children.length !== current.children.length) {

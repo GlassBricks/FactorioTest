@@ -29,11 +29,17 @@ export class ProgressRenderer {
 
   handleTestFinished(test: CapturedTest): void {
     this.currentTest = undefined
-    this.ran++
-    if (test.result === "passed") this.passed++
-    else if (test.result === "failed") this.failed++
-    else if (test.result === "skipped") this.skipped++
-    else if (test.result === "todo") this.todo++
+    if (test.result === "passed") {
+      this.ran++
+      this.passed++
+    } else if (test.result === "failed") {
+      this.ran++
+      this.failed++
+    } else if (test.result === "skipped") {
+      this.skipped++
+    } else if (test.result === "todo") {
+      this.todo++
+    }
   }
 
   withPermanentOutput(callback: () => void): void {
@@ -56,7 +62,7 @@ export class ProgressRenderer {
 
     const percent = this.total > 0 ? Math.floor((this.ran / this.total) * 100) : 0
     const barWidth = 20
-    const filled = Math.floor((percent / 100) * barWidth)
+    const filled = Math.min(barWidth, Math.floor((percent / 100) * barWidth))
     const bar = "█".repeat(filled) + "░".repeat(barWidth - filled)
 
     const counts = [

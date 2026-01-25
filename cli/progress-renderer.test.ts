@@ -88,6 +88,36 @@ describe("ProgressRenderer", () => {
       const output = vi.mocked(logUpdate).mock.calls[0][0]
       expect(output).toContain("Running: describe > my test")
     })
+
+    it("handles ran exceeding total without error", () => {
+      const renderer = new ProgressRenderer(true)
+      renderer.handleEvent({ type: "testRunStarted", total: 2 })
+
+      for (let i = 0; i < 5; i++) {
+        renderer.handleTestFinished({ path: `test${i}`, result: "passed", errors: [], logs: [] })
+      }
+
+      expect(() => {
+        renderer.handleEvent({ type: "testStarted", test: { path: "extra test" } })
+      }).not.toThrow()
+    })
+
+    it("does not count skipped or todo tests in ran", () => {
+      const renderer = new ProgressRenderer(true)
+      renderer.handleEvent({ type: "testRunStarted", total: 2 })
+
+      renderer.handleTestFinished({ path: "test1", result: "passed", errors: [], logs: [] })
+      renderer.handleTestFinished({ path: "skipped", result: "skipped", errors: [], logs: [] })
+      renderer.handleTestFinished({ path: "todo", result: "todo", errors: [], logs: [] })
+      renderer.handleTestFinished({ path: "test2", result: "failed", errors: [], logs: [] })
+
+      vi.mocked(logUpdate).mockClear()
+      renderer.handleEvent({ type: "testStarted", test: { path: "next" } })
+
+      const output = vi.mocked(logUpdate).mock.calls[0][0]
+      expect(output).toContain("2/2")
+      expect(output).toContain("100%")
+    })
   })
 
   describe("finish", () => {

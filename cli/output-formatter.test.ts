@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { OutputFormatter } from "./output-formatter.js"
+import { OutputFormatter, OutputPrinter } from "./output-formatter.js"
 import { CapturedTest } from "./test-run-collector.js"
 
 describe("OutputFormatter", () => {
@@ -111,5 +111,58 @@ describe("OutputFormatter", () => {
 
     expect(output[0]).toContain("TODO")
     expect(output[0]).toContain("todo test")
+  })
+})
+
+describe("OutputPrinter", () => {
+  let consoleSpy: ReturnType<typeof vi.spyOn>
+  let output: string[]
+
+  beforeEach(() => {
+    output = []
+    consoleSpy = vi.spyOn(console, "log").mockImplementation((...args) => {
+      output.push(args.join(" "))
+    })
+  })
+
+  afterEach(() => {
+    consoleSpy.mockRestore()
+  })
+
+  const skippedTest: CapturedTest = { path: "skipped", result: "skipped", errors: [], logs: [] }
+  const todoTest: CapturedTest = { path: "todo", result: "todo", errors: [], logs: [] }
+  const passedTest: CapturedTest = { path: "passed", result: "passed", errors: [], logs: [] }
+  const failedTest: CapturedTest = { path: "failed", result: "failed", errors: ["err"], logs: [] }
+
+  it("hides skipped tests without verbose", () => {
+    const printer = new OutputPrinter({})
+    printer.printTestResult(skippedTest)
+    expect(output).toHaveLength(0)
+  })
+
+  it("hides todo tests without verbose", () => {
+    const printer = new OutputPrinter({})
+    printer.printTestResult(todoTest)
+    expect(output).toHaveLength(0)
+  })
+
+  it("shows skipped tests with verbose", () => {
+    const printer = new OutputPrinter({ verbose: true })
+    printer.printTestResult(skippedTest)
+    expect(output.some((line) => line.includes("SKIP"))).toBe(true)
+  })
+
+  it("shows todo tests with verbose", () => {
+    const printer = new OutputPrinter({ verbose: true })
+    printer.printTestResult(todoTest)
+    expect(output.some((line) => line.includes("TODO"))).toBe(true)
+  })
+
+  it("shows passed and failed tests without verbose", () => {
+    const printer = new OutputPrinter({})
+    printer.printTestResult(passedTest)
+    printer.printTestResult(failedTest)
+    expect(output.some((line) => line.includes("PASS"))).toBe(true)
+    expect(output.some((line) => line.includes("FAIL"))).toBe(true)
   })
 })

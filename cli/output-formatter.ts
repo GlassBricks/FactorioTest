@@ -80,6 +80,7 @@ export class OutputPrinter {
 
   printTestResult(test: CapturedTest): void {
     if (this.options.quiet || this.options.useProgressBar) return
+    if ((test.result === "skipped" || test.result === "todo") && !this.options.verbose) return
     this.formatter.formatTestResult(test)
   }
 

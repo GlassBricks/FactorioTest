@@ -72,7 +72,9 @@ export function addTest(
   const path = parent.path + " > " + name
   for (const sibling of parent.children) {
     if (sibling.path === path) {
-      log(`Warning: Duplicate test name "${name}" in "${parent.path}" at ${formatSource(source)} (first at ${formatSource(sibling.source)})`)
+      log(
+        `Warning: Duplicate test name "${name}" in "${parent.path}" at ${formatSource(source)} (first at ${formatSource(sibling.source)})`,
+      )
     }
   }
   const test: Test = {
@@ -141,7 +143,9 @@ export function addDescribeBlock(
   const path = parent.path !== "" ? parent.path + " > " + name : name
   for (const sibling of parent.children) {
     if (sibling.path === path) {
-      log(`Warning: Duplicate describe name "${name}" in "${parent.path}" at ${formatSource(source)} (first at ${formatSource(sibling.source)})`)
+      log(
+        `Warning: Duplicate describe name "${name}" in "${parent.path}" at ${formatSource(source)} (first at ${formatSource(sibling.source)})`,
+      )
     }
   }
   const block: DescribeBlock = {
