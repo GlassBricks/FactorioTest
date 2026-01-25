@@ -12,8 +12,8 @@ Testing framework for Factorio mods. Monorepo:
 ## Commands
 
 npm run build --workspace=cli|mod
-npm run test --workspace=mod
-npm run test:integration
+npm run test --workspace=cli|mod
+npm run test:integration  # configured at root, not a workspace
 npm run lint --workspace=cli|mod
 
 ## Architecture Notes
