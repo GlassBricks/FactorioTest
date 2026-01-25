@@ -15,6 +15,7 @@ npm run build --workspace=cli|mod
 npm run test --workspace=cli|mod
 npm run test:integration  # configured at root, not a workspace
 npm run lint --workspace=cli|mod
+npx prettier --write .  # run lint and prettier fix after changes
 
 ## Architecture Notes
 
