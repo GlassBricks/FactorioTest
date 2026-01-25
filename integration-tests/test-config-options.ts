@@ -1,19 +1,18 @@
 import * as child_process from "child_process"
 import * as fs from "fs"
+import * as os from "os"
 import * as path from "path"
 import { fileURLToPath } from "url"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const root = path.resolve(__dirname, "..")
-const customConfigPath = path.join(root, "scripts", "custom-test-config.json")
 
 interface TestCase {
   name: string
   modPath?: string
   args?: string[]
   configFile?: Record<string, unknown>
-  customConfigFile?: { path: string; content: Record<string, unknown> }
   expectedOutput?: string[]
   unexpectedOutput?: string[]
   expectedError?: string
@@ -64,8 +63,7 @@ const testCases: TestCase[] = [
   },
   {
     name: "--config option loads custom config file",
-    args: ["--config", customConfigPath],
-    customConfigFile: { path: customConfigPath, content: { test: { game_speed: 400 } } },
+    configFile: { test: { game_speed: 400 } },
     expectedOutput: ["CONFIG:game_speed=400"],
   },
   {
@@ -95,123 +93,142 @@ const testCases: TestCase[] = [
   },
 ]
 
-const configFilePath = path.join(root, "scripts", "test-config.json")
+interface TestResult {
+  name: string
+  passed: boolean
+  messages: string[]
+}
 
-async function runTest(tc: TestCase): Promise<boolean> {
-  console.log(`\n=== ${tc.name} ===`)
+async function symlinkLocalFactorioTest(modsDir: string) {
+  await fs.promises.mkdir(modsDir, { recursive: true })
+  const localModPath = path.join(root, "mod")
+  const symlinkPath = path.join(modsDir, "factorio-test")
+  await fs.promises.symlink(localModPath, symlinkPath, "junction")
+}
 
-  if (tc.configFile) {
-    fs.writeFileSync(configFilePath, JSON.stringify(tc.configFile, null, 2))
-  } else if (fs.existsSync(configFilePath)) {
-    fs.unlinkSync(configFilePath)
-  }
+async function runTest(tc: TestCase, index: number): Promise<TestResult> {
+  const messages: string[] = []
+  const log = (msg: string) => messages.push(msg)
 
-  if (tc.customConfigFile) {
-    fs.writeFileSync(tc.customConfigFile.path, JSON.stringify(tc.customConfigFile.content, null, 2))
-  }
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), `factorio-test-${index}-`))
+  const dataDir = path.join(tempDir, "data")
+  const modsDir = path.join(dataDir, "mods")
+  const configFilePath = path.join(tempDir, "config.json")
 
-  const configArgs =
-    tc.configFile || tc.customConfigFile ? ["--config", tc.customConfigFile?.path ?? configFilePath] : []
-  const modPath = tc.modPath ?? defaultModPath
-  const args = [
-    "run",
-    "cli",
-    "--workspace=cli",
-    "--",
-    "run",
-    `--mod-path=${modPath}`,
-    ...configArgs,
-    ...(tc.args ?? []),
-  ]
+  try {
+    await symlinkLocalFactorioTest(modsDir)
 
-  return new Promise((resolve) => {
-    const child = child_process.spawn("npm", args, {
-      stdio: ["inherit", "pipe", "pipe"],
-      cwd: root,
-      shell: true,
-    })
+    if (tc.configFile) {
+      await fs.promises.writeFile(configFilePath, JSON.stringify(tc.configFile, null, 2))
+    }
 
-    let stdout = ""
-    let stderr = ""
+    const configArgs = tc.configFile ? ["--config", configFilePath] : []
+    const modPath = tc.modPath ?? defaultModPath
+    const args = [
+      "run",
+      "cli",
+      "--workspace=cli",
+      "--",
+      "run",
+      `--mod-path=${modPath}`,
+      `--data-directory=${dataDir}`,
+      ...configArgs,
+      ...(tc.args ?? []),
+    ]
 
-    child.stdout.on("data", (data) => {
-      stdout += data.toString()
-    })
-    child.stderr.on("data", (data) => {
-      stderr += data.toString()
-    })
+    const passed = await new Promise<boolean>((resolve) => {
+      const child = child_process.spawn("npm", args, {
+        stdio: ["inherit", "pipe", "pipe"],
+        cwd: root,
+        shell: true,
+      })
 
-    child.on("exit", (code) => {
-      const output = stdout + stderr
+      let stdout = ""
+      let stderr = ""
 
-      if (tc.expectedError) {
-        if (output.includes(tc.expectedError)) {
-          console.log(`  PASS: Found expected error "${tc.expectedError}"`)
-          resolve(true)
-        } else {
-          console.log(`  FAIL: Expected error "${tc.expectedError}" not found`)
-          console.log(`  Output: ${output.slice(0, 500)}`)
-          resolve(false)
-        }
-        return
-      }
+      child.stdout.on("data", (data) => {
+        stdout += data.toString()
+      })
+      child.stderr.on("data", (data) => {
+        stderr += data.toString()
+      })
 
-      if (tc.expectExitCode !== undefined && code !== tc.expectExitCode) {
-        console.log(`  FAIL: Expected exit code ${tc.expectExitCode}, got ${code}`)
-        resolve(false)
-        return
-      }
+      child.on("exit", (code) => {
+        const output = stdout + stderr
 
-      if (tc.expectedOutput) {
-        let allFound = true
-        for (const expected of tc.expectedOutput) {
-          if (output.includes(expected)) {
-            console.log(`  PASS: Found "${expected}"`)
+        if (tc.expectedError) {
+          if (output.includes(tc.expectedError)) {
+            log(`  PASS: Found expected error "${tc.expectedError}"`)
+            resolve(true)
           } else {
-            console.log(`  FAIL: Expected "${expected}" not found`)
-            allFound = false
+            log(`  FAIL: Expected error "${tc.expectedError}" not found`)
+            log(`  Output: ${output.slice(0, 500)}`)
+            resolve(false)
           }
+          return
         }
-        if (tc.unexpectedOutput) {
-          for (const unexpected of tc.unexpectedOutput) {
-            if (output.includes(unexpected)) {
-              console.log(`  FAIL: Unexpected "${unexpected}" found`)
-              allFound = false
+
+        if (tc.expectExitCode !== undefined && code !== tc.expectExitCode) {
+          log(`  FAIL: Expected exit code ${tc.expectExitCode}, got ${code}`)
+          resolve(false)
+          return
+        }
+
+        if (tc.expectedOutput) {
+          let allFound = true
+          for (const expected of tc.expectedOutput) {
+            if (output.includes(expected)) {
+              log(`  PASS: Found "${expected}"`)
             } else {
-              console.log(`  PASS: Correctly missing "${unexpected}"`)
+              log(`  FAIL: Expected "${expected}" not found`)
+              allFound = false
             }
           }
+          if (tc.unexpectedOutput) {
+            for (const unexpected of tc.unexpectedOutput) {
+              if (output.includes(unexpected)) {
+                log(`  FAIL: Unexpected "${unexpected}" found`)
+                allFound = false
+              } else {
+                log(`  PASS: Correctly missing "${unexpected}"`)
+              }
+            }
+          }
+          if (!allFound) {
+            log(`  Output snippet: ${output.slice(0, 1000)}`)
+          }
+          resolve(allFound)
+          return
         }
-        if (!allFound) {
-          console.log(`  Output snippet: ${output.slice(0, 1000)}`)
-        }
-        resolve(allFound)
-        return
-      }
 
-      resolve(code === 1)
+        resolve(code === 1)
+      })
     })
-  })
+
+    return { name: tc.name, passed, messages }
+  } finally {
+    await fs.promises.rm(tempDir, { recursive: true, force: true })
+  }
 }
 
 async function main() {
+  console.log(`Running ${testCases.length} tests concurrently...`)
+
+  const results = await Promise.all(testCases.map((tc, i) => runTest(tc, i)))
+
   let passed = 0
   let failed = 0
 
-  for (const tc of testCases) {
-    const result = await runTest(tc)
-    if (result) {
+  for (const result of results) {
+    console.log(`\n=== ${result.name} ===`)
+    for (const msg of result.messages) {
+      console.log(msg)
+    }
+    if (result.passed) {
       passed++
     } else {
       failed++
     }
-  }
-
-  if (fs.existsSync(configFilePath)) {
-    fs.unlinkSync(configFilePath)
-  }
-  if (fs.existsSync(customConfigPath)) {
-    fs.unlinkSync(customConfigPath)
   }
 
   console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`)

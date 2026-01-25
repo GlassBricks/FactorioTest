@@ -9,6 +9,7 @@
   "type": "module",
   "devDependencies": {
     "@types/node": "^20.19.30",
+    "concurrently": "^9.2.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-to-lua": "^1.33.2",
@@ -27,10 +28,10 @@
     "prettier:fix": "prettier --write \"**/*.{ts,json}\"",
     "build:usage-test-mod": "tstl -p integration-tests/fixtures/usage-test-mod/tsconfig.json",
     "build:only-test-mod": "tstl -p integration-tests/fixtures/only-test-mod/tsconfig.json",
-    "build:test-mods": "npm run build:usage-test-mod && npm run build:only-test-mod",
+    "build:test-mods": "concurrently npm:build:usage-test-mod npm:build:only-test-mod",
     "pretest:integration": "npm run pretest --workspace=mod && npm run build:test-mods",
     "test:usage-test": "tsx integration-tests/test-usage-test-mod.ts",
     "test:config-options": "tsx integration-tests/test-config-options.ts",
-    "test:integration": "npm run pretest:integration && npm run test:usage-test && npm run test:config-options"
+    "test:integration": "concurrently --kill-others-on-fail npm:test:usage-test npm:test:config-options"
   }
 }

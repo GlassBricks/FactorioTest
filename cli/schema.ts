@@ -21,6 +21,7 @@ export const cliConfigSchema = z.object({
   modPath: z.string().optional(),
   modName: z.string().optional(),
   factorioPath: z.string().optional(),
+  factorioTestPath: z.string().optional(),
   dataDirectory: z.string().optional(),
   save: z.string().optional(),
   mods: z.array(z.string()).optional(),

@@ -126,7 +126,6 @@ dist
 !**/*.def.lua
 
 factorio-test-data-dir/
-scripts/test-config.json
-scripts/custom-test-config.json
+factorio-test-data-dir-mod/
 
 cli/*.js

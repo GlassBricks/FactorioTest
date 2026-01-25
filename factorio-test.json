@@ -1,3 +1,4 @@
 {
-  "modPath": "./mod"
+  "modPath": "./mod",
+  "dataDirectory": "./factorio-test-data-dir-mod"
 }

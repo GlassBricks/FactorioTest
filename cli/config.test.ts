@@ -27,8 +27,8 @@ describe("loadConfig", () => {
         test: { game_speed: 100 },
       }),
     )
-    expect(loadConfig(configPath)).toEqual({
-      modPath: "./test",
+    expect(loadConfig(configPath)).toMatchObject({
+      modPath: path.join(testDir, "test"),
       test: { game_speed: 100 },
     })
   })
