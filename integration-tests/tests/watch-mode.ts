@@ -2,26 +2,7 @@ import * as child_process from "child_process"
 import * as fs from "fs"
 import * as os from "os"
 import * as path from "path"
-import { root, symlinkLocalFactorioTest } from "./test-utils.js"
-
-interface TestResult {
-  name: string
-  passed: boolean
-  messages: string[]
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-async function waitForOutput(output: { value: string }, pattern: string, timeoutMs: number): Promise<boolean> {
-  const start = Date.now()
-  while (Date.now() - start < timeoutMs) {
-    if (output.value.includes(pattern)) return true
-    await sleep(100)
-  }
-  return false
-}
+import { root, symlinkLocalFactorioTest, sleep, waitForOutput, TestResult } from "../test-utils.js"
 
 async function testWatchModeRerunsOnFileChange(): Promise<TestResult> {
   const messages: string[] = []

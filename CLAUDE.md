@@ -36,8 +36,8 @@ npm run prettier:fix  # run lint and prettier fix after .ts/.json changes
 - Shared constants in `mod/constants.d.ts`
 
 ## Notes
-- You can run tests, they are run in headless mode
+- You can run factorio tests, they are run in headless mode
 - Run format, lint, and tests after .ts file changes
 - If applicable include plan files in commits
-- Use parameterized tests where applicable
-- For integration tests, factorio-test mod should be symlinked from dev folder (not downloaded by CLI)
+- For vitest, use parameterized tests where applicable
+- Add integration tests for new CLI features when applicable

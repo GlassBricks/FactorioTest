@@ -31,10 +31,8 @@
     "build:only-test-mod": "tstl -p integration-tests/fixtures/only-test-mod/tsconfig.json",
     "build:test-mods": "concurrently npm:build:usage-test-mod npm:build:only-test-mod",
     "pretest:integration": "npm run pretest --workspace=mod && npm run build:test-mods",
-    "test:usage-test": "tsx integration-tests/test-usage-test-mod.ts",
-    "test:config-options": "tsx integration-tests/test-config-options.ts",
-    "test:results-file": "tsx integration-tests/test-results-file.ts",
-    "test:watch-mode": "tsx integration-tests/test-watch-mode.ts",
-    "test:integration": "concurrently --kill-others-on-fail npm:test:usage-test npm:test:config-options npm:test:results-file npm:test:watch-mode"
+    "test:integration": "conc npm:test:integration:concurrent npm:test:integration:watch",
+    "test:integration:concurrent": "tsx integration-tests/test-runner.ts",
+    "test:integration:watch": "tsx integration-tests/tests/watch-mode.ts"
   }
 }
