@@ -69,10 +69,6 @@ const cliConfigFields = {
     schema: z.boolean().optional(),
     cli: { flags: "-q --quiet", description: "Suppress per-test output, show only final result." },
   },
-  showOutput: {
-    schema: z.boolean().optional(),
-    cli: { flags: "--show-output", description: "Print test output to stdout." },
-  },
   factorioArgs: {
     schema: z.array(z.string()).optional(),
     cli: { flags: "--factorio-args <args...>", description: "Additional arguments to pass to the Factorio process." },

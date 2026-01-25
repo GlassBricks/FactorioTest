@@ -175,12 +175,12 @@ async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions)
       mode === "headless"
         ? await runFactorioTestsHeadless(factorioPath, dataDir, savePath, factorioArgs, {
             verbose: options.verbose,
-            showOutput: options.showOutput,
+            quiet: options.quiet,
             signal,
           })
         : await runFactorioTestsGraphics(factorioPath, dataDir, savePath, factorioArgs, {
             verbose: options.verbose,
-            showOutput: options.showOutput,
+            quiet: options.quiet,
             resolveOnResult,
           })
   } finally {

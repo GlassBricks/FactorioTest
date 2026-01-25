@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export interface FactorioTestOptions {
   verbose?: boolean
-  showOutput?: boolean
+  quiet?: boolean
   signal?: AbortSignal
 }
 
@@ -55,8 +55,7 @@ function createOutputComponents(options: FactorioTestOptions): OutputComponents 
   const collector = new TestRunCollector()
   const printer = new OutputPrinter({
     verbose: options.verbose,
-    quiet: !options.showOutput,
-    showOutput: options.showOutput,
+    quiet: options.quiet,
   })
   const progress = new ProgressRenderer()
 

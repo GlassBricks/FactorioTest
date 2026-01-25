@@ -63,7 +63,6 @@ export class OutputFormatter {
 export interface OutputPrinterOptions {
   verbose?: boolean
   quiet?: boolean
-  showOutput?: boolean
   useProgressBar?: boolean
 }
 
@@ -93,7 +92,7 @@ export class OutputPrinter {
   }
 
   printMessage(line: string): void {
-    if (!this.options.showOutput) return
+    if (this.options.quiet) return
     if (this.isMessageFirstLine) {
       console.log(line.slice(line.indexOf(": ") + 2))
       this.isMessageFirstLine = false
