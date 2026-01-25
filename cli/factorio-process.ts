@@ -108,18 +108,37 @@ export async function runFactorioTestsHeadless(
   const { handler, collector, printer, progress } = createOutputComponents(options)
 
   let resultMessage: string | undefined
+  let testRunStarted = false
+  let startupTimedOut = false
+
   handler.on("result", (msg) => {
     resultMessage = msg
     progress.finish()
     printer.resetMessage()
   })
+  handler.on("event", (event) => {
+    if (event.type === "testRunStarted") {
+      testRunStarted = true
+      clearTimeout(startupTimeout)
+    }
+  })
+
+  const startupTimeout = setTimeout(() => {
+    if (!testRunStarted) {
+      startupTimedOut = true
+      factorioProcess.kill()
+    }
+  }, 10_000)
 
   new BufferLineSplitter(factorioProcess.stdout).on("line", (line) => handler.handleLine(line))
   new BufferLineSplitter(factorioProcess.stderr).on("line", (line) => handler.handleLine(line))
 
   await new Promise<void>((resolve, reject) => {
     factorioProcess.on("exit", (code, signal) => {
-      if (resultMessage !== undefined) {
+      clearTimeout(startupTimeout)
+      if (startupTimedOut) {
+        reject(new Error("Factorio unresponsive: no test run started within 10 seconds"))
+      } else if (resultMessage !== undefined) {
         resolve()
       } else {
         reject(new Error(`Factorio exited with code ${code}, signal ${signal}, no result received`))
