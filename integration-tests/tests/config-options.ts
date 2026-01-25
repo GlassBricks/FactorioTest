@@ -17,7 +17,7 @@ const testCases: TestCase[] = [
   {
     name: "CLI --test-pattern filters tests",
     args: ["--test-pattern", "Pass"],
-    expectedOutput: ["PASS test1 > Pass", "CONFIG:test_pattern=(Pass)"],
+    expectedOutput: ["PASS test1 > Pass", "CONFIG:test_pattern=Pass"],
     unexpectedOutput: ["PASS test1 > each 1", "PASS test1 > In world"],
   },
   {
