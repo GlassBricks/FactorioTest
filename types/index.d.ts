@@ -48,6 +48,15 @@ declare namespace FactorioTest {
   interface TestCreatorBase {
     (name: string, func: TestFn): TestBuilder
 
+    /**
+     * Template syntax for name parameter:
+     * - `$property` - Access object property (when value is an object)
+     * - `$foo.bar` - Nested property access
+     * - `%#` - 0-based test index
+     * - `%$` - 1-based test index
+     * - `%p` - Pretty-format value
+     * - `%d`, `%s`, etc. - Lua format specifiers
+     */
     each<const V extends readonly any[]>(
       values: readonly V[],
     ): (name: string, func: (...values: MutableValues<V>) => void) => TestBuilder<typeof func>
@@ -71,6 +80,15 @@ declare namespace FactorioTest {
   interface DescribeBlockCreatorBase {
     (name: string, func: TestFn): void
 
+    /**
+     * Template syntax for name parameter:
+     * - `$property` - Access object property (when value is an object)
+     * - `$foo.bar` - Nested property access
+     * - `%#` - 0-based test index
+     * - `%$` - 1-based test index
+     * - `%p` - Pretty-format value
+     * - `%d`, `%s`, etc. - Lua format specifiers
+     */
     each<const V extends readonly any[]>(
       values: readonly V[],
     ): (name: string, func: (this: void, ...values: MutableValues<V>) => void) => void

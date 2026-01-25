@@ -870,6 +870,42 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
     const item = runTestSync()
     assertEqual('{prop = "value"}', item.name)
   })
+
+  test("$property template syntax", () => {
+    creator.each([
+      { id: 1, name: "first" },
+      { id: 2, name: "second" },
+    ])("test $id: $name", () => {})
+    runTestSync()
+    const names = mockTestState.rootBlock.children.map((x) => x.name)
+    assertDeepEquals(["test 1: first", "test 2: second"], names)
+  })
+
+  test("nested $property.path syntax", () => {
+    creator.each([{ meta: { type: "unit" } }])("$meta.type test", () => {})
+    const item = runTestSync()
+    assertEqual("unit test", item.name)
+  })
+
+  test("%# index specifier", () => {
+    creator.each([1, 2, 3])("test %#", () => {})
+    runTestSync()
+    const names = mockTestState.rootBlock.children.map((x) => x.name)
+    assertDeepEquals(["test 0", "test 1", "test 2"], names)
+  })
+
+  test("%$ 1-indexed specifier", () => {
+    creator.each([1, 2])("test %$", () => {})
+    runTestSync()
+    const names = mockTestState.rootBlock.children.map((x) => x.name)
+    assertDeepEquals(["test 1", "test 2"], names)
+  })
+
+  test("%p pretty format", () => {
+    creator.each([[{ a: 1 }]])("%p", () => {})
+    const item = runTestSync()
+    assertMatches(item.name, "a = 1")
+  })
 })
 
 describe("reload state", () => {
