@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { parseEvent } from "./event-parser.js"
+import { parseEvent } from "./factorio-output-parser.js"
 
 describe("parseEvent", () => {
   it("parses valid testStarted event", () => {

@@ -17,7 +17,7 @@ describe("autoDetectFactorioPath", () => {
     const { spawnSync } = await import("child_process")
     vi.mocked(spawnSync).mockReturnValue({ status: 0 } as ReturnType<typeof spawnSync>)
 
-    const { autoDetectFactorioPath } = await import("./factorio-detect.js")
+    const { autoDetectFactorioPath } = await import("./factorio-discovery.js")
     expect(autoDetectFactorioPath()).toBe("factorio")
   })
 
@@ -25,7 +25,7 @@ describe("autoDetectFactorioPath", () => {
     const { spawnSync } = await import("child_process")
     vi.mocked(spawnSync).mockReturnValue({ status: 1 } as ReturnType<typeof spawnSync>)
 
-    const { autoDetectFactorioPath } = await import("./factorio-detect.js")
+    const { autoDetectFactorioPath } = await import("./factorio-discovery.js")
     expect(() => autoDetectFactorioPath()).toThrow(/Could not auto-detect/)
   })
 })

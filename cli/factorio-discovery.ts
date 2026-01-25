@@ -4,6 +4,17 @@ import * as path from "path"
 import { spawnSync } from "child_process"
 import { CliError } from "./cli-error.js"
 
+export function getFactorioPlayerDataPath(): string {
+  const platform = os.platform()
+  if (platform === "win32") {
+    return path.join(process.env.APPDATA!, "Factorio", "player-data.json")
+  }
+  if (platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support", "factorio", "player-data.json")
+  }
+  return path.join(os.homedir(), ".factorio", "player-data.json")
+}
+
 function factorioIsInPath(): boolean {
   const result = spawnSync("factorio", ["--version"], { stdio: "ignore" })
   return result.status === 0

@@ -6,7 +6,7 @@ import type { Command } from "@commander-js/extra-typings"
 import { loadConfig, mergeTestConfig } from "./config.js"
 import { registerTestRunnerOptions, registerCliOnlyOptions, parseCliTestOptions } from "./schema.js"
 import { setVerbose, runScript } from "./process-utils.js"
-import { autoDetectFactorioPath } from "./factorio-detect.js"
+import { autoDetectFactorioPath } from "./factorio-discovery.js"
 import { CliError } from "./cli-error.js"
 import {
   configureModToTest,
