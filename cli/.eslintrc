@@ -3,5 +3,6 @@
     "project": [
       "./tsconfig.json"
     ]
-  }
+  },
+  "ignorePatterns": ["*.js", "factorio-test-data-dir", "factorio-test-data-dir-mod", "node_modules"]
 }

@@ -8,4 +8,5 @@
     "rootDir": "."
   },
   "include": ["."],
+  "exclude": ["factorio-test-data-dir", "factorio-test-data-dir-mod", "node_modules"]
 }

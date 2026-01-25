@@ -8,6 +8,10 @@ import BufferLineSplitter from "./buffer-line-splitter.js"
 import chalk from "chalk"
 import type { Command } from "@commander-js/extra-typings"
 import * as process from "node:process"
+import * as https from "https"
+import * as readline from "readline"
+
+const FACTORIO_TEST_MOD_VERSION = "2.0.1"
 
 const thisCommand = (program as unknown as Command)
   .command("run")
@@ -153,13 +157,147 @@ async function checkModExists(modsDir: string, modName: string) {
 async function installFactorioTest(modsDir: string) {
   await fsp.mkdir(modsDir, { recursive: true })
 
-  const testModName = "factorio-test"
+  const modName = "factorio-test"
+  const version = FACTORIO_TEST_MOD_VERSION
+  const expectedZipName = `${modName}_${version}.zip`
+  const expectedZipPath = path.join(modsDir, expectedZipName)
 
-  // if not found, install it
-  const alreadyExists = await checkModExists(modsDir, testModName)
-  if (!alreadyExists) {
-    console.log(`Downloading ${testModName} from mod portal using fmtk. This may ask for factorio login credentials.`)
-    await runScript("fmtk mods install", "--modsPath", modsDir, testModName)
+  if (fs.existsSync(expectedZipPath)) {
+    if (thisCommand.opts().verbose) console.log(`${modName} version ${version} already installed`)
+    return
+  }
+
+  console.log(`Downloading ${modName} version ${version} from mod portal...`)
+  await downloadModVersion(modName, version, expectedZipPath)
+}
+
+interface ModPortalRelease {
+  download_url: string
+  file_name: string
+  version: string
+}
+
+interface ModPortalResponse {
+  releases: ModPortalRelease[]
+}
+
+interface FactorioCredentials {
+  username: string
+  token: string
+}
+
+async function downloadModVersion(modName: string, version: string, destPath: string): Promise<void> {
+  const modInfo = await fetchJson<ModPortalResponse>(`https://mods.factorio.com/api/mods/${modName}`)
+  const release = modInfo.releases.find((r) => r.version === version)
+  if (!release) {
+    const availableVersions = modInfo.releases.map((r) => r.version).join(", ")
+    throw new Error(`Version ${version} not found for mod ${modName}. Available: ${availableVersions}`)
+  }
+
+  const credentials = await getFactorioCredentials()
+  const downloadUrl = `https://mods.factorio.com${release.download_url}?username=${encodeURIComponent(credentials.username)}&token=${encodeURIComponent(credentials.token)}`
+
+  await downloadFile(downloadUrl, destPath)
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`HTTP ${res.statusCode} fetching ${url}`))
+        return
+      }
+      let data = ""
+      res.on("data", (chunk) => (data += chunk))
+      res.on("end", () => {
+        try {
+          resolve(JSON.parse(data) as T)
+        } catch (e) {
+          reject(new Error(`Failed to parse JSON from ${url}`, { cause: e }))
+        }
+      })
+      res.on("error", reject)
+    }).on("error", reject)
+  })
+}
+
+async function downloadFile(url: string, destPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      if (res.statusCode === 302 || res.statusCode === 301) {
+        const redirectUrl = res.headers.location
+        if (!redirectUrl) {
+          reject(new Error("Redirect without location header"))
+          return
+        }
+        downloadFile(redirectUrl, destPath).then(resolve, reject)
+        return
+      }
+      if (res.statusCode !== 200) {
+        reject(new Error(`HTTP ${res.statusCode} downloading mod`))
+        return
+      }
+      const fileStream = fs.createWriteStream(destPath)
+      res.pipe(fileStream)
+      fileStream.on("close", () => resolve())
+      fileStream.on("error", (err) => {
+        fs.unlink(destPath, () => {})
+        reject(err)
+      })
+    }).on("error", reject)
+  })
+}
+
+async function getFactorioCredentials(): Promise<FactorioCredentials> {
+  const playerDataPath = getPlayerDataPath()
+  if (playerDataPath && fs.existsSync(playerDataPath)) {
+    try {
+      const playerData = JSON.parse(await fsp.readFile(playerDataPath, "utf8")) as {
+        "service-username"?: string
+        "service-token"?: string
+      }
+      if (playerData["service-username"] && playerData["service-token"]) {
+        return {
+          username: playerData["service-username"],
+          token: playerData["service-token"],
+        }
+      }
+    } catch {
+      // Fall through to prompt
+    }
+  }
+
+  console.log("Factorio credentials required for mod portal download.")
+  return promptForCredentials()
+}
+
+function getPlayerDataPath(): string | undefined {
+  const platform = os.platform()
+  if (platform === "linux") {
+    return path.join(os.homedir(), ".factorio", "player-data.json")
+  } else if (platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support", "factorio", "player-data.json")
+  } else if (platform === "win32") {
+    return path.join(os.homedir(), "AppData", "Roaming", "Factorio", "player-data.json")
+  }
+  return undefined
+}
+
+async function promptForCredentials(): Promise<FactorioCredentials> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  })
+
+  const question = (prompt: string): Promise<string> =>
+    new Promise((resolve) => rl.question(prompt, resolve))
+
+  try {
+    const username = await question("Factorio username: ")
+    const token = await question("Factorio token (from https://factorio.com/profile): ")
+    return { username, token }
+  } finally {
+    rl.close()
   }
 }
 
