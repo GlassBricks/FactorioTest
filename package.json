@@ -11,6 +11,7 @@
     "@types/node": "^20.19.30",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
+    "typescript-to-lua": "^1.33.2",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.57.1",
@@ -22,10 +23,12 @@
     "prettier": "^3.8.1"
   },
   "scripts": {
-    "prepare-test": "npm run pretest --workspace=mod",
+    "build:usage-test-mod": "tstl -p integration-tests/fixtures/usage-test-mod/tsconfig.json",
+    "build:only-test-mod": "tstl -p integration-tests/fixtures/only-test-mod/tsconfig.json",
+    "build:test-mods": "npm run build:usage-test-mod && npm run build:only-test-mod",
+    "pretest:integration": "npm run pretest --workspace=mod && npm run build:test-mods",
     "test:usage-test": "tsx integration-tests/test-usage-test-mod.ts",
     "test:config-options": "tsx integration-tests/test-config-options.ts",
-    "test:integration": "npm run test:usage-test && npm run test:config-options",
-    "test:integration:full": "npm run build --workspace=cli && npm run build --workspace=mod && npm run test:integration"
+    "test:integration": "npm run pretest:integration && npm run test:usage-test && npm run test:config-options"
   }
 }

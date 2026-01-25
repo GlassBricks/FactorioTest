@@ -20,7 +20,7 @@ interface TestCase {
   expectExitCode?: number
 }
 
-const defaultModPath = "./integration-tests/fixtures/usage-test-mod"
+const defaultModPath = "../integration-tests/fixtures/usage-test-mod"
 
 const testCases: TestCase[] = [
   {
@@ -70,20 +70,20 @@ const testCases: TestCase[] = [
   },
   {
     name: ".only test with --forbid-only (default) fails",
-    modPath: "./integration-tests/fixtures/only-test-mod",
+    modPath: "../integration-tests/fixtures/only-test-mod",
     expectedOutput: ["only-test-mod: completed", "Error: .only tests are present"],
     expectExitCode: 1,
   },
   {
     name: ".only test with --no-forbid-only passes",
-    modPath: "./integration-tests/fixtures/only-test-mod",
+    modPath: "../integration-tests/fixtures/only-test-mod",
     args: ["--no-forbid-only"],
     expectedOutput: ["only-test-mod: completed", "Test run result: passed"],
     expectExitCode: 0,
   },
   {
     name: "Config file forbid_only: false allows .only tests",
-    modPath: "./integration-tests/fixtures/only-test-mod",
+    modPath: "../integration-tests/fixtures/only-test-mod",
     configFile: { forbid_only: false },
     expectedOutput: ["only-test-mod: completed", "Test run result: passed"],
     expectExitCode: 0,
@@ -118,7 +118,7 @@ async function runTest(tc: TestCase): Promise<boolean> {
     "--workspace=cli",
     "--",
     "run",
-    modPath,
+    `--mod-path=${modPath}`,
     ...configArgs,
     ...(tc.args ?? []),
   ]
