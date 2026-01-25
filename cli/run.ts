@@ -90,6 +90,7 @@ async function runTests(
     logPassedTests?: boolean
     logSkippedTests?: boolean
     reorderFailedFirst?: boolean
+    bail?: number
     forbidOnly?: boolean
     outputFile?: string | false
   },
@@ -196,7 +197,11 @@ async function runTests(
     if (options.verbose) console.log(`Results written to ${outputPath}`)
   }
 
-  const resultStatus = result.status
+  let resultStatus = result.status
+  if (resultStatus === "bailed") {
+    console.log(chalk.yellow(`Bailed out after ${testConfig.bail} failure(s)`))
+    resultStatus = "failed"
+  }
   const color =
     resultStatus == "passed" ? chalk.greenBright : resultStatus == "todo" ? chalk.yellowBright : chalk.redBright
   console.log("Test run result:", color(resultStatus))

@@ -11,6 +11,7 @@ export const testRunnerConfigSchema = z.strictObject({
   log_passed_tests: z.boolean().optional(),
   log_skipped_tests: z.boolean().optional(),
   reorder_failed_first: z.boolean().optional(),
+  bail: z.number().int().positive().optional(),
 })
 
 export type TestRunnerConfig = z.infer<typeof testRunnerConfigSchema>
@@ -56,6 +57,11 @@ const testRunnerCliOptions: Record<keyof TestRunnerConfig, CliOptionMeta> = {
   log_passed_tests: { flags: "--log-passed-tests", description: "Log passed test names" },
   log_skipped_tests: { flags: "--log-skipped-tests", description: "Log skipped test names" },
   reorder_failed_first: { flags: "--reorder-failed-first", description: "Run previously failed tests first" },
+  bail: {
+    flags: "--bail [count]",
+    description: "Stop after n failures (default: 1)",
+    parseArg: (v: string | undefined) => (v === undefined ? 1 : parseInt(v)),
+  },
 }
 
 export function registerTestRunnerOptions(command: Command<unknown[], Record<string, unknown>>): void {
@@ -87,8 +93,12 @@ export function parseCliTestOptions(opts: Record<string, unknown>): Partial<Test
   const result: Record<string, unknown> = {}
   for (const snake of Object.keys(testRunnerConfigSchema.shape)) {
     const camel = snakeToCamel(snake)
-    if (opts[camel] !== undefined) {
-      result[snake] = opts[camel]
+    let value = opts[camel]
+    if (value !== undefined) {
+      if (snake === "bail" && value === true) {
+        value = 1
+      }
+      result[snake] = value
     }
   }
   return result as Partial<TestRunnerConfig>

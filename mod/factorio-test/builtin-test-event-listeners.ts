@@ -37,7 +37,8 @@ const setupListener: TestEventListener = (event, state) => {
     }
     state.config.after_test_run?.()
     cleanupTestState()
-    emitResult("cancelled")
+    const status = state.bailedOut ? "bailed" : "cancelled"
+    emitResult(status)
   } else if (event.type === "loadError") {
     game.speed = 1
     game.play_sound({ path: "utility/console_message" })

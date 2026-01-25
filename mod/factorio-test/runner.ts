@@ -61,6 +61,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
       if (--this.ticksToWait > 0) return
     }
     while (this.nextTask) {
+      if (this.state.cancelRequested) return
       this.nextTask = this.runTask(this.nextTask)
       if (this.nextTask) {
         this.ticksToWait = this.nextTask.waitTicks ?? 0
@@ -311,6 +312,13 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
         type: "testFailed",
         test,
       })
+      if (this.state.config.bail !== undefined) {
+        this.state.failureCount++
+        if (this.state.failureCount >= this.state.config.bail) {
+          this.state.bailedOut = true
+          this.requestCancel()
+        }
+      }
     } else {
       this.state.raiseTestEvent({
         type: "testPassed",

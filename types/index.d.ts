@@ -30,6 +30,7 @@ declare namespace FactorioTest {
     test_pattern?: string
     tag_whitelist?: string[]
     tag_blacklist?: string[]
+    bail?: number
 
     before_test_run?(): void
     after_test_run?(): void

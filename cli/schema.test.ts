@@ -68,4 +68,13 @@ describe("parseCliTestOptions", () => {
   it("returns empty object for empty input", () => {
     expect(parseCliTestOptions({})).toEqual({})
   })
+
+  it("passes through bail option", () => {
+    expect(parseCliTestOptions({ bail: 1 })).toEqual({ bail: 1 })
+    expect(parseCliTestOptions({ bail: 3 })).toEqual({ bail: 3 })
+  })
+
+  it("converts bail=true to bail=1 (commander behavior for --bail without value)", () => {
+    expect(parseCliTestOptions({ bail: true })).toEqual({ bail: 1 })
+  })
 })

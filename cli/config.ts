@@ -67,6 +67,8 @@ export function mergeTestConfig(
     game_speed: cliOptions.game_speed ?? configFile?.game_speed,
     log_passed_tests: cliOptions.log_passed_tests ?? configFile?.log_passed_tests,
     log_skipped_tests: cliOptions.log_skipped_tests ?? configFile?.log_skipped_tests,
+    reorder_failed_first: cliOptions.reorder_failed_first ?? configFile?.reorder_failed_first,
+    bail: cliOptions.bail ?? configFile?.bail,
   }
 }
 

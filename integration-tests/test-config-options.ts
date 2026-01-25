@@ -87,6 +87,20 @@ const testCases: TestCase[] = [
     expectedOutput: ["Test run result:"],
     unexpectedOutput: ["Error: .only tests are present"],
   },
+  {
+    name: "--bail stops after first failure",
+    args: ["--bail"],
+    expectedOutput: ["FAIL test1 > each 2", "Bailed out after 1 failure(s)", "Test run result: failed"],
+    unexpectedOutput: ["PASS test1 > In world", "PASS folder/test2 > Reload"],
+    expectExitCode: 1,
+  },
+  {
+    name: "--bail=2 stops after second failure (only one failure exists)",
+    args: ["--bail=2"],
+    expectedOutput: ["FAIL test1 > each 2", "PASS test1 > In world", "Test run result: failed"],
+    unexpectedOutput: ["Bailed out after"],
+    expectExitCode: 1,
+  },
 ]
 
 interface TestResult {

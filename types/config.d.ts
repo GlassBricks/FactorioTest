@@ -7,4 +7,5 @@ export interface TestRunnerConfig {
   log_passed_tests?: boolean
   log_skipped_tests?: boolean
   reorder_failed_first?: boolean
+  bail?: number
 }
