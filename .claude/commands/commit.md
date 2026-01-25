@@ -16,8 +16,8 @@ You are tasked with creating git commits for the changes made during this sessio
 
 1. **Think about what changed:**
    - Review the conversation history and understand what was accomplished
-   - Run `git status` to see current changes
-   - Run `git diff` to understand the modifications
+   - See !`git status` to see current changes
+   - See !`git diff` to understand the modifications
    - Consider whether changes should be one commit or multiple logical commits
 
 2. **Plan your commit(s):**
