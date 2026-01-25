@@ -200,10 +200,31 @@ async function runTest(tc: TestCase, index: number): Promise<TestResult> {
   }
 }
 
-async function main() {
-  console.log(`Running ${testCases.length} tests concurrently...`)
+async function runWithConcurrencyLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let nextIndex = 0
 
-  const results = await Promise.all(testCases.map((tc, i) => runTest(tc, i)))
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++
+      results[index] = await fn(items[index], index)
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker)
+  await Promise.all(workers)
+  return results
+}
+
+async function main() {
+  const concurrency = Math.max(1, Math.floor(os.cpus().length / 2))
+  console.log(`Running ${testCases.length} tests with concurrency ${concurrency}...`)
+
+  const results = await runWithConcurrencyLimit(testCases, concurrency, runTest)
 
   let passed = 0
   let failed = 0
