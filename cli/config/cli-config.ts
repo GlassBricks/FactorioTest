@@ -22,14 +22,15 @@ const cliConfigFields = {
     schema: z.string().optional(),
     cli: {
       flags: "-p --mod-path <path>",
-      description: "Path to the mod folder (containing info.json). Will create a symlink from mods folder to here.",
+      description:
+        "[one required] Path to the mod folder (containing info.json). Will create a symlink from mods folder to here.",
     },
   },
   modName: {
     schema: z.string().optional(),
     cli: {
       flags: "--mod-name <name>",
-      description: "Name of a mod already in the configured data directory.",
+      description: "[one required] Name of a mod already in the configured data directory.",
     },
   },
   factorioPath: {
@@ -149,7 +150,10 @@ export interface CliOnlyOptions {
 export function registerAllCliOptions(command: Command<unknown[], Record<string, unknown>>): void {
   const f = cliConfigFields
 
-  command.option("-c --config <path>", "Path to config file")
+  command.option(
+    "-c --config <path>",
+    "Path to config file (default: factorio-test.json, or 'factorio-test' key in package.json)",
+  )
   command.option("-g --graphics", "Launch Factorio with graphics (interactive mode) instead of headless")
   command.option("-w --watch", "Watch for file changes and rerun tests")
 

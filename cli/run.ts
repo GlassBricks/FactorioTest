@@ -37,7 +37,24 @@ import { watchDirectory, watchFile } from "./file-watcher.js"
 const thisCommand = (program as unknown as Command)
   .command("run")
   .summary("Runs tests with Factorio test.")
-  .description("Runs tests for the specified mod with Factorio test. Exits with code 0 only if all tests pass.\n")
+  .description(
+    `Runs tests for the specified mod with Factorio test. Exits with code 0 only if all tests pass.
+
+One of --mod-path or --mod-name is required.
+Test execution options (--test-pattern, --tag-*, --bail, etc.) override in-mod config.
+
+When using variadic options (--mods, --factorio-args, etc.) with filter patterns,
+use -- to separate them:
+  factorio-test run -p ./my-mod --mods quality space-age -- "inventory"
+
+Examples:
+  factorio-test run -p ./my-mod             Run all tests
+  factorio-test run -p ./my-mod -v          Run with verbose output
+  factorio-test run -p ./my-mod -gw         Run with graphics in watch mode
+  factorio-test run -p ./my-mod -b          Bail on first failure
+  factorio-test run -p ./my-mod "inventory" Run tests matching "inventory"
+`,
+  )
   .argument("[filter...]", "Test patterns to filter (OR logic)")
 
 registerAllCliOptions(thisCommand)
