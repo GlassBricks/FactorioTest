@@ -17,7 +17,7 @@ echo "==> Publishing mod..."
 if [ -n "$DRY_RUN" ]; then
   echo "(skipping fmtk publish in dry-run mode)"
 else
-  (cd mod && fmtk publish)
+  (cd mod && npx fmtk publish)
 fi
 
 echo "==> Publishing cli..."
