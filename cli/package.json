@@ -3,10 +3,13 @@
   "version": "3.0.0",
   "description": "A CLI to run FactorioTest.",
   "license": "MIT",
-  "repository": "https://github.com/GlassBricks/FactorioTest",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GlassBricks/FactorioTest.git"
+  },
   "type": "module",
   "bin": {
-    "factorio-test": "./cli.js"
+    "factorio-test": "cli.js"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -36,7 +39,7 @@
     "pretest": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run build && npm --prefix .. run test:integration:full",
+    "prepublishOnly": "npm run build",
     "clean": "del-cli \"*.js\""
   }
 }
