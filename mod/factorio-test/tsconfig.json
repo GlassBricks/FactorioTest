@@ -3,13 +3,8 @@
     "target": "esnext",
     "module": "none",
     "moduleResolution": "node",
-    "types": [
-      "typed-factorio/runtime",
-      "factorio-test"
-    ],
-    "lib": [
-      "esnext"
-    ],
+    "types": ["typed-factorio/runtime", "factorio-test"],
+    "lib": ["esnext"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noPropertyAccessFromIndexSignature": true,
@@ -24,9 +19,6 @@
     "luaBundle": "../_factorio-test.lua",
     "luaBundleEntry": "load.ts"
   },
-  "include": [
-    "./",
-    "../../types"
-  ],
+  "include": ["./", "../../types"],
   "exclude": []
 }

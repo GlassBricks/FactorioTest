@@ -1,14 +1,12 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": [
-    "test"
-  ],
+  "exclude": ["test"],
   "tstl": {
     "luaTarget": "5.2",
     "sourceMapTraceback": false,
     "noImplicitSelf": true,
     "luaBundle": "../_factorio-test.lua",
     "luaBundleEntry": "load.ts",
-    "luaLibImport": "require-minimal",
+    "luaLibImport": "require-minimal"
   }
 }

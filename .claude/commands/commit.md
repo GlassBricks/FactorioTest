@@ -30,9 +30,9 @@ You are tasked with creating git commits for the changes made during this sessio
    - Use imperative mood in commit messages
    - Focus on why the changes were made, not just what
 
-3. **If TypeScript files changed:**
+3. **If .ts or .json files changed:**
    - Run `npm run prettier:fix` if not already done this session
-   - Run `npm run check` if not already done this session
+   - Run `npm run lint --workspace=cli|mod` for affected workspaces if not already done this session
 
 4. **Present your plan to the user:**
    - List the files you plan to add for each commit

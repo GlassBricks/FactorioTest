@@ -3,13 +3,8 @@
     "target": "esnext",
     "module": "none",
     "moduleResolution": "node",
-    "types": [
-      "typed-factorio/runtime",
-      "factorio-test"
-    ],
-    "lib": [
-      "esnext"
-    ],
+    "types": ["typed-factorio/runtime", "factorio-test"],
+    "lib": ["esnext"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "experimentalDecorators": true,
@@ -19,16 +14,8 @@
     "luaTarget": "5.2",
     "sourceMapTraceback": true,
     "noImplicitSelf": true,
-    "noResolvePaths": [
-      "__factorio-test__/init"
-    ]
+    "noResolvePaths": ["__factorio-test__/init"]
   },
-  "include": [
-    ".",
-    "../types/index.d.ts"
-  ],
-  "exclude": [
-    "factorio-test/**/*",
-    "**/node_modules/"
-  ]
+  "include": [".", "../types/index.d.ts"],
+  "exclude": ["factorio-test/**/*", "**/node_modules/"]
 }

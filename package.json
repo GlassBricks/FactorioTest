@@ -23,6 +23,8 @@
     "prettier": "^3.8.1"
   },
   "scripts": {
+    "prettier:check": "prettier --check \"**/*.{ts,json}\"",
+    "prettier:fix": "prettier --write \"**/*.{ts,json}\"",
     "build:usage-test-mod": "tstl -p integration-tests/fixtures/usage-test-mod/tsconfig.json",
     "build:only-test-mod": "tstl -p integration-tests/fixtures/only-test-mod/tsconfig.json",
     "build:test-mods": "npm run build:usage-test-mod && npm run build:only-test-mod",

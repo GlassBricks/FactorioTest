@@ -110,7 +110,8 @@ async function runTest(tc: TestCase): Promise<boolean> {
     fs.writeFileSync(tc.customConfigFile.path, JSON.stringify(tc.customConfigFile.content, null, 2))
   }
 
-  const configArgs = tc.configFile || tc.customConfigFile ? ["--config", tc.customConfigFile?.path ?? configFilePath] : []
+  const configArgs =
+    tc.configFile || tc.customConfigFile ? ["--config", tc.customConfigFile?.path ?? configFilePath] : []
   const modPath = tc.modPath ?? defaultModPath
   const args = [
     "run",
