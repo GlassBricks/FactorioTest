@@ -1,0 +1,6 @@
+[submodule "luassert/luassert"]
+	path = luassert/luassert
+	url = https://github.com/GlassBricks/luassert-factorio
+[submodule "luassert/say"]
+	path = luassert/say
+	url = https://github.com/Olivine-Labs/say

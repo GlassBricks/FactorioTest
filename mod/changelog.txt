@@ -6,7 +6,7 @@ Date: ????
     - Jest-like template syntax for `.each()` test names: `$property`, `%#`, `%p`, `%d`, `%s`.
     - `reorder_failed_first` config option to run previously failed tests first.
   Changes:
-    - BREAKING: Removed luassert library.
+    - luassert library is now disabled by default. Enable with `load_luassert: true` in config.
     - If using cli, requires factorio-test-cli v3.0.
   UI:
     - Simplified GUI with summary line and always-enabled close button.

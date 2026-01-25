@@ -6,7 +6,6 @@ See also: [mod changelog](../mod/changelog.txt) for in-game test framework chang
 
 - **CLI argument changes**: `--mod-path` is now a named option instead of positional. Use `--factorio-args` to pass arguments to Factorio instead of `--` separator.
 - **Requires factorio-test mod v3.0.0+**: The CLI now validates mod version compatibility on startup.
-- **luassert library removed**: Tests must use built-in Lua `assert()` instead.
 
 ### Features
 
