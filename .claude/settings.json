@@ -39,6 +39,13 @@
       "Bash(git blame*)",
       "Bash(git shortlog*)",
       "Bash(git stash list*)",
+      "Bash(git stash *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(gh api *)",
+      "Bash(grep *)",
+      "Bash(node cli/cli.js *)",
+      "Bash(node cli.js *)",
 
       "Bash(npm run *)",
       "Bash(npm test*)",
