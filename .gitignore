@@ -129,5 +129,7 @@ mod/luassert
 mod/say-LICENSE
 
 factorio-test-data-dir/
+factorio-test-data-dir-mod/
 
 cli/*.js
+mod/**/*.js
