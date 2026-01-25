@@ -305,8 +305,8 @@ export const progressGuiListener: TestEventListener = (event, state) => {
         state.results.status == "passed"
           ? ProgressGui.TestsPassed
           : state.results.status == "todo"
-          ? ProgressGui.TestsPassedWithTodo
-          : ProgressGui.TestsFailed
+            ? ProgressGui.TestsPassedWithTodo
+            : ProgressGui.TestsFailed
 
       gui.statusText.caption = [statusLocale]
       gui.closeButton.enabled = true

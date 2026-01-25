@@ -1,7 +1,15 @@
+import { Settings } from "../constants"
 import { logListener } from "./output"
 import { resultCollector } from "./results"
 import { TestEventListener } from "./test-events"
 import { cleanupTestState } from "./state"
+
+function emitResult(status: string) {
+  print("FACTORIO-TEST-RESULT:" + status)
+  if (settings.startup[Settings.AutoStart]?.value === "headless") {
+    error("FACTORIO-TEST-EXIT")
+  }
+}
 
 const setupListener: TestEventListener = (event, state) => {
   if (event.type === "testRunStarted") {
@@ -10,25 +18,21 @@ const setupListener: TestEventListener = (event, state) => {
     state.config.before_test_run?.()
   } else if (event.type === "testRunFinished") {
     game.speed = 1
-    const status = state.results.status
+    const status = state.results.status!
     if (state.config.sound_effects) {
       const passed = status === "passed" || status === "todo"
-      if (passed) {
-        game.play_sound({ path: "utility/game_won" })
-      } else {
-        game.play_sound({ path: "utility/game_lost" })
-      }
+      game.play_sound({ path: passed ? "utility/game_won" : "utility/game_lost" })
     }
 
     state.config.after_test_run?.()
     cleanupTestState()
 
-    print("FACTORIO-TEST-RESULT:" + status) // signal to cli
+    emitResult(status)
   } else if (event.type === "loadError") {
     game.speed = 1
     game.play_sound({ path: "utility/console_message" })
 
-    print("FACTORIO-TEST-RESULT:loadError") // signal to cli
+    emitResult("loadError")
   }
 }
 

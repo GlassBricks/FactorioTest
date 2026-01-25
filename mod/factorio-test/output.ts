@@ -248,10 +248,10 @@ export const logListener: TestEventListener = (event, state) => {
             status === "passed"
               ? MessageColor.Green
               : status === "failed"
-              ? MessageColor.Red
-              : status === "todo"
-              ? MessageColor.Purple
-              : MessageColor.White,
+                ? MessageColor.Red
+                : status === "todo"
+                  ? MessageColor.Purple
+                  : MessageColor.White,
         }}`,
       )
       output(m`${state.profiler!}${state.reloaded ? " since last reload" : ""}`)

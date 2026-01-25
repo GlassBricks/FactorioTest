@@ -1,7 +1,7 @@
 import * as fs from "fs"
 import * as path from "path"
-import { cliConfigSchema, type CliConfig, type TestRunnerConfig } from "./schema.js"
 import { ZodError } from "zod"
+import { cliConfigSchema, type CliConfig, type TestRunnerConfig } from "./schema.js"
 
 function formatZodError(error: ZodError, filePath: string): string {
   const issues = error.issues.map((issue) => {
@@ -20,9 +20,7 @@ export function loadConfig(configPath?: string): CliConfig {
     if (!fs.existsSync(filePath)) continue
 
     const content = JSON.parse(fs.readFileSync(filePath, "utf8"))
-    const rawConfig = filePath.endsWith("package.json")
-      ? content["factorio-test"]
-      : content
+    const rawConfig = filePath.endsWith("package.json") ? content["factorio-test"] : content
 
     if (!rawConfig) continue
 

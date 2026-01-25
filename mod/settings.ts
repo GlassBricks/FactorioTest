@@ -13,10 +13,21 @@ data.extend([
     order: "a",
   },
   {
-    type: "bool-setting",
+    type: "string-setting",
+    setting_type: "startup",
+    name: Settings.AutoStartMod,
+    default_value: "",
+    allow_blank: true,
+    hidden: true,
+    order: "a1",
+  },
+  {
+    type: "string-setting",
     setting_type: "startup",
     name: Settings.AutoStart,
-    default_value: false,
+    default_value: "false",
+    allowed_values: ["false", "headless", "graphics"],
+    hidden: true,
     order: "b",
   },
   {

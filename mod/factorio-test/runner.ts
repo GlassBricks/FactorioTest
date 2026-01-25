@@ -30,12 +30,12 @@ type Task = {
         waitTicks?: number
       }
     : TestTasks[K] extends (arg: infer A) => void
-    ? {
-        task: K
-        data: A
-        waitTicks?: number
-      }
-    : never
+      ? {
+          task: K
+          data: A
+          waitTicks?: number
+        }
+      : never
 }[keyof TestTasks]
 
 type TestTaskRunner = {

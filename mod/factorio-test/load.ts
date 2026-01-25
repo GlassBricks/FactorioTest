@@ -56,7 +56,10 @@ function loadTests(files: string[], partialConfig: Partial<Config>): void {
   const state = getTestState()
 
   // load files
-  const _require = settings.global[Settings.ModToTest]!.value === "factorio-test" ? require : ____originalRequire
+  const autoStartMod = settings.startup[Settings.AutoStartMod]!.value
+  const manualMod = settings.global[Settings.ModToTest]!.value
+  const modToTest = autoStartMod || manualMod
+  const _require = modToTest === "factorio-test" ? require : ____originalRequire
   for (const file of files) {
     describe(file, () => _require(file))
   }
@@ -85,8 +88,13 @@ function doRunTests() {
   clearTestListeners()
   builtinTestEventListeners.forEach(addTestListener)
   if (game !== undefined) game.tick_paused = false
-  addTestListener(progressGuiListener)
-  addMessageHandler(progressGuiLogger)
+
+  const headless = settings.startup[Settings.AutoStart]?.value === "headless"
+  if (!headless) {
+    addTestListener(progressGuiListener)
+    addMessageHandler(progressGuiLogger)
+  }
+
   if (debugAdapterEnabled) {
     addMessageHandler(debugAdapterLogger)
   } else {

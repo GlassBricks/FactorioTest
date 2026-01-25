@@ -10,6 +10,7 @@ export const enum Prototypes {
 
 export const enum Settings {
   ModToTest = "factorio-test-mod-to-test",
+  AutoStartMod = "factorio-test-auto-start-mod",
   AutoStart = "factorio-test-auto-start",
   Config = "factorio-test-config",
 }

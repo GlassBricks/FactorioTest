@@ -17,7 +17,9 @@ function init(
   }
   initCalled = true
   remote.add_interface("factorio-test-tests-available-for-" + script.mod_name, {})
-  if (script.mod_name === settings.global[Settings.ModToTest]!.value) {
+  const autoStartMod = settings.startup[Settings.AutoStartMod]!.value
+  const manualMod = settings.global[Settings.ModToTest]!.value
+  if (script.mod_name === autoStartMod || script.mod_name === manualMod) {
     require("@NoResolution:__factorio-test__/_factorio-test")(files, config)
   }
 }

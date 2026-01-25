@@ -8,8 +8,19 @@ import { loadConfig, mergeTestConfig } from "./config.js"
 import { registerTestRunnerOptions, parseCliTestOptions } from "./schema.js"
 import { setVerbose, runScript } from "./process-utils.js"
 import { autoDetectFactorioPath } from "./factorio-detect.js"
-import { configureModToTest, installFactorioTest, ensureConfigIni, setSettingsForAutorun } from "./mod-setup.js"
-import { runFactorioTests } from "./factorio-process.js"
+import {
+  configureModToTest,
+  installFactorioTest,
+  ensureConfigIni,
+  setSettingsForAutorun,
+  resetAutorunSettings,
+} from "./mod-setup.js"
+import {
+  getHeadlessSavePath,
+  runFactorioTestsHeadless,
+  runFactorioTestsGraphics,
+  FactorioTestResult,
+} from "./factorio-process.js"
 
 const thisCommand = (program as unknown as Command)
   .command("run")
@@ -33,6 +44,8 @@ const thisCommand = (program as unknown as Command)
     'The path to the factorio data directory that the testing instance will use. The "config.ini" file and the "mods" folder will be in this directory.',
     "./factorio-test-data-dir",
   )
+  .option("--graphics", "Run with graphics (interactive mode). By default, runs headless using benchmark mode.")
+  .option("--save <path>", "Path to save file (default: bundled headless-save.zip)")
   .option(
     "--mods <mods...>",
     'Adjust mods. By default, only the mod to test and "factorio-test" are enabled, and all others are disabled! ' +
@@ -64,6 +77,8 @@ async function runTests(
     factorioPath?: string
     modName?: string
     dataDirectory: string
+    graphics?: true
+    save?: string
     verbose?: true
     showOutput?: boolean
     mods?: string[]
@@ -112,10 +127,16 @@ async function runTests(
   if (options.verbose) console.log("Adjusting mods")
   await runScript("fmtk mods adjust", "--modsPath", modsDir, "--disableExtra", ...enableModsOptions)
   await ensureConfigIni(dataDir)
-  await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest, options.verbose)
+
+  const mode = options.graphics ? "graphics" : "headless"
+  const savePath = getHeadlessSavePath(options.save ?? fileConfig.save)
+
+  await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest, mode, options.verbose)
 
   const cliTestOptions = parseCliTestOptions(options)
-  const allPatterns = [fileConfig.test?.test_pattern, cliTestOptions.test_pattern, ...patterns].filter(Boolean) as string[]
+  const allPatterns = [fileConfig.test?.test_pattern, cliTestOptions.test_pattern, ...patterns].filter(
+    Boolean,
+  ) as string[]
   const combinedPattern = allPatterns.length > 0 ? allPatterns.map((p) => `(${p})`).join("|") : undefined
 
   const testConfig = mergeTestConfig(fileConfig.test, {
@@ -136,21 +157,26 @@ async function runTests(
   const index = args.indexOf("--")
   const additionalArgs = index >= 0 ? args.slice(index + 1) : []
 
-  let resultMessage: string | undefined
+  let result: FactorioTestResult
   try {
-    resultMessage = await runFactorioTests(factorioPath, dataDir, additionalArgs, {
-      verbose: options.verbose,
-      showOutput: options.showOutput,
-    })
+    result =
+      mode === "headless"
+        ? await runFactorioTestsHeadless(factorioPath, dataDir, savePath, additionalArgs, {
+            verbose: options.verbose,
+            showOutput: options.showOutput,
+          })
+        : await runFactorioTestsGraphics(factorioPath, dataDir, savePath, additionalArgs, {
+            verbose: options.verbose,
+            showOutput: options.showOutput,
+          })
   } finally {
-    if (options.verbose) console.log("Disabling auto-start settings")
-    await runScript("fmtk settings set startup factorio-test-auto-start false", "--modsPath", modsDir)
+    await resetAutorunSettings(modsDir, options.verbose)
     await runScript("fmtk settings set runtime-global factorio-test-config", "{}", "--modsPath", modsDir)
   }
-  if (resultMessage) {
-    const color =
-      resultMessage == "passed" ? chalk.greenBright : resultMessage == "todo" ? chalk.yellowBright : chalk.redBright
-    console.log("Test run result:", color(resultMessage))
-    process.exit(resultMessage === "passed" ? 0 : 1)
-  }
+
+  const resultStatus = result.status
+  const color =
+    resultStatus == "passed" ? chalk.greenBright : resultStatus == "todo" ? chalk.yellowBright : chalk.redBright
+  console.log("Test run result:", color(resultStatus))
+  process.exit(resultStatus === "passed" ? 0 : 1)
 }
