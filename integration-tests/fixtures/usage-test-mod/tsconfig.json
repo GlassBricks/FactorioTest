@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "none",
+    "moduleResolution": "node",
+    "types": ["typed-factorio/runtime"],
+    "strict": true,
+    "experimentalDecorators": true,
+    "rootDir": "."
+  },
+  "tstl": {
+    "luaTarget": "5.2",
+    "noResolvePaths": ["__factorio-test__/init"],
+    "sourceMapTraceback": true,
+    "noImplicitSelf": true
+  },
+  "include": [".", "../../../node_modules/typed-factorio/runtime/index.d.ts",
+    "../../../types/index.d.ts"
+  ],
+  "exclude": []
+}

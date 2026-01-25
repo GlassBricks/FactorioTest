@@ -12,6 +12,7 @@ export interface FactorioTestOptions {
 
 export interface FactorioTestResult {
   status: "passed" | "failed" | "todo" | "loadError" | "could not auto start" | string
+  hasFocusedTests: boolean
   message?: string
 }
 
@@ -20,6 +21,19 @@ export function getHeadlessSavePath(overridePath?: string): string {
     return path.resolve(overridePath)
   }
   return path.join(__dirname, "headless-save.zip")
+}
+
+export function parseResultMessage(message: string): Pick<FactorioTestResult, "status" | "hasFocusedTests"> {
+  if (message.endsWith(":focused")) {
+    return {
+      status: message.slice(0, -":focused".length) as FactorioTestResult["status"],
+      hasFocusedTests: true,
+    }
+  }
+  return {
+    status: message as FactorioTestResult["status"],
+    hasFocusedTests: false,
+  }
 }
 
 function createLineHandler(options: FactorioTestOptions, onResult: (msg: string) => void): (line: string) => void {
@@ -89,7 +103,8 @@ export async function runFactorioTestsHeadless(
     })
   })
 
-  return { status: resultMessage as FactorioTestResult["status"], message: resultMessage }
+  const parsed = parseResultMessage(resultMessage!)
+  return { ...parsed, message: resultMessage }
 }
 
 export async function runFactorioTestsGraphics(
@@ -131,5 +146,6 @@ export async function runFactorioTestsGraphics(
     })
   })
 
-  return { status: resultMessage as FactorioTestResult["status"], message: resultMessage }
+  const parsed = parseResultMessage(resultMessage!)
+  return { ...parsed, message: resultMessage }
 }

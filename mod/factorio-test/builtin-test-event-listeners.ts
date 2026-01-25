@@ -27,7 +27,8 @@ const setupListener: TestEventListener = (event, state) => {
     state.config.after_test_run?.()
     cleanupTestState()
 
-    emitResult(status)
+    const focusedSuffix = state.hasFocusedTests ? ":focused" : ""
+    emitResult(status + focusedSuffix)
   } else if (event.type === "loadError") {
     game.speed = 1
     game.play_sound({ path: "utility/console_message" })

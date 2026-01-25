@@ -27,6 +27,7 @@ export const cliConfigSchema = z.object({
   verbose: z.boolean().optional(),
   showOutput: z.boolean().optional(),
   factorioArgs: z.array(z.string()).optional(),
+  forbid_only: z.boolean().optional(),
   test: testRunnerConfigSchema.optional(),
 })
 
@@ -63,6 +64,11 @@ export function registerTestRunnerOptions(command: Command<unknown[], Record<str
       command.option("--no-log-passed-tests", "Don't log passed test names")
     }
   }
+}
+
+export function registerCliOnlyOptions(command: Command<unknown[], Record<string, unknown>>): void {
+  command.option("--forbid-only", "Fail if .only tests are present (default: true)")
+  command.option("--no-forbid-only", "Allow .only tests")
 }
 
 function snakeToCamel(str: string): string {

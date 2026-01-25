@@ -10,7 +10,7 @@ const root = path.resolve(__dirname, "..")
 
 const child = child_process.spawn(
   "npm",
-  ["run", "cli", "--workspace=cli", "--", "run", "--mod-path=./usage-test-mod", ...process.argv.slice(3)],
+  ["run", "cli", "--workspace=cli", "--", "run", "./integration-tests/fixtures/usage-test-mod", ...process.argv.slice(3)],
   {
     stdio: ["inherit", "pipe", "inherit"],
     cwd: root,

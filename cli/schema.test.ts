@@ -36,6 +36,15 @@ describe("cliConfigSchema", () => {
   it("rejects unknown keys in strict mode", () => {
     expect(() => cliConfigSchema.strict().parse({ unknownKey: true })).toThrow()
   })
+
+  it("accepts forbid_only boolean", () => {
+    const config = { forbid_only: false }
+    expect(cliConfigSchema.parse(config)).toEqual(config)
+  })
+
+  it("defaults forbid_only to undefined", () => {
+    expect(cliConfigSchema.parse({}).forbid_only).toBeUndefined()
+  })
 })
 
 describe("parseCliTestOptions", () => {

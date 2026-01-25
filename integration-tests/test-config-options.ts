@@ -10,6 +10,7 @@ const customConfigPath = path.join(root, "scripts", "custom-test-config.json")
 
 interface TestCase {
   name: string
+  modPath?: string
   args?: string[]
   configFile?: Record<string, unknown>
   customConfigFile?: { path: string; content: Record<string, unknown> }
@@ -18,6 +19,8 @@ interface TestCase {
   expectedError?: string
   expectExitCode?: number
 }
+
+const defaultModPath = "./integration-tests/fixtures/usage-test-mod"
 
 const testCases: TestCase[] = [
   {
@@ -65,6 +68,31 @@ const testCases: TestCase[] = [
     customConfigFile: { path: customConfigPath, content: { test: { game_speed: 400 } } },
     expectedOutput: ["CONFIG:game_speed=400"],
   },
+  {
+    name: ".only test with --forbid-only (default) fails",
+    modPath: "./integration-tests/fixtures/only-test-mod",
+    expectedOutput: ["only-test-mod: completed", "Error: .only tests are present"],
+    expectExitCode: 1,
+  },
+  {
+    name: ".only test with --no-forbid-only passes",
+    modPath: "./integration-tests/fixtures/only-test-mod",
+    args: ["--no-forbid-only"],
+    expectedOutput: ["only-test-mod: completed", "Test run result: passed"],
+    expectExitCode: 0,
+  },
+  {
+    name: "Config file forbid_only: false allows .only tests",
+    modPath: "./integration-tests/fixtures/only-test-mod",
+    configFile: { forbid_only: false },
+    expectedOutput: ["only-test-mod: completed", "Test run result: passed"],
+    expectExitCode: 0,
+  },
+  {
+    name: "No .only tests passes with --forbid-only",
+    expectedOutput: ["Test run result:"],
+    unexpectedOutput: ["Error: .only tests are present"],
+  },
 ]
 
 const configFilePath = path.join(root, "scripts", "test-config.json")
@@ -83,13 +111,14 @@ async function runTest(tc: TestCase): Promise<boolean> {
   }
 
   const configArgs = tc.configFile || tc.customConfigFile ? ["--config", tc.customConfigFile?.path ?? configFilePath] : []
+  const modPath = tc.modPath ?? defaultModPath
   const args = [
     "run",
     "cli",
     "--workspace=cli",
     "--",
     "run",
-    "--mod-path=./usage-test-mod",
+    modPath,
     ...configArgs,
     ...(tc.args ?? []),
   ]

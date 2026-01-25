@@ -4,7 +4,7 @@ import * as path from "path"
 import chalk from "chalk"
 import type { Command } from "@commander-js/extra-typings"
 import { loadConfig, mergeTestConfig } from "./config.js"
-import { registerTestRunnerOptions, parseCliTestOptions } from "./schema.js"
+import { registerTestRunnerOptions, registerCliOnlyOptions, parseCliTestOptions } from "./schema.js"
 import { setVerbose, runScript } from "./process-utils.js"
 import { autoDetectFactorioPath } from "./factorio-detect.js"
 import {
@@ -56,6 +56,7 @@ const thisCommand = (program as unknown as Command)
   .option("--config <path>", "Path to config file")
 
 registerTestRunnerOptions(thisCommand)
+registerCliOnlyOptions(thisCommand)
 
 thisCommand.action((patterns, options) => {
   runTests(patterns, options)
@@ -82,6 +83,7 @@ async function runTests(
     gameSpeed?: number
     logPassedTests?: boolean
     logSkippedTests?: boolean
+    forbidOnly?: boolean
   },
 ) {
   const fileConfig = loadConfig(options.config)
@@ -170,5 +172,12 @@ async function runTests(
   const color =
     resultStatus == "passed" ? chalk.greenBright : resultStatus == "todo" ? chalk.yellowBright : chalk.redBright
   console.log("Test run result:", color(resultStatus))
+
+  const forbidOnly = options.forbidOnly ?? fileConfig.forbid_only ?? true
+  if (result.hasFocusedTests && forbidOnly) {
+    console.log(chalk.redBright("Error: .only tests are present but --forbid-only is enabled"))
+    process.exit(1)
+  }
+
   process.exit(resultStatus === "passed" ? 0 : 1)
 }
