@@ -30,4 +30,12 @@ data.extend([
     hidden: true,
     order: "c",
   },
+  {
+    type: "bool-setting",
+    setting_type: "startup",
+    name: Settings.DeprecatedAutoStart,
+    default_value: false,
+    hidden: true,
+    order: "z",
+  },
 ])

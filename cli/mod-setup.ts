@@ -227,6 +227,7 @@ export async function setSettingsForAutorun(
     "--modsPath",
     modsDir,
   )
+  await runScript("fmtk", "settings", "unset", "startup", "factorio-test-auto-start", "--modsPath", modsDir)
 }
 
 export async function resetAutorunSettings(modsDir: string, verbose?: boolean): Promise<void> {

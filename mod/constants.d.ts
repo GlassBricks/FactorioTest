@@ -12,6 +12,7 @@ export const enum Settings {
   ModToTest = "factorio-test-mod-to-test",
   AutoStartConfig = "factorio-test-auto-start-config",
   Config = "factorio-test-config",
+  DeprecatedAutoStart = "factorio-test-auto-start",
 }
 
 export namespace Locale {
