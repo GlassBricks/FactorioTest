@@ -1,3 +1,9 @@
+## v3.0.4
+
+### Bugfixes
+
+- Fix regression where CLI errors displayed full stack trace instead of clean message.
+
 ## v3.0.3
 
 ### Improvements

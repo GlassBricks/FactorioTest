@@ -59,9 +59,7 @@ Examples:
 
 registerAllCliOptions(thisCommand)
 
-thisCommand.action((patterns, options) => {
-  runTests(patterns, options as RunOptions)
-})
+thisCommand.action((patterns, options) => runTests(patterns, options as RunOptions))
 
 interface TestRunResult {
   exitCode: number

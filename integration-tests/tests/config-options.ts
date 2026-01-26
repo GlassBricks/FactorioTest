@@ -108,12 +108,14 @@ const testCases: TestCase[] = [
     name: "Invalid config key throws error",
     configFile: { invalidKey: true },
     expectedError: "invalidKey",
+    unexpectedOutput: ["CliError"],
     expectExitCode: 1,
   },
   {
     name: "Invalid test config key throws error",
     configFile: { test: { invalidTestKey: true } },
     expectedError: "invalidTestKey",
+    unexpectedOutput: ["CliError"],
     expectExitCode: 1,
   },
 ]
@@ -139,13 +141,27 @@ function createTestFromCase(tc: TestCase): TestDefinition {
       const output = stdout + stderr
 
       if (tc.expectedError) {
+        let passed = true
         if (output.includes(tc.expectedError)) {
           ctx.log(`PASS: Found expected error "${tc.expectedError}"`)
-          return true
+        } else {
+          ctx.log(`FAIL: Expected error "${tc.expectedError}" not found`)
+          passed = false
         }
-        ctx.log(`FAIL: Expected error "${tc.expectedError}" not found`)
-        ctx.log(`Output: ${output.slice(0, 500)}`)
-        return false
+        if (tc.unexpectedOutput) {
+          for (const unexpected of tc.unexpectedOutput) {
+            if (output.includes(unexpected)) {
+              ctx.log(`FAIL: Unexpected "${unexpected}" found`)
+              passed = false
+            } else {
+              ctx.log(`PASS: Correctly missing "${unexpected}"`)
+            }
+          }
+        }
+        if (!passed) {
+          ctx.log(`Output: ${output.slice(0, 500)}`)
+        }
+        return passed
       }
 
       if (tc.expectExitCode !== undefined && code !== tc.expectExitCode) {
