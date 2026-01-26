@@ -2,7 +2,7 @@ import * as fsp from "fs/promises"
 import * as fs from "fs"
 import * as path from "path"
 import { runScript, runProcess } from "./process-utils.js"
-import { getFactorioPlayerDataPath } from "./factorio-discovery.js"
+import { getFactorioPlayerDataPath } from "./factorio-process.js"
 import { CliError } from "./cli-error.js"
 
 const MIN_FACTORIO_TEST_VERSION = "3.0.0"

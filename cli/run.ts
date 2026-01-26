@@ -1,38 +1,38 @@
+import type { Command } from "@commander-js/extra-typings"
+import chalk from "chalk"
 import { program } from "commander"
+import * as dgram from "dgram"
 import * as fsp from "fs/promises"
 import * as path from "path"
-import * as dgram from "dgram"
-import chalk from "chalk"
-import type { Command } from "@commander-js/extra-typings"
-import {
-  loadConfig,
-  mergeCliConfig,
-  buildTestConfig,
-  registerAllCliOptions,
-  type RunOptions,
-  type CliConfig,
-  type TestRunnerConfig,
-} from "./config/index.js"
-import { setVerbose, runScript } from "./process-utils.js"
-import { autoDetectFactorioPath } from "./factorio-discovery.js"
 import { CliError } from "./cli-error.js"
 import {
-  configureModToTest,
-  installFactorioTest,
-  installModDependencies,
-  ensureConfigIni,
-  setSettingsForAutorun,
-  resetAutorunSettings,
-  resolveModWatchTarget,
-} from "./mod-setup.js"
-import { writeResultsFile, readPreviousFailedTests, getDefaultOutputPath } from "./results-writer.js"
+  buildTestConfig,
+  loadConfig,
+  mergeCliConfig,
+  registerAllCliOptions,
+  type CliConfig,
+  type RunOptions,
+  type TestRunnerConfig,
+} from "./config/index.js"
+import { autoDetectFactorioPath } from "./factorio-process.js"
 import {
-  getHeadlessSavePath,
-  runFactorioTestsHeadless,
-  runFactorioTestsGraphics,
   FactorioTestResult,
+  getHeadlessSavePath,
+  runFactorioTestsGraphics,
+  runFactorioTestsHeadless,
 } from "./factorio-process.js"
 import { watchDirectory, watchFile } from "./file-watcher.js"
+import {
+  configureModToTest,
+  ensureConfigIni,
+  installFactorioTest,
+  installModDependencies,
+  resetAutorunSettings,
+  resolveModWatchTarget,
+  setSettingsForAutorun,
+} from "./mod-setup.js"
+import { runScript, setVerbose } from "./process-utils.js"
+import { getDefaultOutputPath, readPreviousFailedTests, writeResultsFile } from "./test-results.js"
 
 const thisCommand = (program as unknown as Command)
   .command("run")
@@ -232,79 +232,83 @@ async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions)
 
 const DEFAULT_WATCH_PATTERNS = ["info.json", "**/*.lua"]
 
+async function runGraphicsWatchMode(ctx: TestRunContext): Promise<never> {
+  const watchPatterns = ctx.options.watchPatterns ?? ctx.fileConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS
+  const target = await resolveModWatchTarget(ctx.modsDir, ctx.options.modPath, ctx.options.modName)
+  console.log(chalk.gray(`Watching ${target.path} for patterns: ${watchPatterns.join(", ")}`))
+
+  await executeTestRun(ctx, { skipResetAutorun: true, resolveOnResult: true })
+
+  const udpClient = dgram.createSocket("udp4")
+  const onFileChange = () => {
+    console.log(chalk.cyan("File change detected, triggering rerun..."))
+    udpClient.send("rerun", ctx.udpPort!, "127.0.0.1")
+  }
+
+  const watcher =
+    target.type === "directory"
+      ? watchDirectory(target.path, onFileChange, { patterns: watchPatterns })
+      : watchFile(target.path, onFileChange)
+
+  process.on("SIGINT", () => {
+    watcher.close()
+    udpClient.close()
+    process.exit(0)
+  })
+
+  return new Promise(() => {})
+}
+
+async function runHeadlessWatchMode(ctx: TestRunContext): Promise<never> {
+  const watchPatterns = ctx.options.watchPatterns ?? ctx.fileConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS
+  const target = await resolveModWatchTarget(ctx.modsDir, ctx.options.modPath, ctx.options.modName)
+
+  let abortController: AbortController | undefined
+
+  const runOnce = async () => {
+    abortController?.abort()
+    abortController = new AbortController()
+    console.log("\n" + "─".repeat(60))
+    try {
+      await executeTestRun(ctx, { signal: abortController.signal })
+    } catch (e) {
+      if (e instanceof CliError) {
+        console.error(chalk.red(e.message))
+      } else {
+        throw e
+      }
+    } finally {
+      abortController = undefined
+    }
+  }
+
+  await runOnce()
+
+  const onFileChange = () => {
+    console.log(chalk.cyan("File change detected, rerunning tests..."))
+    runOnce()
+  }
+
+  const watcher =
+    target.type === "directory"
+      ? watchDirectory(target.path, onFileChange, { patterns: watchPatterns })
+      : watchFile(target.path, onFileChange)
+
+  process.on("SIGINT", () => {
+    watcher.close()
+    process.exit(0)
+  })
+
+  return new Promise(() => {})
+}
+
 async function runTests(patterns: string[], options: RunOptions): Promise<void> {
   const ctx = await setupTestRun(patterns, options)
 
   if (options.watch && options.graphics) {
-    const watchPatterns = options.watchPatterns ?? ctx.fileConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS
-    const target = await resolveModWatchTarget(ctx.modsDir, options.modPath, options.modName)
-    console.log(chalk.gray(`Watching ${target.path} for patterns: ${watchPatterns.join(", ")}`))
-
-    await executeTestRun(ctx, { skipResetAutorun: true, resolveOnResult: true })
-
-    const udpClient = dgram.createSocket("udp4")
-    const onFileChange = () => {
-      console.log(chalk.cyan("File change detected, triggering rerun..."))
-      udpClient.send("rerun", ctx.udpPort!, "127.0.0.1")
-    }
-
-    const watcher =
-      target.type === "directory"
-        ? watchDirectory(target.path, onFileChange, { patterns: watchPatterns })
-        : watchFile(target.path, onFileChange)
-
-    process.on("SIGINT", () => {
-      watcher.close()
-      udpClient.close()
-      process.exit(0)
-    })
-
-    await new Promise(() => {})
+    await runGraphicsWatchMode(ctx)
   } else if (options.watch) {
-    const watchPatterns = options.watchPatterns ?? ctx.fileConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS
-    const target = await resolveModWatchTarget(ctx.modsDir, options.modPath, options.modName)
-
-    let abortController: AbortController | undefined
-    let isRunning = false
-
-    const runOnce = async () => {
-      if (isRunning) {
-        abortController?.abort()
-      }
-      abortController = new AbortController()
-      isRunning = true
-      console.log("\n" + "─".repeat(60))
-      try {
-        await executeTestRun(ctx, { signal: abortController.signal })
-      } catch (e) {
-        if (e instanceof CliError) {
-          console.error(chalk.red(e.message))
-        } else {
-          throw e
-        }
-      } finally {
-        isRunning = false
-      }
-    }
-
-    await runOnce()
-
-    const onFileChange = () => {
-      console.log(chalk.cyan("File change detected, rerunning tests..."))
-      runOnce()
-    }
-
-    const watcher =
-      target.type === "directory"
-        ? watchDirectory(target.path, onFileChange, { patterns: watchPatterns })
-        : watchFile(target.path, onFileChange)
-
-    process.on("SIGINT", () => {
-      watcher.close()
-      process.exit(0)
-    })
-
-    await new Promise(() => {})
+    await runHeadlessWatchMode(ctx)
   } else {
     const result = await executeTestRun(ctx)
     process.exit(result.exitCode)
