@@ -1,3 +1,10 @@
+## v3.0.2
+
+### Bugfixes
+
+- Fix progress bar crash when test count exceeds expected total.
+- Fix skipped/todo tests incorrectly counted in progress and printed without `--verbose`.
+
 ## v3.0.1
 
 ### Bugfixes
