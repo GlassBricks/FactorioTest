@@ -1,3 +1,9 @@
+## Unreleased
+
+### Improvements
+
+- Improved CLI output when run in headless mode.
+
 ## v3.0.2
 
 ### Bugfixes
