@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { parseEvent } from "./factorio-output-parser.js"
+import { FactorioOutputHandler, parseEvent } from "./factorio-output-parser.js"
 
 describe("parseEvent", () => {
   it("parses valid testStarted event", () => {
@@ -39,5 +39,27 @@ describe("parseEvent", () => {
   it("returns undefined for malformed JSON", () => {
     expect(parseEvent("FACTORIO-TEST-EVENT:{not valid json}")).toBeUndefined()
     expect(parseEvent("FACTORIO-TEST-EVENT:")).toBeUndefined()
+  })
+})
+
+describe("FactorioOutputHandler", () => {
+  it("getResultMessage returns undefined before result received", () => {
+    const handler = new FactorioOutputHandler()
+    expect(handler.getResultMessage()).toBeUndefined()
+  })
+
+  it("getResultMessage returns result after receiving FACTORIO-TEST-RESULT", () => {
+    const handler = new FactorioOutputHandler()
+    handler.handleLine("FACTORIO-TEST-RESULT:passed")
+    expect(handler.getResultMessage()).toBe("passed")
+  })
+
+  it("emits result event with message", () => {
+    const handler = new FactorioOutputHandler()
+    const results: string[] = []
+    handler.on("result", (msg) => results.push(msg))
+    handler.handleLine("FACTORIO-TEST-RESULT:failed:focused")
+    expect(results).toEqual(["failed:focused"])
+    expect(handler.getResultMessage()).toBe("failed:focused")
   })
 })

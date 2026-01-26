@@ -63,7 +63,6 @@ export class OutputFormatter {
 export interface OutputPrinterOptions {
   verbose?: boolean
   quiet?: boolean
-  useProgressBar?: boolean
 }
 
 export class OutputPrinter {
@@ -79,17 +78,9 @@ export class OutputPrinter {
   }
 
   printTestResult(test: CapturedTest): void {
-    if (this.options.quiet || this.options.useProgressBar) return
-    if ((test.result === "skipped" || test.result === "todo") && !this.options.verbose) return
+    if (this.options.quiet) return
+    if (test.result === "skipped" && !this.options.verbose) return
     this.formatter.formatTestResult(test)
-  }
-
-  printFailures(tests: CapturedTest[]): void {
-    for (const test of tests) {
-      if (test.result === "failed") {
-        this.formatter.formatTestResult(test)
-      }
-    }
   }
 
   printMessage(line: string): void {

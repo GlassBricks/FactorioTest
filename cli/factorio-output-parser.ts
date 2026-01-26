@@ -23,10 +23,16 @@ interface FactorioOutputEvents {
 
 export class FactorioOutputHandler extends EventEmitter<FactorioOutputEvents> {
   private inMessage = false
+  private resultMessage: string | undefined
+
+  getResultMessage(): string | undefined {
+    return this.resultMessage
+  }
 
   handleLine(line: string): void {
     if (line.startsWith("FACTORIO-TEST-RESULT:")) {
-      this.emit("result", line.slice("FACTORIO-TEST-RESULT:".length))
+      this.resultMessage = line.slice("FACTORIO-TEST-RESULT:".length)
+      this.emit("result", this.resultMessage)
       return
     }
 

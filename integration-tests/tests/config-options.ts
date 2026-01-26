@@ -15,6 +15,25 @@ interface TestCase {
 
 const testCases: TestCase[] = [
   {
+    name: "Default output shows PASS, FAIL, TODO but not SKIP",
+    expectedOutput: ["PASS test1 > Pass", "FAIL test1 > each 2", "TODO test1 > TODO"],
+    unexpectedOutput: ["SKIP test1 > Skip"],
+    expectExitCode: 1,
+  },
+  {
+    name: "--quiet hides all per-test output",
+    args: ["--quiet"],
+    expectedOutput: ["Test run result: failed"],
+    unexpectedOutput: ["PASS test1 > Pass", "FAIL test1 > each 2", "TODO test1 > TODO", "SKIP test1 > Skip"],
+    expectExitCode: 1,
+  },
+  {
+    name: "--verbose shows all tests including SKIP",
+    args: ["--verbose"],
+    expectedOutput: ["PASS test1 > Pass", "FAIL test1 > each 2", "TODO test1 > TODO", "SKIP test1 > Skip"],
+    expectExitCode: 1,
+  },
+  {
     name: "CLI --test-pattern filters tests",
     args: ["--test-pattern", "Pass"],
     expectedOutput: ["PASS test1 > Pass", "CONFIG:test_pattern=Pass"],

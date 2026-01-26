@@ -140,10 +140,10 @@ describe("OutputPrinter", () => {
     expect(output).toHaveLength(0)
   })
 
-  it("hides todo tests without verbose", () => {
+  it("shows todo tests without verbose", () => {
     const printer = new OutputPrinter({})
     printer.printTestResult(todoTest)
-    expect(output).toHaveLength(0)
+    expect(output.some((line) => line.includes("TODO"))).toBe(true)
   })
 
   it("shows skipped tests with verbose", () => {
@@ -158,11 +158,22 @@ describe("OutputPrinter", () => {
     expect(output.some((line) => line.includes("TODO"))).toBe(true)
   })
 
-  it("shows passed and failed tests without verbose", () => {
+  it("shows passed, failed, and todo tests without verbose", () => {
     const printer = new OutputPrinter({})
     printer.printTestResult(passedTest)
     printer.printTestResult(failedTest)
+    printer.printTestResult(todoTest)
     expect(output.some((line) => line.includes("PASS"))).toBe(true)
     expect(output.some((line) => line.includes("FAIL"))).toBe(true)
+    expect(output.some((line) => line.includes("TODO"))).toBe(true)
+  })
+
+  it("hides all tests in quiet mode", () => {
+    const printer = new OutputPrinter({ quiet: true })
+    printer.printTestResult(passedTest)
+    printer.printTestResult(failedTest)
+    printer.printTestResult(skippedTest)
+    printer.printTestResult(todoTest)
+    expect(output).toHaveLength(0)
   })
 })

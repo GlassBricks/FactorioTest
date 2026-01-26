@@ -46,8 +46,6 @@ export function parseResultMessage(message: string): Pick<FactorioTestResult, "s
 interface OutputComponents {
   handler: FactorioOutputHandler
   collector: TestRunCollector
-  printer: OutputPrinter
-  progress: ProgressRenderer
 }
 
 function createOutputComponents(options: FactorioTestOptions): OutputComponents {
@@ -57,7 +55,6 @@ function createOutputComponents(options: FactorioTestOptions): OutputComponents 
   const printer = new OutputPrinter({
     verbose: options.verbose,
     quiet: options.quiet,
-    useProgressBar: isTTY,
   })
   const progress = new ProgressRenderer(isTTY)
 
@@ -81,7 +78,12 @@ function createOutputComponents(options: FactorioTestOptions): OutputComponents 
     progress.withPermanentOutput(() => printer.printTestResult(test))
   })
 
-  return { handler, collector, printer, progress }
+  handler.on("result", () => {
+    progress.finish()
+    printer.resetMessage()
+  })
+
+  return { handler, collector }
 }
 
 export async function runFactorioTestsHeadless(
@@ -108,18 +110,12 @@ export async function runFactorioTestsHeadless(
     stdio: ["inherit", "pipe", "pipe"],
   })
 
-  const { handler, collector, printer, progress } = createOutputComponents(options)
+  const { handler, collector } = createOutputComponents(options)
 
-  let resultMessage: string | undefined
   let testRunStarted = false
   let startupTimedOut = false
   let wasCancelled = false
 
-  handler.on("result", (msg) => {
-    resultMessage = msg
-    progress.finish()
-    printer.resetMessage()
-  })
   handler.on("event", (event) => {
     if (event.type === "testRunStarted") {
       testRunStarted = true
@@ -151,7 +147,7 @@ export async function runFactorioTestsHeadless(
         resolve()
       } else if (startupTimedOut) {
         reject(new CliError("Factorio unresponsive: no test run started within 10 seconds"))
-      } else if (resultMessage !== undefined) {
+      } else if (handler.getResultMessage() !== undefined) {
         resolve()
       } else {
         reject(new CliError(`Factorio exited with code ${code}, signal ${signal}, no result received`))
@@ -163,7 +159,8 @@ export async function runFactorioTestsHeadless(
     return { status: "cancelled", hasFocusedTests: false }
   }
 
-  const parsed = parseResultMessage(resultMessage!)
+  const resultMessage = handler.getResultMessage()!
+  const parsed = parseResultMessage(resultMessage)
   return { ...parsed, message: resultMessage, data: collector.getData() }
 }
 
@@ -193,26 +190,20 @@ export async function runFactorioTestsGraphics(
     stdio: ["inherit", "pipe", "inherit"],
   })
 
-  const { handler, collector, printer, progress } = createOutputComponents(options)
+  const { handler, collector } = createOutputComponents(options)
 
-  let resultMessage: string | undefined
   let resolvePromise: (() => void) | undefined
 
-  handler.on("result", (msg) => {
-    resultMessage = msg
-    progress.finish()
-    printer.resetMessage()
-    if (options.resolveOnResult && resolvePromise) {
-      resolvePromise()
-    }
-  })
+  if (options.resolveOnResult) {
+    handler.on("result", () => resolvePromise?.())
+  }
 
   new BufferLineSplitter(factorioProcess.stdout).on("line", (line) => handler.handleLine(line))
 
   await new Promise<void>((resolve, reject) => {
     resolvePromise = resolve
     factorioProcess.on("exit", (code, signal) => {
-      if (resultMessage !== undefined) {
+      if (handler.getResultMessage() !== undefined) {
         resolve()
       } else {
         reject(new CliError(`Factorio exited with code ${code}, signal ${signal}`))
@@ -220,6 +211,7 @@ export async function runFactorioTestsGraphics(
     })
   })
 
-  const parsed = parseResultMessage(resultMessage!)
+  const resultMessage = handler.getResultMessage()!
+  const parsed = parseResultMessage(resultMessage)
   return { ...parsed, message: resultMessage, data: collector.getData() }
 }
