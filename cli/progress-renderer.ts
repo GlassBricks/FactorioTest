@@ -75,7 +75,7 @@ export class ProgressRenderer {
       .join(" ")
 
     const progress = `[${bar}] ${percent}%  ${this.ran}/${this.total}  ${counts}`
-    const current = this.currentTest ? `Running: ${this.currentTest}` : ""
+    const current = this.currentTest ? `Running: ${this.currentTest}` : " "
 
     logUpdate(progress + "\n" + current)
   }

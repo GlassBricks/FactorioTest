@@ -53,11 +53,13 @@ interface OutputComponents {
 function createOutputComponents(options: FactorioTestOptions): OutputComponents {
   const handler = new FactorioOutputHandler()
   const collector = new TestRunCollector()
+  const isTTY = process.stdout.isTTY ?? false
   const printer = new OutputPrinter({
     verbose: options.verbose,
     quiet: options.quiet,
+    useProgressBar: isTTY,
   })
-  const progress = new ProgressRenderer()
+  const progress = new ProgressRenderer(isTTY)
 
   handler.on("event", (event) => {
     collector.handleEvent(event)
