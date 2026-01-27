@@ -1,8 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-WORKTREES_DIR="/home/ben/IdeaProjects/FactorioTestWorktrees"
-
 if [[ $# -lt 1 ]]; then
     echo "Usage: $0 <branch-name> [base-branch]"
     echo "  branch-name: Name for the new worktree/branch"
@@ -12,7 +10,8 @@ fi
 
 BRANCH_NAME="$1"
 BASE_BRANCH="${2:-main}"
-WORKTREE_PATH="$WORKTREES_DIR/$BRANCH_NAME"
+GIT_ROOT="$(git rev-parse --show-toplevel)"
+WORKTREE_PATH="$(dirname "$GIT_ROOT")/$BRANCH_NAME"
 
 if [[ -d "$WORKTREE_PATH" ]]; then
     echo "Error: Worktree already exists at $WORKTREE_PATH"
@@ -26,3 +25,6 @@ else
 fi
 
 echo "Created worktree at $WORKTREE_PATH"
+
+cd "$WORKTREE_PATH"
+npm ci
