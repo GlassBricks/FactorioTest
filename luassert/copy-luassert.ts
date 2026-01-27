@@ -1,7 +1,7 @@
 import * as path from "path"
 import { deleteAsync } from "del"
 import * as fs from "fs/promises"
-import * as globby from "globby"
+import { globby } from "globby"
 import { fileURLToPath } from "url"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -19,13 +19,13 @@ async function copyLuassert() {
   await fs.mkdir(path.dirname(licenseDest), { recursive: true })
   await fs.copyFile(path.join(repo, "LICENSE"), licenseDest)
 
-  for await (const file of globby.stream("**/*.lua", { cwd: repoSrc })) {
-    const fileContents = await fs.readFile(path.join(repoSrc, file.toString()), "utf-8")
+  for (const file of await globby("**/*.lua", { cwd: repoSrc })) {
+    const fileContents = await fs.readFile(path.join(repoSrc, file), "utf-8")
     const newContents = fileContents.replace(
       /((?:^|\s|;|=)require ?\(?['"])(.+?['"]\)?)/gm,
       (str, first, second) => first + "__factorio-test__." + second,
     )
-    const outFile = path.join(destination, file.toString())
+    const outFile = path.join(destination, file)
     await fs.mkdir(path.dirname(outFile), { recursive: true })
     await fs.writeFile(outFile, newContents)
   }
