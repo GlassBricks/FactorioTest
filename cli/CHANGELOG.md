@@ -1,3 +1,14 @@
+## Unreleased
+
+### Features
+
+- Mods specified in config `mods` array are now automatically downloaded from the mod portal if not present.
+- Support version constraints in mod dependencies (e.g., `"modName >= 1.2.0"`). Outdated mods are automatically updated.
+
+### Improvements
+
+- Suppress fmtk output unless `--verbose` is enabled.
+
 ## v3.0.5
 
 ### Bugfixes
