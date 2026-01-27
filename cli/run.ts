@@ -49,6 +49,10 @@ When using variadic options (--mods, --factorio-args, etc.) with filter patterns
 use -- to separate them:
   factorio-test run -p ./my-mod --mods quality space-age -- "inventory"
 
+Patterns use Lua pattern syntax (not regex). Special characters like - must be
+escaped with %:
+  factorio-test run -p ./my-mod "my%-test"  Match "my-test" (escape the dash)
+
 Examples:
   factorio-test run -p ./my-mod             Run all tests
   factorio-test run -p ./my-mod -v          Run with verbose output
@@ -57,7 +61,7 @@ Examples:
   factorio-test run -p ./my-mod "inventory" Run tests matching "inventory"
 `,
   )
-  .argument("[filter...]", "Test patterns to filter (OR logic)")
+  .argument("[filter...]", "Lua patterns to filter tests (OR logic)")
 
 registerAllCliOptions(thisCommand)
 

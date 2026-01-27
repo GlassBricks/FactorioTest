@@ -21,7 +21,7 @@ const testConfigFields = {
     schema: z.string().optional(),
     cli: {
       flags: "--test-pattern <pattern>",
-      description: "Filter tests by name pattern.",
+      description: "Filter tests by Lua pattern (escape - as %-).",
     },
   },
   tag_whitelist: {
