@@ -1,3 +1,7 @@
+## Unreleased
+
+- Updated help text to note that test filters are lua patterns.
+
 ## v3.1.1
 
 ### Features
