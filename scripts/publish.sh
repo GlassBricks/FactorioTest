@@ -25,6 +25,22 @@ if [ ${#PACKAGES[@]} -eq 0 ]; then
   PACKAGES=(types mod cli)
 fi
 
+CLI_VERSION=""
+if [[ " ${PACKAGES[*]} " =~ " cli " ]]; then
+  CLI_VERSION=$(node -p "require('./cli/package.json').version")
+  CLI_TAG="cli-v$CLI_VERSION"
+
+  if git rev-parse "$CLI_TAG" >/dev/null 2>&1; then
+    echo "ERROR: Tag $CLI_TAG already exists. Bump cli version before publishing."
+    exit 1
+  fi
+
+  if ! grep -q "^## Unreleased" cli/CHANGELOG.md; then
+    echo "ERROR: cli/CHANGELOG.md must have an '## Unreleased' section"
+    exit 1
+  fi
+fi
+
 echo "==> Running checks (lint, test, integration)..."
 npm run check
 
@@ -43,8 +59,21 @@ for pkg in "${PACKAGES[@]}"; do
       fi
       ;;
     cli)
+      echo "==> Updating cli changelog..."
+      sed -i "s/^## Unreleased$/## v$CLI_VERSION/" cli/CHANGELOG.md
+      git add cli/CHANGELOG.md
+      git commit -m "Release CLI v$CLI_VERSION"
+
       echo "==> Publishing cli..."
-      npm publish -w cli $DRY_RUN
+      if npm publish -w cli $DRY_RUN; then
+        if [ -z "$DRY_RUN" ]; then
+          echo "==> Creating tag $CLI_TAG..."
+          git tag "$CLI_TAG"
+        fi
+      else
+        echo "ERROR: npm publish failed"
+        exit 1
+      fi
       ;;
   esac
 done
