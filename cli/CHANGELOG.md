@@ -1,3 +1,9 @@
+## v3.0.5
+
+### Bugfixes
+
+- Fix broken symlinks not being replaced when setting up mod path.
+
 ## v3.0.4
 
 ### Bugfixes

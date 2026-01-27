@@ -51,7 +51,7 @@ async function configureModPath(modPath: string, modsDir: string): Promise<strin
     throw new CliError(`info.json file at ${infoJsonFile} does not contain a string property "name".`)
   }
   const resultPath = path.join(modsDir, modName)
-  const stat = await fsp.stat(resultPath).catch(() => undefined)
+  const stat = await fsp.lstat(resultPath).catch(() => undefined)
   if (stat) await fsp.rm(resultPath, { recursive: true })
 
   await fsp.symlink(modPath, resultPath, "junction")
