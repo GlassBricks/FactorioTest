@@ -28,6 +28,7 @@ import {
   installFactorioTest,
   installModDependencies,
   installMods,
+  parseModRequirement,
   resetAutorunSettings,
   resolveModWatchTarget,
   setSettingsForAutorun,
@@ -104,16 +105,20 @@ async function setupTestRun(patterns: string[], options: RunOptions): Promise<Te
   const modDependencies = options.modPath ? await installModDependencies(modsDir, path.resolve(options.modPath)) : []
   await installFactorioTest(modsDir)
 
-  const configMods = options.mods?.filter((m) => !m.includes("=")) ?? []
-  if (configMods.length > 0) {
-    await installMods(modsDir, configMods)
+  const configModRequirements =
+    options.mods
+      ?.filter((m) => !m.match(/^\S+=(?:true|false)$/))
+      .map(parseModRequirement)
+      .filter((r) => r != null) ?? []
+  if (configModRequirements.length > 0) {
+    await installMods(modsDir, configModRequirements)
   }
 
   const enableModsOptions = [
     "factorio-test=true",
     `${modToTest}=true`,
     ...modDependencies.map((m) => `${m}=true`),
-    ...(options.mods?.map((m) => (m.includes("=") ? m : `${m}=true`)) ?? []),
+    ...(options.mods?.map((m) => (m.match(/^\S+=(?:true|false)$/) ? m : `${m.split(/\s/)[0]}=true`)) ?? []),
   ]
 
   if (options.verbose) console.log("Adjusting mods")

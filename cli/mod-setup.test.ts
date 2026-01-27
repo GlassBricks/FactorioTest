@@ -1,18 +1,19 @@
 import { describe, it, expect } from "vitest"
-import { parseRequiredDependencies } from "./mod-setup.js"
+import { parseRequiredDependencies, type ModRequirement } from "./mod-setup.js"
 
 describe("parseRequiredDependencies", () => {
-  it.each([
+  it.each<[string[], ModRequirement[]]>([
     [[], []],
-    [["some-mod"], ["some-mod"]],
-    [["some-mod >= 1.0.0"], ["some-mod"]],
-    [["~ some-mod >= 1.0.0"], ["some-mod"]],
+    [["some-mod"], [{ name: "some-mod" }]],
+    [["some-mod >= 1.0.0"], [{ name: "some-mod", minVersion: "1.0.0" }]],
+    [["~ some-mod >= 1.0.0"], [{ name: "some-mod", minVersion: "1.0.0" }]],
     [["? optional-mod >= 1.0.0"], []],
     [["! incompatible-mod"], []],
     [["(?) hidden-optional >= 1.0.0"], []],
     [["base >= 1.1.0"], []],
-    [["  mod-name  >=  1.0.0  "], ["mod-name"]],
-    [["~  soft-mod"], ["soft-mod"]],
+    [["quality >= 1.0.0"], []],
+    [["  mod-name  >=  1.0.0  "], [{ name: "mod-name", minVersion: "1.0.0" }]],
+    [["~  soft-mod"], [{ name: "soft-mod" }]],
     [
       [
         "base >= 1.1.0",
@@ -23,7 +24,11 @@ describe("parseRequiredDependencies", () => {
         "~ soft-required >= 1.0.0",
         "another-required",
       ],
-      ["required-mod", "soft-required", "another-required"],
+      [
+        { name: "required-mod", minVersion: "2.0.0" },
+        { name: "soft-required", minVersion: "1.0.0" },
+        { name: "another-required" },
+      ],
     ],
   ])("parseRequiredDependencies(%j) => %j", (input, expected) => {
     expect(parseRequiredDependencies(input)).toEqual(expected)

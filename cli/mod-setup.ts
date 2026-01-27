@@ -237,36 +237,53 @@ export async function resetAutorunSettings(modsDir: string, verbose?: boolean): 
   await runScript("fmtk", "settings", "set", "startup", "factorio-test-auto-start-config", "{}", "--modsPath", modsDir)
 }
 
-export function parseRequiredDependencies(dependencies: string[]): string[] {
-  const result: string[] = []
+export interface ModRequirement {
+  name: string
+  minVersion?: string
+}
+
+export function parseModRequirement(spec: string): ModRequirement | undefined {
+  const trimmed = spec.trim()
+  if (trimmed.startsWith("?") || trimmed.startsWith("!") || trimmed.startsWith("(?)")) {
+    return undefined
+  }
+  const withoutPrefix = trimmed.startsWith("~") ? trimmed.slice(1).trim() : trimmed
+  const match = withoutPrefix.match(/^(\S+)(?:\s*>=?\s*(\d+\.\d+\.\d+))?/)
+  if (!match) return undefined
+  const name = match[1]
+  if (!name || BUILTIN_MODS.has(name)) return undefined
+  return { name, minVersion: match[2] }
+}
+
+export function parseRequiredDependencies(dependencies: string[]): ModRequirement[] {
+  const result: ModRequirement[] = []
   for (const dep of dependencies) {
-    const trimmed = dep.trim()
-    if (trimmed.startsWith("?") || trimmed.startsWith("!") || trimmed.startsWith("(?)")) {
-      continue
-    }
-    const withoutPrefix = trimmed.startsWith("~") ? trimmed.slice(1).trim() : trimmed
-    const modName = withoutPrefix.split(/\s/)[0]
-    if (modName && modName !== "base") {
-      result.push(modName)
-    }
+    const req = parseModRequirement(dep)
+    if (req) result.push(req)
   }
   return result
 }
 
-export async function installMods(modsDir: string, modNames: string[]): Promise<void> {
+export async function installMods(modsDir: string, mods: ModRequirement[]): Promise<void> {
   const playerDataPath = getFactorioPlayerDataPath()
 
-  for (const modName of modNames) {
-    if (BUILTIN_MODS.has(modName)) continue
+  for (const { name, minVersion } of mods) {
+    const installedVersion = await getInstalledModVersion(modsDir, name)
 
-    const exists = await checkModExists(modsDir, modName)
-    if (exists) continue
+    if (installedVersion) {
+      if (!minVersion || compareVersions(installedVersion, minVersion) >= 0) continue
+      console.log(`Updating mod: ${name} (${installedVersion} is below required ${minVersion})`)
+    } else {
+      console.log(`Downloading mod: ${name}`)
+    }
 
-    console.log(`Downloading mod: ${modName}`)
     try {
-      await runScript("fmtk", "mods", "install", "--modsPath", modsDir, "--playerData", playerDataPath, modName)
+      const args = ["fmtk", "mods", "install", "--modsPath", modsDir, "--playerData", playerDataPath]
+      if (installedVersion) args.push("--force")
+      args.push(name)
+      await runScript(...args)
     } catch {
-      console.log(`Could not download mod: ${modName}`)
+      console.log(`Could not download mod: ${name}`)
     }
   }
 }
@@ -286,7 +303,7 @@ export async function installModDependencies(modsDir: string, modPath: string): 
   const required = parseRequiredDependencies(dependencies)
   await installMods(modsDir, required)
 
-  return required
+  return required.map((r) => r.name)
 }
 
 export interface ModWatchTarget {
