@@ -1,4 +1,4 @@
-## Unreleased
+## v3.1.2
 
 - Updated help text to note that test filters are lua patterns.
 
