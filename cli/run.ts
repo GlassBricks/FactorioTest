@@ -27,6 +27,7 @@ import {
   ensureConfigIni,
   installFactorioTest,
   installModDependencies,
+  installMods,
   resetAutorunSettings,
   resolveModWatchTarget,
   setSettingsForAutorun,
@@ -100,10 +101,13 @@ async function setupTestRun(patterns: string[], options: RunOptions): Promise<Te
   await fsp.mkdir(modsDir, { recursive: true })
 
   const modToTest = await configureModToTest(modsDir, options.modPath, options.modName, options.verbose)
-  const modDependencies = options.modPath
-    ? await installModDependencies(modsDir, path.resolve(options.modPath), options.verbose)
-    : []
+  const modDependencies = options.modPath ? await installModDependencies(modsDir, path.resolve(options.modPath)) : []
   await installFactorioTest(modsDir)
+
+  const configMods = options.mods?.filter((m) => !m.includes("=")) ?? []
+  if (configMods.length > 0) {
+    await installMods(modsDir, configMods)
+  }
 
   const enableModsOptions = [
     "factorio-test=true",

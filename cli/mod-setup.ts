@@ -7,6 +7,8 @@ import { CliError } from "./cli-error.js"
 
 const MIN_FACTORIO_TEST_VERSION = "3.0.0"
 
+const BUILTIN_MODS = new Set(["base", "quality", "elevated-rails", "space-age"])
+
 type Version = [number, number, number]
 
 function parseVersion(version: string): Version {
@@ -128,11 +130,11 @@ export async function installFactorioTest(modsDir: string): Promise<void> {
   let version = await getInstalledModVersion(modsDir, "factorio-test")
 
   if (!version) {
-    console.log("Downloading factorio-test from mod portal using fmtk.")
+    console.log("Downloading mod: factorio-test")
     await runScript("fmtk", "mods", "install", "--modsPath", modsDir, "--playerData", playerDataPath, "factorio-test")
     version = await getInstalledModVersion(modsDir, "factorio-test")
   } else if (compareVersions(version, MIN_FACTORIO_TEST_VERSION) < 0) {
-    console.log(`factorio-test ${version} is outdated, downloading latest version.`)
+    console.log(`Updating mod: factorio-test (${version} is below minimum ${MIN_FACTORIO_TEST_VERSION})`)
     await runScript(
       "fmtk",
       "mods",
@@ -251,7 +253,25 @@ export function parseRequiredDependencies(dependencies: string[]): string[] {
   return result
 }
 
-export async function installModDependencies(modsDir: string, modPath: string, verbose?: boolean): Promise<string[]> {
+export async function installMods(modsDir: string, modNames: string[]): Promise<void> {
+  const playerDataPath = getFactorioPlayerDataPath()
+
+  for (const modName of modNames) {
+    if (BUILTIN_MODS.has(modName)) continue
+
+    const exists = await checkModExists(modsDir, modName)
+    if (exists) continue
+
+    console.log(`Downloading mod: ${modName}`)
+    try {
+      await runScript("fmtk", "mods", "install", "--modsPath", modsDir, "--playerData", playerDataPath, modName)
+    } catch {
+      console.log(`Could not download mod: ${modName}`)
+    }
+  }
+}
+
+export async function installModDependencies(modsDir: string, modPath: string): Promise<string[]> {
   const infoJsonPath = path.join(modPath, "info.json")
   let infoJson: { dependencies?: string[] }
   try {
@@ -264,15 +284,7 @@ export async function installModDependencies(modsDir: string, modPath: string, v
   if (!Array.isArray(dependencies)) return []
 
   const required = parseRequiredDependencies(dependencies)
-  const playerDataPath = getFactorioPlayerDataPath()
-
-  for (const modName of required) {
-    const exists = await checkModExists(modsDir, modName)
-    if (exists) continue
-
-    if (verbose) console.log(`Installing dependency: ${modName}`)
-    await runScript("fmtk", "mods", "install", "--modsPath", modsDir, "--playerData", playerDataPath, modName)
-  }
+  await installMods(modsDir, required)
 
   return required
 }

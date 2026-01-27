@@ -8,7 +8,7 @@ export function setVerbose(v: boolean): void {
 }
 
 export function runScript(...command: string[]): Promise<void> {
-  return runProcess(true, "npx", ...command)
+  return runProcess(verbose, "npx", ...command)
 }
 
 export function runProcess(inheritStdio: boolean, command: string, ...args: string[]): Promise<void> {
