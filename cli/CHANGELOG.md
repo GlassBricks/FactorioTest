@@ -1,3 +1,9 @@
+## Unreleased
+
+### Features
+
+- `--version` flag to display CLI version.
+
 ## v3.1.0
 
 ### Features
