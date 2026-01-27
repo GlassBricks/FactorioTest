@@ -6,5 +6,5 @@
     "skipLibCheck": true,
     "strict": true
   },
-  "include": ["scripts/**/*.ts"]
+  "include": ["scripts/**/*.ts", "integration-tests/*.ts", "integration-tests/tests/**/*.ts"]
 }

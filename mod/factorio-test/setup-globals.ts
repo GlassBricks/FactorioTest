@@ -63,7 +63,7 @@ function createTest(name: string, func: TestFn, mode: TestMode, upStack: number 
   return addTest(parent, name, getCallerSource(upStack + 1), func, mode, util.merge([consumeTags(), parent.tags]))
 }
 
-// eslint-disable-next-line @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 function addPart(test: Test, func: TestFn, funcForSource: Function = func) {
   const info = debug.getinfo(funcForSource, "Sl")
   const source = createSource(info.source, info.linedefined)
