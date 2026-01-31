@@ -111,15 +111,21 @@ export function getHeadlessSavePath(overridePath?: string): string {
 }
 
 export function parseResultMessage(message: string): Pick<FactorioTestResult, "status" | "hasFocusedTests"> {
-  if (message.endsWith(":focused")) {
-    return {
-      status: message.slice(0, -":focused".length) as FactorioTestResult["status"],
-      hasFocusedTests: true,
-    }
+  let remaining = message
+  let status: string
+
+  const hasFocused = remaining.endsWith(":focused")
+  if (hasFocused) remaining = remaining.slice(0, -":focused".length)
+
+  if (remaining.startsWith("bailed:")) {
+    status = "bailed"
+  } else {
+    status = remaining
   }
+
   return {
-    status: message as FactorioTestResult["status"],
-    hasFocusedTests: false,
+    status: status as FactorioTestResult["status"],
+    hasFocusedTests: hasFocused,
   }
 }
 

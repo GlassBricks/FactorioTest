@@ -18,6 +18,8 @@ describe("parseResultMessage", () => {
     ["passed:focused", { status: "passed", hasFocusedTests: true }],
     ["failed:focused", { status: "failed", hasFocusedTests: true }],
     ["todo:focused", { status: "todo", hasFocusedTests: true }],
+    ["bailed:failed", { status: "bailed", hasFocusedTests: false }],
+    ["bailed:failed:focused", { status: "bailed", hasFocusedTests: true }],
   ] as const)("parses %s", (input, expected) => {
     expect(parseResultMessage(input)).toEqual(expected)
   })

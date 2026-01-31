@@ -1,6 +1,6 @@
 import chalk from "chalk"
 import logUpdate from "log-update"
-import { TestRunnerEvent } from "../types/events.js"
+import { TestRunnerEvent, TestRunSummary } from "../types/events.js"
 import type { CapturedTest, TestRunData } from "./test-results.js"
 
 export type { CapturedTest, TestRunData }
@@ -123,9 +123,35 @@ export class OutputFormatter {
 
   formatSummary(data: TestRunData): void {
     if (!data.summary) return
-    const { status } = data.summary
-    const color = status === "passed" ? chalk.greenBright : status === "todo" ? chalk.yellowBright : chalk.redBright
-    console.log("Test run result:", color(status))
+
+    if (!this.options.quiet) {
+      this.printRecapSection(data.tests, "failed", "Failures:")
+      this.printRecapSection(data.tests, "todo", "Todo:")
+    }
+    this.printCountsLine(data.summary)
+  }
+
+  private printRecapSection(tests: CapturedTest[], result: CapturedTest["result"], header: string): void {
+    const matching = tests.filter((t) => t.result === result)
+    if (matching.length === 0) return
+
+    console.log()
+    console.log(header)
+    console.log()
+    for (const test of matching) {
+      this.formatTestResult(test)
+    }
+  }
+
+  private printCountsLine(summary: TestRunSummary): void {
+    const segments: string[] = []
+    if (summary.failed > 0) segments.push(chalk.red(`${summary.failed} failed`))
+    if (summary.todo > 0) segments.push(chalk.magenta(`${summary.todo} todo`))
+    if (summary.skipped > 0) segments.push(chalk.yellow(`${summary.skipped} skipped`))
+    segments.push(chalk.green(`${summary.passed} passed`))
+
+    const total = summary.passed + summary.failed + summary.skipped + summary.todo
+    console.log(`Tests: ${segments.join(", ")} (${total} total)`)
   }
 
   private getPrefix(result: CapturedTest["result"]): string {

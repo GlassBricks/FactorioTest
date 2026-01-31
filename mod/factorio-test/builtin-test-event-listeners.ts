@@ -28,8 +28,9 @@ const setupListener: TestEventListener = (event, state) => {
     state.config.after_test_run?.()
     cleanupTestState()
 
+    const bailedPrefix = state.bailedOut ? "bailed:" : ""
     const focusedSuffix = state.hasFocusedTests ? ":focused" : ""
-    emitResult(status + focusedSuffix)
+    emitResult(bailedPrefix + status + focusedSuffix)
   } else if (event.type === "testRunCancelled") {
     game.speed = 1
     if (state.config.sound_effects) {

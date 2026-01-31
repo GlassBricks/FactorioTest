@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import logUpdate from "log-update"
-import { ProgressRenderer, OutputFormatter, OutputPrinter, CapturedTest } from "./test-output.js"
+import { ProgressRenderer, OutputFormatter, OutputPrinter, CapturedTest, TestRunData } from "./test-output.js"
 
 vi.mock("log-update", () => ({
   default: Object.assign(vi.fn(), { clear: vi.fn() }),
@@ -246,6 +246,127 @@ describe("OutputFormatter", () => {
 
     expect(output[0]).toContain("TODO")
     expect(output[0]).toContain("todo test")
+  })
+})
+
+describe("OutputFormatter.formatSummary", () => {
+  let consoleSpy: ReturnType<typeof vi.spyOn>
+  let output: string[]
+
+  beforeEach(() => {
+    output = []
+    consoleSpy = vi.spyOn(console, "log").mockImplementation((...args) => {
+      output.push(args.join(" "))
+    })
+  })
+
+  afterEach(() => {
+    consoleSpy.mockRestore()
+  })
+
+  const makeSummary = (
+    overrides: Partial<TestRunData["summary"] & object> = {},
+  ): NonNullable<TestRunData["summary"]> => ({
+    ran: 0,
+    passed: 0,
+    failed: 0,
+    skipped: 0,
+    todo: 0,
+    cancelled: 0,
+    describeBlockErrors: 0,
+    status: "passed",
+    ...overrides,
+  })
+
+  it("shows only counts line when no failures or todos", () => {
+    const formatter = new OutputFormatter({})
+    const data: TestRunData = {
+      tests: [{ path: "a", result: "passed", errors: [], logs: [] }],
+      summary: makeSummary({ ran: 1, passed: 1 }),
+    }
+    formatter.formatSummary(data)
+
+    expect(output.some((l) => l.includes("Tests:"))).toBe(true)
+    expect(output.some((l) => l.includes("1 passed"))).toBe(true)
+    expect(output.some((l) => l.includes("Failures:"))).toBe(false)
+    expect(output.some((l) => l.includes("Todo:"))).toBe(false)
+  })
+
+  it("shows failure recap and counts line when there are failures", () => {
+    const formatter = new OutputFormatter({})
+    const data: TestRunData = {
+      tests: [
+        { path: "a", result: "passed", errors: [], logs: [] },
+        { path: "b", result: "failed", errors: ["err1"], logs: [], durationMs: 0.5 },
+      ],
+      summary: makeSummary({ ran: 2, passed: 1, failed: 1, status: "failed" }),
+    }
+    formatter.formatSummary(data)
+
+    expect(output.some((l) => l.includes("Failures:"))).toBe(true)
+    const failLines = output.filter((l) => l.includes("FAIL"))
+    expect(failLines.length).toBeGreaterThanOrEqual(1)
+    expect(output.some((l) => l.includes("1 failed"))).toBe(true)
+    expect(output.some((l) => l.includes("1 passed"))).toBe(true)
+  })
+
+  it("shows todo recap and counts line when there are todos", () => {
+    const formatter = new OutputFormatter({})
+    const data: TestRunData = {
+      tests: [
+        { path: "a", result: "passed", errors: [], logs: [] },
+        { path: "b", result: "todo", errors: [], logs: [] },
+      ],
+      summary: makeSummary({ ran: 1, passed: 1, todo: 1, status: "todo" }),
+    }
+    formatter.formatSummary(data)
+
+    expect(output.some((l) => l.includes("Todo:"))).toBe(true)
+    expect(output.some((l) => l.includes("TODO"))).toBe(true)
+    expect(output.some((l) => l.includes("1 todo"))).toBe(true)
+  })
+
+  it("omits zero-count categories except passed", () => {
+    const formatter = new OutputFormatter({})
+    const data: TestRunData = {
+      tests: [{ path: "a", result: "passed", errors: [], logs: [] }],
+      summary: makeSummary({ ran: 1, passed: 1 }),
+    }
+    formatter.formatSummary(data)
+
+    const countsLine = output.find((l) => l.includes("Tests:"))!
+    expect(countsLine).toContain("1 passed")
+    expect(countsLine).not.toContain("failed")
+    expect(countsLine).not.toContain("skipped")
+    expect(countsLine).not.toContain("todo")
+    expect(countsLine).toContain("(1 total)")
+  })
+
+  it("includes all non-zero categories in counts line", () => {
+    const formatter = new OutputFormatter({})
+    const data: TestRunData = {
+      tests: [
+        { path: "a", result: "passed", errors: [], logs: [] },
+        { path: "b", result: "failed", errors: ["e"], logs: [] },
+        { path: "c", result: "skipped", errors: [], logs: [] },
+        { path: "d", result: "todo", errors: [], logs: [] },
+      ],
+      summary: makeSummary({ ran: 2, passed: 1, failed: 1, skipped: 1, todo: 1, status: "failed" }),
+    }
+    formatter.formatSummary(data)
+
+    const countsLine = output.find((l) => l.includes("Tests:"))!
+    expect(countsLine).toContain("1 failed")
+    expect(countsLine).toContain("1 todo")
+    expect(countsLine).toContain("1 skipped")
+    expect(countsLine).toContain("1 passed")
+    expect(countsLine).toContain("(4 total)")
+  })
+
+  it("does nothing when summary is undefined", () => {
+    const formatter = new OutputFormatter({})
+    formatter.formatSummary({ tests: [] })
+    expect(output).toHaveLength(0)
   })
 })
 

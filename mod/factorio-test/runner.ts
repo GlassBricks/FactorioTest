@@ -104,7 +104,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     }
     state.profiler?.stop()
     state.setTestStage(TestStage.Finished)
-    state.raiseTestEvent({ type: "testRunCancelled" })
+    state.raiseTestEvent(state.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
     return undefined
   }
 

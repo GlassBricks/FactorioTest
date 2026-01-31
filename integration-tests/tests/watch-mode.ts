@@ -66,7 +66,7 @@ export const tests: TestDefinition[] = [
       const { child, output } = spawnWatchCli(modDir, ctx.dataDir)
 
       try {
-        const firstRunCompleted = await waitForOutput(output, "Test run result:", 60000)
+        const firstRunCompleted = await waitForOutput(output, "Tests:", 60000)
         if (!firstRunCompleted) {
           ctx.log(`FAIL: First test run did not complete within timeout`)
           ctx.log(`Output: ${output.value.slice(-1000)}`)
@@ -89,7 +89,7 @@ export const tests: TestDefinition[] = [
         }
         ctx.log("PASS: File change detected")
 
-        const secondRunCompleted = await waitForOutput(output, "Test run result:", 60000)
+        const secondRunCompleted = await waitForOutput(output, "Tests:", 60000)
         if (!secondRunCompleted) {
           ctx.log("FAIL: Second test run did not complete")
           ctx.log(`Output: ${output.value.slice(-1000)}`)
@@ -110,7 +110,7 @@ export const tests: TestDefinition[] = [
       const { child, output } = spawnWatchCli(modDir, ctx.dataDir)
 
       try {
-        const firstRunCompleted = await waitForOutput(output, "Test run result:", 60000)
+        const firstRunCompleted = await waitForOutput(output, "Tests:", 60000)
         if (!firstRunCompleted) {
           ctx.log("FAIL: First test run did not complete within timeout")
           return false

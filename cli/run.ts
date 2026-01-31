@@ -34,6 +34,7 @@ import {
   setSettingsForAutorun,
 } from "./mod-setup.js"
 import { runScript, setVerbose } from "./process-utils.js"
+import { OutputFormatter } from "./test-output.js"
 import { getDefaultOutputPath, readPreviousFailedTests, writeResultsFile } from "./test-results.js"
 
 const thisCommand = (program as unknown as Command)
@@ -229,9 +230,10 @@ async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions)
     console.log(chalk.yellow(`Bailed out after ${testConfig.bail} failure(s)`))
     resultStatus = "failed"
   }
-  const color =
-    resultStatus == "passed" ? chalk.greenBright : resultStatus == "todo" ? chalk.yellowBright : chalk.redBright
-  console.log("Test run result:", color(resultStatus))
+  if (result.data) {
+    const formatter = new OutputFormatter({ quiet: options.quiet })
+    formatter.formatSummary(result.data)
+  }
 
   const forbidOnly = options.forbidOnly ?? ctx.fileConfig.forbidOnly ?? true
   if (result.hasFocusedTests && forbidOnly) {
