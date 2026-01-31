@@ -4,6 +4,10 @@
 
 - `--output-timeout <seconds>` option to detect and kill stuck Factorio processes (default: 15s, 0 to disable).
 
+### Improvements
+
+- Rich test summary with failure/todo recaps and a counts line (e.g. `Tests: 1 failed, 2 passed (3 total)`).
+
 ## v3.1.2
 
 - Updated help text to note that test filters are lua patterns.
