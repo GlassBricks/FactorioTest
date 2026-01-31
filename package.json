@@ -29,7 +29,8 @@
     "prettier:fix": "prettier --write \"**/*.{ts,json}\"",
     "build:usage-test-mod": "tstl -p integration-tests/fixtures/usage-test-mod/tsconfig.json",
     "build:only-test-mod": "tstl -p integration-tests/fixtures/only-test-mod/tsconfig.json",
-    "build:test-mods": "concurrently npm:build:usage-test-mod npm:build:only-test-mod",
+    "build:infinite-loop-mod": "tstl -p integration-tests/fixtures/infinite-loop-mod/tsconfig.json",
+    "build:test-mods": "concurrently npm:build:usage-test-mod npm:build:only-test-mod npm:build:infinite-loop-mod",
     "pretest:integration": "conc \"npm run pretest -w mod\" npm:build:test-mods",
     "test:integration": "tsx integration-tests/test-runner.ts"
   }

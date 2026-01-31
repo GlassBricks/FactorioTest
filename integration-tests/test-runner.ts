@@ -11,8 +11,15 @@ import { tests as usageTests } from "./tests/usage-test-mod.js"
 import { tests as configTests } from "./tests/config-options.js"
 import { tests as resultsTests } from "./tests/results-file.js"
 import { tests as watchTests } from "./tests/watch-mode.js"
+import { tests as outputTimeoutTests } from "./tests/output-timeout.js"
 
-const allTests: TestDefinition[] = [...watchTests, ...resultsTests, ...usageTests, ...configTests]
+const allTests: TestDefinition[] = [
+  ...watchTests,
+  ...resultsTests,
+  ...usageTests,
+  ...configTests,
+  ...outputTimeoutTests,
+]
 
 async function runTest(test: TestDefinition): Promise<TestResult> {
   const ctx = await createTestContext(test.name.replace(/\s+/g, "-").slice(0, 20))

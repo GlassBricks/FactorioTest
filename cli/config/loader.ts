@@ -86,6 +86,7 @@ export function mergeCliConfig(fileConfig: CliConfig, options: RunOptions): RunO
   options.factorioArgs ??= fileConfig.factorioArgs
   options.verbose ??= fileConfig.verbose as true | undefined
   options.quiet ??= fileConfig.quiet as true | undefined
+  options.outputTimeout ??= fileConfig.outputTimeout
   return options
 }
 

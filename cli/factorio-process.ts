@@ -93,6 +93,7 @@ export interface FactorioTestOptions {
   verbose?: boolean
   quiet?: boolean
   signal?: AbortSignal
+  outputTimeout?: number
 }
 
 export interface FactorioTestResult {
@@ -194,6 +195,7 @@ export async function runFactorioTestsHeadless(
   let testRunStarted = false
   let startupTimedOut = false
   let wasCancelled = false
+  let outputTimedOut = false
 
   handler.on("event", (event) => {
     if (event.type === "testRunStarted") {
@@ -209,21 +211,48 @@ export async function runFactorioTestsHeadless(
     }
   }, 10_000)
 
+  const outputTimeout = options.outputTimeout
+  let outputWatchdog: ReturnType<typeof setTimeout> | undefined
+
+  function resetOutputWatchdog(): void {
+    if (!outputTimeout) return
+    clearTimeout(outputWatchdog)
+    outputWatchdog = setTimeout(() => {
+      outputTimedOut = true
+      factorioProcess.kill()
+    }, outputTimeout * 1000)
+  }
+
+  if (outputTimeout) {
+    resetOutputWatchdog()
+  }
+
   const abortHandler = () => {
     wasCancelled = true
     factorioProcess.kill()
   }
   options.signal?.addEventListener("abort", abortHandler)
 
-  new BufferLineSplitter(factorioProcess.stdout).on("line", (line) => handler.handleLine(line))
-  new BufferLineSplitter(factorioProcess.stderr).on("line", (line) => handler.handleLine(line))
+  const stdoutSplitter = new BufferLineSplitter(factorioProcess.stdout)
+  const stderrSplitter = new BufferLineSplitter(factorioProcess.stderr)
+  stdoutSplitter.on("line", (line) => {
+    resetOutputWatchdog()
+    handler.handleLine(line)
+  })
+  stderrSplitter.on("line", (line) => {
+    resetOutputWatchdog()
+    handler.handleLine(line)
+  })
 
   await new Promise<void>((resolve, reject) => {
     factorioProcess.on("exit", (code, signal) => {
       clearTimeout(startupTimeout)
+      clearTimeout(outputWatchdog)
       options.signal?.removeEventListener("abort", abortHandler)
       if (wasCancelled) {
         resolve()
+      } else if (outputTimedOut) {
+        reject(new CliError(`Factorio process stuck: no output received for ${outputTimeout} seconds`))
       } else if (startupTimedOut) {
         reject(new CliError("Factorio unresponsive: no test run started within 10 seconds"))
       } else if (handler.getResultMessage() !== undefined) {

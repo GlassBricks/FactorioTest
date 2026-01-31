@@ -83,21 +83,23 @@ export interface RunCliOptions {
 
 const defaultModPath = "../integration-tests/fixtures/usage-test-mod"
 
-export function runCli(options: RunCliOptions): Promise<{ stdout: string; stderr: string; code: number }> {
-  return new Promise((resolve) => {
-    const modPath = options.modPath ?? defaultModPath
-    const args = [
-      "run",
-      "cli",
-      "--workspace=cli",
-      "--",
-      "run",
-      `--mod-path=${modPath}`,
-      `--data-directory=${options.dataDir}`,
-      ...(options.extraArgs ?? []),
-    ]
+function buildCliArgs(options: RunCliOptions): string[] {
+  const modPath = options.modPath ?? defaultModPath
+  return [
+    "run",
+    "cli",
+    "--workspace=cli",
+    "--",
+    "run",
+    `--mod-path=${modPath}`,
+    `--data-directory=${options.dataDir}`,
+    ...(options.extraArgs ?? []),
+  ]
+}
 
-    const child = child_process.spawn("npm", args, {
+function spawnAndCollect(command: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
+  return new Promise((resolve) => {
+    const child = child_process.spawn(command, args, {
       stdio: ["inherit", "pipe", "pipe"],
       cwd: root,
     })
@@ -109,6 +111,17 @@ export function runCli(options: RunCliOptions): Promise<{ stdout: string; stderr
     child.stderr.on("data", (data) => (stderr += data.toString()))
     child.on("exit", (code) => resolve({ stdout, stderr, code: code ?? 1 }))
   })
+}
+
+export function runCli(options: RunCliOptions): Promise<{ stdout: string; stderr: string; code: number }> {
+  return spawnAndCollect("npm", buildCliArgs(options))
+}
+
+export function runCliWithTimeout(
+  options: RunCliOptions,
+  timeoutSeconds: number,
+): Promise<{ stdout: string; stderr: string; code: number }> {
+  return spawnAndCollect("timeout", [String(timeoutSeconds), "npm", ...buildCliArgs(options)])
 }
 
 export function sleep(ms: number): Promise<void> {

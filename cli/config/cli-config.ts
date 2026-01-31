@@ -113,6 +113,15 @@ const cliConfigFields = {
       parseArg: (v) => parseInt(v, 10),
     },
   },
+  outputTimeout: {
+    schema: z.number().min(0).optional(),
+    cli: {
+      flags: "--output-timeout <seconds>",
+      description:
+        "Kill Factorio if no stdout/stderr output received within this many seconds. 0 to disable (default: 15).",
+      parseArg: (v) => parseInt(v, 10),
+    },
+  },
 } satisfies Record<string, FieldDef>
 
 export const cliConfigSchema = z.object({
@@ -173,6 +182,8 @@ export function registerAllCliOptions(command: Command<unknown[], Record<string,
   addOption(command, f.outputFile.cli!)
   command.option("--no-output-file", "Disable writing test results file")
   addOption(command, f.forbidOnly.cli!)
+
+  addOption(command, f.outputTimeout.cli!)
 
   addOption(command, f.watchPatterns.cli!)
   addOption(command, f.udpPort.cli!)

@@ -201,6 +201,7 @@ async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions)
             verbose: options.verbose,
             quiet: options.quiet,
             signal,
+            outputTimeout: options.outputTimeout ?? 15,
           })
         : await runFactorioTestsGraphics(factorioPath, dataDir, savePath, factorioArgs, {
             verbose: options.verbose,
