@@ -26,11 +26,25 @@ async function testResultsFileCreated(ctx: TestContext): Promise<boolean> {
   }
   ctx.log(`PASS: Has ${content.tests.length} tests`)
 
-  if (content.summary?.failed !== 1) {
-    ctx.log(`FAIL: Expected summary.failed=1, got ${content.summary?.failed}`)
+  const expectedSummary = { failed: 1, passed: 5, skipped: 2, todo: 1, describeBlockErrors: 2, status: "failed" }
+  let summaryPassed = true
+  for (const [key, expected] of Object.entries(expectedSummary)) {
+    const actual = content.summary?.[key]
+    if (actual !== expected) {
+      ctx.log(`FAIL: Expected summary.${key}=${expected}, got ${actual}`)
+      summaryPassed = false
+    } else {
+      ctx.log(`PASS: summary.${key}=${expected}`)
+    }
+  }
+  if (!summaryPassed) return false
+
+  const expectedTestCount = 9
+  if (content.tests.length !== expectedTestCount) {
+    ctx.log(`FAIL: Expected ${expectedTestCount} tests, got ${content.tests.length}`)
     return false
   }
-  ctx.log("PASS: Correct summary.failed count")
+  ctx.log(`PASS: Correct test count (${expectedTestCount})`)
 
   return true
 }
