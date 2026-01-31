@@ -1,8 +1,19 @@
 import { TestEventListener } from "./test-events"
+import { TestRunResults } from "./results"
 import { countActiveTests, DescribeBlock, Source, Test } from "./tests"
-import { TestInfo, BlockInfo, SourceLocation, TestRunnerEvent } from "../../types/events"
+import { TestInfo, BlockInfo, SourceLocation, TestRunnerEvent, TestRunSummary } from "../../types/events"
 
 const EVENT_PREFIX = "FACTORIO-TEST-EVENT:"
+
+function computeStatus(r: TestRunResults): TestRunSummary["status"] {
+  if (r.failed !== 0 || r.describeBlockErrors !== 0) return "failed"
+  if (r.todo !== 0) return "todo"
+  return "passed"
+}
+
+function toSummary(r: TestRunResults): TestRunSummary {
+  return { ...r, status: r.status ?? computeStatus(r) }
+}
 
 function emitEvent(event: TestRunnerEvent): void {
   print(EVENT_PREFIX + helpers.table_to_json(event))
@@ -67,10 +78,7 @@ export const cliEventEmitter: TestEventListener = (event, state) => {
       })
       break
     case "testRunFinished": {
-      const results = {
-        ...state.results,
-        status: state.results.status!,
-      }
+      const results = toSummary(state.results)
       emitEvent({ type: "testRunFinished", results })
       break
     }
