@@ -2,21 +2,38 @@ import * as fs from "fs"
 import * as path from "path"
 import { ZodError } from "zod"
 import { CliError } from "../cli-error.js"
-import { cliConfigSchema, DEFAULT_DATA_DIRECTORY, type CliConfig, type CliOnlyOptions } from "./cli-config.js"
-import { parseCliTestOptions, TestRunnerConfig } from "./test-config.js"
+import { getDefaultOutputPath } from "../test-results.js"
+import { DEFAULT_DATA_DIRECTORY, fileConfigFields, fileConfigSchema, type FileConfig } from "./cli-config.js"
+import { parseCliTestOptions, type TestRunnerConfig } from "./test-config.js"
 
-type SnakeToCamel<S extends string> = S extends `${infer T}_${infer U}` ? `${T}${Capitalize<SnakeToCamel<U>>}` : S
+const DEFAULT_WATCH_PATTERNS = ["info.json", "**/*.lua"]
 
-type CamelCaseTestConfig = {
-  [K in keyof TestRunnerConfig as SnakeToCamel<K & string>]?: TestRunnerConfig[K]
+export interface ResolvedConfig {
+  graphics?: true
+  watch?: true
+
+  modPath?: string
+  modName?: string
+  factorioPath?: string
+  dataDirectory: string
+  save?: string
+  mods?: string[]
+  factorioArgs?: string[]
+  verbose?: boolean
+  quiet?: boolean
+  outputFile?: string
+  forbidOnly: boolean
+  watchPatterns: string[]
+  udpPort: number
+  outputTimeout: number
+
+  testConfig: TestRunnerConfig
 }
 
-export type RunOptions = CliOnlyOptions &
-  Omit<CliConfig, "test" | "outputFile"> &
-  CamelCaseTestConfig & {
-    outputFile?: string | false
-    dataDirectory: string
-  }
+export interface ResolveConfigInput {
+  cliOptions: Record<string, unknown>
+  patterns: string[]
+}
 
 function formatZodError(error: ZodError, filePath: string): string {
   const issues = error.issues.map((issue) => {
@@ -26,7 +43,7 @@ function formatZodError(error: ZodError, filePath: string): string {
   return `Invalid config in ${filePath}:\n${issues.join("\n")}`
 }
 
-export function loadConfig(configPath?: string): CliConfig {
+export function loadFileConfig(configPath?: string): FileConfig {
   const paths = configPath
     ? [path.resolve(configPath)]
     : [path.resolve("factorio-test.json"), path.resolve("package.json")]
@@ -39,7 +56,7 @@ export function loadConfig(configPath?: string): CliConfig {
 
     if (!rawConfig) continue
 
-    const result = cliConfigSchema.strict().safeParse(rawConfig)
+    const result = fileConfigSchema.strict().safeParse(rawConfig)
     if (!result.success) {
       throw new CliError(formatZodError(result.error, filePath))
     }
@@ -49,7 +66,7 @@ export function loadConfig(configPath?: string): CliConfig {
   return {}
 }
 
-function resolveConfigPaths(config: CliConfig, configDir: string): CliConfig {
+function resolveConfigPaths(config: FileConfig, configDir: string): FileConfig {
   return {
     ...config,
     modPath: config.modPath ? path.resolve(configDir, config.modPath) : undefined,
@@ -59,42 +76,50 @@ function resolveConfigPaths(config: CliConfig, configDir: string): CliConfig {
   }
 }
 
-export function mergeTestConfig(
-  configFile: TestRunnerConfig | undefined,
+function mergeTestConfig(
+  fileConfig: TestRunnerConfig | undefined,
   cliOptions: Partial<TestRunnerConfig>,
 ): TestRunnerConfig {
-  return {
-    ...configFile,
-    test_pattern: cliOptions.test_pattern ?? configFile?.test_pattern,
-    tag_whitelist: cliOptions.tag_whitelist ?? configFile?.tag_whitelist,
-    tag_blacklist: cliOptions.tag_blacklist ?? configFile?.tag_blacklist,
-    default_timeout: cliOptions.default_timeout ?? configFile?.default_timeout,
-    game_speed: cliOptions.game_speed ?? configFile?.game_speed,
-    log_passed_tests: cliOptions.log_passed_tests ?? configFile?.log_passed_tests,
-    log_skipped_tests: cliOptions.log_skipped_tests ?? configFile?.log_skipped_tests,
-    reorder_failed_first: cliOptions.reorder_failed_first ?? configFile?.reorder_failed_first,
-    bail: cliOptions.bail ?? configFile?.bail,
+  const defined = Object.fromEntries(Object.entries(cliOptions).filter(([, v]) => v !== undefined))
+  return { ...fileConfig, ...defined } as TestRunnerConfig
+}
+
+function getBaseConfig(fileConfig: FileConfig, cliOptions: Record<string, unknown>): Omit<FileConfig, "test"> {
+  const raw: Record<string, unknown> = {}
+  for (const key of Object.keys(fileConfigFields)) {
+    raw[key] = cliOptions[key] ?? (fileConfig as Record<string, unknown>)[key]
   }
+  return raw as Omit<FileConfig, "test">
 }
 
-export function mergeCliConfig(fileConfig: CliConfig, options: RunOptions): RunOptions {
-  options.modPath ??= fileConfig.modPath
-  options.modName ??= fileConfig.modName
-  options.factorioPath ??= fileConfig.factorioPath
-  options.dataDirectory ??= fileConfig.dataDirectory ?? DEFAULT_DATA_DIRECTORY
-  options.mods ??= fileConfig.mods
-  options.factorioArgs ??= fileConfig.factorioArgs
-  options.verbose ??= fileConfig.verbose as true | undefined
-  options.quiet ??= fileConfig.quiet as true | undefined
-  options.outputTimeout ??= fileConfig.outputTimeout
-  return options
-}
+export function resolveConfig({ cliOptions, patterns }: ResolveConfigInput): ResolvedConfig {
+  const fileConfig = loadFileConfig(cliOptions.config as string | undefined)
+  const baseConfig = getBaseConfig(fileConfig, cliOptions)
 
-export function buildTestConfig(fileConfig: CliConfig, options: RunOptions, patterns: string[]): TestRunnerConfig {
-  const cliTestOptions = parseCliTestOptions(options as unknown as Record<string, unknown>)
-  const testPattern =
-    patterns.length > 0
-      ? patterns.map((p) => `(${p})`).join("|")
-      : (cliTestOptions.test_pattern ?? fileConfig.test?.test_pattern)
-  return mergeTestConfig(fileConfig.test, { ...cliTestOptions, test_pattern: testPattern })
+  const testConfig = mergeTestConfig(fileConfig.test, parseCliTestOptions(cliOptions, patterns))
+
+  return {
+    graphics: cliOptions.graphics as true | undefined,
+    watch: cliOptions.watch as true | undefined,
+
+    modPath: baseConfig.modPath,
+    modName: baseConfig.modName,
+    factorioPath: baseConfig.factorioPath,
+    dataDirectory: path.resolve(baseConfig.dataDirectory ?? DEFAULT_DATA_DIRECTORY),
+    save: baseConfig.save,
+    mods: baseConfig.mods,
+    factorioArgs: baseConfig.factorioArgs,
+    verbose: baseConfig.verbose,
+    quiet: baseConfig.quiet,
+    outputFile:
+      cliOptions.outputFile === false
+        ? undefined
+        : (baseConfig.outputFile ??
+          getDefaultOutputPath(path.resolve(baseConfig.dataDirectory ?? DEFAULT_DATA_DIRECTORY))),
+    forbidOnly: baseConfig.forbidOnly ?? true,
+    watchPatterns: baseConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS,
+    udpPort: baseConfig.udpPort ?? 14434,
+    outputTimeout: baseConfig.outputTimeout ?? 15,
+    testConfig,
+  }
 }

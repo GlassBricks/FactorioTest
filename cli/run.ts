@@ -5,15 +5,7 @@ import * as dgram from "dgram"
 import * as fsp from "fs/promises"
 import * as path from "path"
 import { CliError } from "./cli-error.js"
-import {
-  buildTestConfig,
-  loadConfig,
-  mergeCliConfig,
-  registerAllCliOptions,
-  type CliConfig,
-  type RunOptions,
-  type TestRunnerConfig,
-} from "./config/index.js"
+import { registerAllCliOptions, resolveConfig, type ResolvedConfig } from "./config/index.js"
 import { autoDetectFactorioPath } from "./factorio-process.js"
 import {
   FactorioTestResult,
@@ -35,7 +27,7 @@ import {
 } from "./mod-setup.js"
 import { runScript, setVerbose } from "./process-utils.js"
 import { OutputFormatter } from "./test-output.js"
-import { getDefaultOutputPath, readPreviousFailedTests, writeResultsFile } from "./test-results.js"
+import { readPreviousFailedTests, writeResultsFile } from "./test-results.js"
 
 const thisCommand = (program as unknown as Command)
   .command("run")
@@ -66,7 +58,7 @@ Examples:
 
 registerAllCliOptions(thisCommand)
 
-thisCommand.action((patterns, options) => runTests(patterns, options as RunOptions))
+thisCommand.action((patterns, options) => runTests(patterns, options as Record<string, unknown>))
 
 interface TestRunResult {
   exitCode: number
@@ -74,44 +66,39 @@ interface TestRunResult {
 }
 
 interface TestRunContext {
+  config: ResolvedConfig
   factorioPath: string
   dataDir: string
   modsDir: string
   modToTest: string
   mode: "headless" | "graphics"
   savePath: string
-  outputPath: string | undefined
   factorioArgs: string[]
-  testConfig: TestRunnerConfig
-  options: RunOptions
-  fileConfig: CliConfig
-  udpPort: number | undefined
 }
 
-async function setupTestRun(patterns: string[], options: RunOptions): Promise<TestRunContext> {
-  const fileConfig = loadConfig(options.config)
-  mergeCliConfig(fileConfig, options)
+async function setupTestRun(patterns: string[], cliOptions: Record<string, unknown>): Promise<TestRunContext> {
+  const config = resolveConfig({ cliOptions, patterns })
 
-  setVerbose(!!options.verbose)
+  setVerbose(!!config.verbose)
 
-  if (options.modPath !== undefined && options.modName !== undefined) {
+  if (config.modPath !== undefined && config.modName !== undefined) {
     throw new CliError("Only one of --mod-path or --mod-name can be specified.")
   }
-  if (options.modPath === undefined && options.modName === undefined) {
+  if (config.modPath === undefined && config.modName === undefined) {
     throw new CliError("One of --mod-path or --mod-name must be specified.")
   }
 
-  const factorioPath = options.factorioPath ?? autoDetectFactorioPath()
-  const dataDir = path.resolve(options.dataDirectory)
+  const factorioPath = config.factorioPath ?? autoDetectFactorioPath()
+  const dataDir = config.dataDirectory
   const modsDir = path.join(dataDir, "mods")
   await fsp.mkdir(modsDir, { recursive: true })
 
-  const modToTest = await configureModToTest(modsDir, options.modPath, options.modName, options.verbose)
-  const modDependencies = options.modPath ? await installModDependencies(modsDir, path.resolve(options.modPath)) : []
+  const modToTest = await configureModToTest(modsDir, config.modPath, config.modName, config.verbose)
+  const modDependencies = config.modPath ? await installModDependencies(modsDir, path.resolve(config.modPath)) : []
   await installFactorioTest(modsDir)
 
   const configModRequirements =
-    options.mods
+    config.mods
       ?.filter((m) => !m.match(/^\S+=(?:true|false)$/))
       .map(parseModRequirement)
       .filter((r) => r != null) ?? []
@@ -123,43 +110,22 @@ async function setupTestRun(patterns: string[], options: RunOptions): Promise<Te
     "factorio-test=true",
     `${modToTest}=true`,
     ...modDependencies.map((m) => `${m}=true`),
-    ...(options.mods?.map((m) => (m.match(/^\S+=(?:true|false)$/) ? m : `${m.split(/\s/)[0]}=true`)) ?? []),
+    ...(config.mods?.map((m) => (m.match(/^\S+=(?:true|false)$/) ? m : `${m.split(/\s/)[0]}=true`)) ?? []),
   ]
 
-  if (options.verbose) console.log("Adjusting mods")
+  if (config.verbose) console.log("Adjusting mods")
   await runScript("fmtk", "mods", "adjust", "--modsPath", modsDir, "--disableExtra", ...enableModsOptions)
   await ensureConfigIni(dataDir)
 
-  const mode = options.graphics ? "graphics" : "headless"
-  const savePath = getHeadlessSavePath(options.save ?? fileConfig.save)
+  const mode = config.graphics ? "graphics" : "headless"
+  const savePath = getHeadlessSavePath(config.save)
 
-  const outputPath =
-    options.outputFile === false
-      ? undefined
-      : (options.outputFile ?? fileConfig.outputFile ?? getDefaultOutputPath(dataDir))
-
-  const testConfig = buildTestConfig(fileConfig, options, patterns)
-
-  const udpPort = options.watch && options.graphics ? (options.udpPort ?? fileConfig.udpPort ?? 14434) : undefined
-  const factorioArgs = [...(options.factorioArgs ?? [])]
-  if (udpPort !== undefined) {
-    factorioArgs.push(`--enable-lua-udp=${udpPort}`)
+  const factorioArgs = [...(config.factorioArgs ?? [])]
+  if (config.watch && config.graphics) {
+    factorioArgs.push(`--enable-lua-udp=${config.udpPort}`)
   }
 
-  return {
-    factorioPath,
-    dataDir,
-    modsDir,
-    modToTest,
-    mode,
-    savePath,
-    outputPath,
-    factorioArgs,
-    testConfig,
-    options,
-    fileConfig,
-    udpPort,
-  }
+  return { config, factorioPath, dataDir, modsDir, modToTest, mode, savePath, factorioArgs }
 }
 
 interface ExecuteOptions {
@@ -169,26 +135,25 @@ interface ExecuteOptions {
 }
 
 async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions): Promise<TestRunResult> {
-  const { factorioPath, dataDir, modsDir, modToTest, mode, savePath, outputPath, factorioArgs, testConfig, options } =
-    ctx
+  const { config, factorioPath, dataDir, modsDir, modToTest, mode, savePath, factorioArgs } = ctx
   const { signal, skipResetAutorun, resolveOnResult } = execOptions ?? {}
 
-  const reorderEnabled = options.reorderFailedFirst ?? ctx.fileConfig.test?.reorder_failed_first ?? true
-  const lastFailedTests = reorderEnabled && outputPath ? await readPreviousFailedTests(outputPath) : []
+  const reorderEnabled = config.testConfig.reorder_failed_first ?? true
+  const lastFailedTests = reorderEnabled && config.outputFile ? await readPreviousFailedTests(config.outputFile) : []
 
   await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest, mode, {
-    verbose: options.verbose,
+    verbose: config.verbose,
     lastFailedTests,
   })
 
-  if (Object.keys(testConfig).length > 0) {
+  if (Object.keys(config.testConfig).length > 0) {
     await runScript(
       "fmtk",
       "settings",
       "set",
       "runtime-global",
       "factorio-test-config",
-      JSON.stringify(testConfig),
+      JSON.stringify(config.testConfig),
       "--modsPath",
       modsDir,
     )
@@ -199,19 +164,19 @@ async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions)
     result =
       mode === "headless"
         ? await runFactorioTestsHeadless(factorioPath, dataDir, savePath, factorioArgs, {
-            verbose: options.verbose,
-            quiet: options.quiet,
+            verbose: config.verbose,
+            quiet: config.quiet,
             signal,
-            outputTimeout: options.outputTimeout ?? 15,
+            outputTimeout: config.outputTimeout,
           })
         : await runFactorioTestsGraphics(factorioPath, dataDir, savePath, factorioArgs, {
-            verbose: options.verbose,
-            quiet: options.quiet,
+            verbose: config.verbose,
+            quiet: config.quiet,
             resolveOnResult,
           })
   } finally {
     if (!skipResetAutorun) {
-      await resetAutorunSettings(modsDir, options.verbose)
+      await resetAutorunSettings(modsDir, config.verbose)
       await runScript("fmtk", "settings", "set", "runtime-global", "factorio-test-config", "{}", "--modsPath", modsDir)
     }
   }
@@ -220,23 +185,22 @@ async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions)
     return { exitCode: 0, status: "cancelled" }
   }
 
-  if (outputPath && result.data) {
-    await writeResultsFile(outputPath, modToTest, result.data)
-    if (options.verbose) console.log(`Results written to ${outputPath}`)
+  if (config.outputFile && result.data) {
+    await writeResultsFile(config.outputFile, modToTest, result.data)
+    if (config.verbose) console.log(`Results written to ${config.outputFile}`)
   }
 
   let resultStatus = result.status
   if (resultStatus === "bailed") {
-    console.log(chalk.yellow(`Bailed out after ${testConfig.bail} failure(s)`))
+    console.log(chalk.yellow(`Bailed out after ${config.testConfig.bail} failure(s)`))
     resultStatus = "failed"
   }
   if (result.data) {
-    const formatter = new OutputFormatter({ quiet: options.quiet })
+    const formatter = new OutputFormatter({ quiet: config.quiet })
     formatter.formatSummary(result.data)
   }
 
-  const forbidOnly = options.forbidOnly ?? ctx.fileConfig.forbidOnly ?? true
-  if (result.hasFocusedTests && forbidOnly) {
+  if (result.hasFocusedTests && config.forbidOnly) {
     console.log(chalk.redBright("Error: .only tests are present but --forbid-only is enabled"))
     return { exitCode: 1, status: resultStatus }
   }
@@ -244,24 +208,21 @@ async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions)
   return { exitCode: resultStatus === "passed" ? 0 : 1, status: resultStatus }
 }
 
-const DEFAULT_WATCH_PATTERNS = ["info.json", "**/*.lua"]
-
 async function runGraphicsWatchMode(ctx: TestRunContext): Promise<never> {
-  const watchPatterns = ctx.options.watchPatterns ?? ctx.fileConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS
-  const target = await resolveModWatchTarget(ctx.modsDir, ctx.options.modPath, ctx.options.modName)
-  console.log(chalk.gray(`Watching ${target.path} for patterns: ${watchPatterns.join(", ")}`))
+  const target = await resolveModWatchTarget(ctx.modsDir, ctx.config.modPath, ctx.config.modName)
+  console.log(chalk.gray(`Watching ${target.path} for patterns: ${ctx.config.watchPatterns.join(", ")}`))
 
   await executeTestRun(ctx, { skipResetAutorun: true, resolveOnResult: true })
 
   const udpClient = dgram.createSocket("udp4")
   const onFileChange = () => {
     console.log(chalk.cyan("File change detected, triggering rerun..."))
-    udpClient.send("rerun", ctx.udpPort!, "127.0.0.1")
+    udpClient.send("rerun", ctx.config.udpPort, "127.0.0.1")
   }
 
   const watcher =
     target.type === "directory"
-      ? watchDirectory(target.path, onFileChange, { patterns: watchPatterns })
+      ? watchDirectory(target.path, onFileChange, { patterns: ctx.config.watchPatterns })
       : watchFile(target.path, onFileChange)
 
   process.on("SIGINT", () => {
@@ -274,8 +235,7 @@ async function runGraphicsWatchMode(ctx: TestRunContext): Promise<never> {
 }
 
 async function runHeadlessWatchMode(ctx: TestRunContext): Promise<never> {
-  const watchPatterns = ctx.options.watchPatterns ?? ctx.fileConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS
-  const target = await resolveModWatchTarget(ctx.modsDir, ctx.options.modPath, ctx.options.modName)
+  const target = await resolveModWatchTarget(ctx.modsDir, ctx.config.modPath, ctx.config.modName)
 
   let abortController: AbortController | undefined
 
@@ -305,7 +265,7 @@ async function runHeadlessWatchMode(ctx: TestRunContext): Promise<never> {
 
   const watcher =
     target.type === "directory"
-      ? watchDirectory(target.path, onFileChange, { patterns: watchPatterns })
+      ? watchDirectory(target.path, onFileChange, { patterns: ctx.config.watchPatterns })
       : watchFile(target.path, onFileChange)
 
   process.on("SIGINT", () => {
@@ -316,12 +276,12 @@ async function runHeadlessWatchMode(ctx: TestRunContext): Promise<never> {
   return new Promise(() => {})
 }
 
-async function runTests(patterns: string[], options: RunOptions): Promise<void> {
-  const ctx = await setupTestRun(patterns, options)
+async function runTests(patterns: string[], cliOptions: Record<string, unknown>): Promise<void> {
+  const ctx = await setupTestRun(patterns, cliOptions)
 
-  if (options.watch && options.graphics) {
+  if (ctx.config.watch && ctx.config.graphics) {
     await runGraphicsWatchMode(ctx)
-  } else if (options.watch) {
+  } else if (ctx.config.watch) {
     await runHeadlessWatchMode(ctx)
   } else {
     const result = await executeTestRun(ctx)

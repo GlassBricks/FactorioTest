@@ -17,7 +17,7 @@ interface FieldDef {
 
 export const DEFAULT_DATA_DIRECTORY = "./factorio-test-data-dir"
 
-const cliConfigFields = {
+export const fileConfigFields = {
   modPath: {
     schema: z.string().optional(),
     cli: {
@@ -44,8 +44,7 @@ const cliConfigFields = {
     schema: z.string().optional(),
     cli: {
       flags: "-d --data-directory <path>",
-      description: "Factorio data directory, where mods, saves, config etc. will be.",
-      default: DEFAULT_DATA_DIRECTORY,
+      description: `Factorio data directory, where mods, saves, config etc. will be (default: "${DEFAULT_DATA_DIRECTORY}").`,
     },
   },
   save: {
@@ -124,14 +123,14 @@ const cliConfigFields = {
   },
 } satisfies Record<string, FieldDef>
 
-export const cliConfigSchema = z.object({
-  ...(Object.fromEntries(Object.entries(cliConfigFields).map(([k, v]) => [k, v.schema])) as {
-    [K in keyof typeof cliConfigFields]: (typeof cliConfigFields)[K]["schema"]
+export const fileConfigSchema = z.object({
+  ...(Object.fromEntries(Object.entries(fileConfigFields).map(([k, v]) => [k, v.schema])) as {
+    [K in keyof typeof fileConfigFields]: (typeof fileConfigFields)[K]["schema"]
   }),
   test: testRunnerConfigSchema.optional(),
 })
 
-export type CliConfig = z.infer<typeof cliConfigSchema>
+export type FileConfig = z.infer<typeof fileConfigSchema>
 
 function addOption(command: Command<unknown[], Record<string, unknown>>, cli: CliOptionMeta): void {
   if (cli.parseArg) {
@@ -157,7 +156,7 @@ export interface CliOnlyOptions {
 }
 
 export function registerAllCliOptions(command: Command<unknown[], Record<string, unknown>>): void {
-  const f = cliConfigFields
+  const f = fileConfigFields
 
   command.option(
     "-c --config <path>",

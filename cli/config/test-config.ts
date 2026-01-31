@@ -112,7 +112,7 @@ function snakeToCamel(str: string): string {
   return str.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
 }
 
-export function parseCliTestOptions(opts: Record<string, unknown>): Partial<TestRunnerConfig> {
+export function parseCliTestOptions(opts: Record<string, unknown>, patterns: string[]): Partial<TestRunnerConfig> {
   const result: Record<string, unknown> = {}
   for (const snake of Object.keys(testConfigFields)) {
     const camel = snakeToCamel(snake)
@@ -123,6 +123,9 @@ export function parseCliTestOptions(opts: Record<string, unknown>): Partial<Test
       }
       result[snake] = value
     }
+  }
+  if (patterns.length > 0) {
+    result.test_pattern = patterns.map((p) => `(${p})`).join("|")
   }
   return result as Partial<TestRunnerConfig>
 }

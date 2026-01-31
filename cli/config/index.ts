@@ -1,8 +1,8 @@
-export { testRunnerConfigSchema, parseCliTestOptions } from "./test-config.js"
+export { parseCliTestOptions, testRunnerConfigSchema } from "./test-config.js"
 export type { TestRunnerConfig } from "./test-config.js"
 
-export { cliConfigSchema, registerAllCliOptions } from "./cli-config.js"
-export type { CliConfig, CliOnlyOptions } from "./cli-config.js"
+export { fileConfigSchema, registerAllCliOptions } from "./cli-config.js"
+export type { CliOnlyOptions, FileConfig } from "./cli-config.js"
 
-export { loadConfig, mergeTestConfig, mergeCliConfig, buildTestConfig } from "./loader.js"
-export type { RunOptions } from "./loader.js"
+export { loadFileConfig, resolveConfig } from "./loader.js"
+export type { ResolvedConfig } from "./loader.js"
