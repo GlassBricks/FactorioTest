@@ -2,7 +2,7 @@
 
 ### Features
 
-- `--no-auto-start` option to configure tests without auto-starting them (requires `--graphics`).
+- Added `--no-auto-start` option to launch factorio without auto-starting tests (requires `--graphics`).
 
 ## v3.4.0
 
