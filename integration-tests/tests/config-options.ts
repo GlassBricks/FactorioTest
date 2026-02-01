@@ -23,7 +23,7 @@ const testCases: TestCase[] = [
   {
     name: "--quiet hides all per-test output",
     args: ["--quiet"],
-    expectedOutput: ["Tests: 1 failed, 1 todo, 2 skipped, 5 passed (9 total)"],
+    expectedOutput: ["Tests: 1 failed, 2 errors, 1 todo, 2 skipped, 5 passed (9 total)"],
     unexpectedOutput: ["PASS test1 > Pass", "FAIL test1 > each 2", "TODO test1 > TODO", "SKIP test1 > Skip"],
     expectExitCode: 1,
   },
@@ -87,8 +87,20 @@ const testCases: TestCase[] = [
   },
   {
     name: "No .only tests passes with --forbid-only",
-    expectedOutput: ["Tests: 1 failed, 1 todo, 2 skipped, 5 passed (9 total)"],
+    expectedOutput: ["Tests: 1 failed, 2 errors, 1 todo, 2 skipped, 5 passed (9 total)"],
     unexpectedOutput: ["Error: .only tests are present"],
+  },
+  {
+    name: "Failure recap shows test and describe block errors separately",
+    expectedOutput: [
+      "Failures:",
+      "FAIL test1 > each 2",
+      "Describe block errors:",
+      "ERROR test1 > fail in describe block",
+      "ERROR test1 > Failing after_all hook",
+      "Oh no",
+    ],
+    expectExitCode: 1,
   },
   {
     name: "--bail stops after first failure",
@@ -97,6 +109,7 @@ const testCases: TestCase[] = [
       "FAIL test1 > each 2",
       "Bailed out after 1 failure(s)",
       "Failures:",
+      "Errors:",
       "Tests: 1 failed, 1 todo, 1 skipped, 2 passed (5 total)",
     ],
     unexpectedOutput: ["PASS test1 > In world", "PASS folder/test2 > Reload"],
@@ -109,7 +122,8 @@ const testCases: TestCase[] = [
       "FAIL test1 > each 2",
       "PASS test1 > In world",
       "Failures:",
-      "Tests: 1 failed, 1 todo, 2 skipped, 5 passed (9 total)",
+      "Errors:",
+      "Tests: 1 failed, 2 errors, 1 todo, 2 skipped, 5 passed (9 total)",
     ],
     unexpectedOutput: ["Bailed out after"],
     expectExitCode: 1,

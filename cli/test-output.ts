@@ -102,19 +102,20 @@ export class OutputFormatter {
   formatTestResult(test: CapturedTest): void {
     if (this.options.quiet) return
 
-    const showLogs = test.result === "failed" || this.options.showPassedLogs
+    const prefix = this.getPrefix(test.result)
+    const duration = test.durationMs !== undefined ? ` (${formatDuration(test.durationMs)})` : ""
+    console.log(`${prefix} ${test.path}${duration}`)
 
+    const showLogs = test.result === "failed" || test.result === "error" || this.options.showPassedLogs
     if (showLogs && test.logs.length > 0) {
+      console.log("Log messages:")
       for (const log of test.logs) {
         console.log("    " + log)
       }
     }
 
-    const prefix = this.getPrefix(test.result)
-    const duration = test.durationMs !== undefined ? ` (${formatDuration(test.durationMs)})` : ""
-    console.log(`${prefix} ${test.path}${duration}`)
-
-    if (test.result === "failed") {
+    if ((test.result === "failed" || test.result === "error") && test.errors.length > 0) {
+      console.log("Errors:")
       for (const error of test.errors) {
         console.log("    " + error)
       }
@@ -126,6 +127,7 @@ export class OutputFormatter {
 
     if (!this.options.quiet) {
       this.printRecapSection(data.tests, "failed", "Failures:")
+      this.printRecapSection(data.tests, "error", "Describe block errors:")
       this.printRecapSection(data.tests, "todo", "Todo:")
     }
     this.printCountsLine(data.summary)
@@ -146,6 +148,7 @@ export class OutputFormatter {
   private printCountsLine(summary: TestRunSummary): void {
     const segments: string[] = []
     if (summary.failed > 0) segments.push(chalk.red(`${summary.failed} failed`))
+    if (summary.describeBlockErrors > 0) segments.push(chalk.red(`${summary.describeBlockErrors} errors`))
     if (summary.todo > 0) segments.push(chalk.magenta(`${summary.todo} todo`))
     if (summary.skipped > 0) segments.push(chalk.yellow(`${summary.skipped} skipped`))
     segments.push(chalk.green(`${summary.passed} passed`))
@@ -160,6 +163,8 @@ export class OutputFormatter {
         return chalk.green("PASS")
       case "failed":
         return chalk.red("FAIL")
+      case "error":
+        return chalk.red("ERROR")
       case "skipped":
         return chalk.yellow("SKIP")
       case "todo":

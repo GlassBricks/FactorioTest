@@ -187,13 +187,20 @@ describe("OutputFormatter", () => {
     expect(output.some((line) => line.includes("at test.ts:10"))).toBe(true)
   })
 
-  it("shows logs before failed test result", () => {
+  it("shows status line first, then logs and errors with headers", () => {
     const formatter = new OutputFormatter({})
     formatter.formatTestResult(failedTest)
 
-    const logIndex = output.findIndex((line) => line.includes("debug output"))
     const failIndex = output.findIndex((line) => line.includes("FAIL"))
-    expect(logIndex).toBeLessThan(failIndex)
+    const logHeaderIndex = output.findIndex((line) => line.includes("Log messages:"))
+    const logIndex = output.findIndex((line) => line.includes("debug output"))
+    const errorHeaderIndex = output.findIndex((line) => line.includes("Errors:"))
+    const errorIndex = output.findIndex((line) => line.includes("assertion failed"))
+    expect(failIndex).toBe(0)
+    expect(logHeaderIndex).toBeGreaterThan(failIndex)
+    expect(logIndex).toBeGreaterThan(logHeaderIndex)
+    expect(errorHeaderIndex).toBeGreaterThan(logIndex)
+    expect(errorIndex).toBeGreaterThan(errorHeaderIndex)
   })
 
   it("hides logs for passed tests by default", () => {
@@ -246,6 +253,24 @@ describe("OutputFormatter", () => {
 
     expect(output[0]).toContain("TODO")
     expect(output[0]).toContain("todo test")
+  })
+
+  it("formats describe block error with ERROR prefix", () => {
+    const formatter = new OutputFormatter({})
+    const errorTest: CapturedTest = {
+      path: "root > block",
+      result: "error",
+      errors: ["Error running afterAll: Oh no"],
+      logs: ["hook log"],
+    }
+    formatter.formatTestResult(errorTest)
+
+    expect(output[0]).toContain("ERROR")
+    expect(output[0]).toContain("root > block")
+    expect(output.some((line) => line.includes("Log messages:"))).toBe(true)
+    expect(output.some((line) => line.includes("hook log"))).toBe(true)
+    expect(output.some((line) => line.includes("Errors:"))).toBe(true)
+    expect(output.some((line) => line.includes("Oh no"))).toBe(true)
   })
 })
 
@@ -361,6 +386,42 @@ describe("OutputFormatter.formatSummary", () => {
     expect(countsLine).toContain("1 skipped")
     expect(countsLine).toContain("1 passed")
     expect(countsLine).toContain("(4 total)")
+  })
+
+  it("shows describe block errors in separate section from failures", () => {
+    const formatter = new OutputFormatter({})
+    const data: TestRunData = {
+      tests: [
+        { path: "test", result: "failed", errors: ["test err"], logs: [] },
+        { path: "block", result: "error", errors: ["block err"], logs: [] },
+      ],
+      summary: makeSummary({ ran: 1, failed: 1, describeBlockErrors: 1, status: "failed" }),
+    }
+    formatter.formatSummary(data)
+
+    expect(output.some((l) => l.includes("Failures:"))).toBe(true)
+    expect(output.some((l) => l.includes("Describe block errors:"))).toBe(true)
+
+    const failuresIdx = output.findIndex((l) => l.includes("Failures:"))
+    const errorsIdx = output.findIndex((l) => l.includes("Describe block errors:"))
+    const failLine = output.findIndex((l) => l.includes("FAIL"))
+    const errorLine = output.findIndex((l) => l.includes("ERROR"))
+    expect(failLine).toBeGreaterThan(failuresIdx)
+    expect(failLine).toBeLessThan(errorsIdx)
+    expect(errorLine).toBeGreaterThan(errorsIdx)
+  })
+
+  it("includes describe block errors count in summary line", () => {
+    const formatter = new OutputFormatter({})
+    const data: TestRunData = {
+      tests: [{ path: "block", result: "error", errors: ["err"], logs: [] }],
+      summary: makeSummary({ passed: 1, describeBlockErrors: 2, status: "failed" }),
+    }
+    formatter.formatSummary(data)
+
+    const countsLine = output.find((l) => l.includes("Tests:"))!
+    expect(countsLine).toContain("2 errors")
+    expect(countsLine).toContain("1 passed")
   })
 
   it("does nothing when summary is undefined", () => {

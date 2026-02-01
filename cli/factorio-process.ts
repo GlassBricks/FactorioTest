@@ -167,6 +167,9 @@ function createOutputComponents(options: FactorioTestOptions): OutputComponents 
     progress.handleTestFinished(test)
     progress.withPermanentOutput(() => printer.printTestResult(test))
   })
+  collector.on("describeBlockFailed", (block) => {
+    progress.withPermanentOutput(() => printer.printTestResult(block))
+  })
 
   handler.on("result", () => {
     progress.finish()

@@ -55,12 +55,80 @@ describe("TestRunCollector", () => {
     expect(data.tests[0].logs).toEqual(["log line 1", "log line 2"])
   })
 
-  it("does not capture logs when no test is running", () => {
+  it("does not attach pending logs to skipped tests", () => {
     collector.captureLog("orphan log")
     collector.handleEvent({ type: "testSkipped", test: { path: "test" } })
 
     const data = collector.getData()
     expect(data.tests[0].logs).toEqual([])
+  })
+
+  it("handles describeBlockFailed with errors and pending logs", () => {
+    collector.captureLog("hook output")
+    collector.handleEvent({
+      type: "describeBlockFailed",
+      block: { path: "root > block", source: { file: "test.ts", line: 5 } },
+      errors: ["Error running afterAll: Oh no"],
+    })
+
+    const data = collector.getData()
+    expect(data.tests).toHaveLength(1)
+    expect(data.tests[0]).toMatchObject({
+      path: "root > block",
+      result: "error",
+      errors: ["Error running afterAll: Oh no"],
+      logs: ["hook output"],
+      source: { file: "test.ts", line: 5 },
+    })
+  })
+
+  it("emits describeBlockFailed event", () => {
+    const handler = vi.fn()
+    collector.on("describeBlockFailed", handler)
+
+    collector.handleEvent({
+      type: "describeBlockFailed",
+      block: { path: "block" },
+      errors: ["err"],
+    })
+
+    expect(handler).toHaveBeenCalledOnce()
+    expect(handler.mock.calls[0][0].path).toBe("block")
+  })
+
+  it("clears pending logs when a new test starts", () => {
+    collector.captureLog("before test")
+    collector.handleEvent({ type: "testStarted", test: { path: "test" } })
+    collector.handleEvent({ type: "testPassed", test: { path: "test" } })
+
+    collector.handleEvent({
+      type: "describeBlockFailed",
+      block: { path: "block" },
+      errors: ["err"],
+    })
+
+    const data = collector.getData()
+    const block = data.tests.find((t) => t.path === "block")!
+    expect(block.logs).toEqual([])
+  })
+
+  it("captures logs after test finishes for describe block failure", () => {
+    collector.handleEvent({ type: "testStarted", test: { path: "test" } })
+    collector.captureLog("test log")
+    collector.handleEvent({ type: "testPassed", test: { path: "test" } })
+
+    collector.captureLog("after_all log")
+    collector.handleEvent({
+      type: "describeBlockFailed",
+      block: { path: "block" },
+      errors: ["hook error"],
+    })
+
+    const data = collector.getData()
+    expect(data.tests[0].logs).toEqual(["test log"])
+    const block = data.tests[1]
+    expect(block.logs).toEqual(["after_all log"])
+    expect(block.errors).toEqual(["hook error"])
   })
 
   it("handles testSkipped without prior testStarted", () => {

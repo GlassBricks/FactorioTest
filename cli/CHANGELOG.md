@@ -1,3 +1,10 @@
+## Unreleased
+
+### Improvements
+
+- Describe block errors (e.g. failing `after_all` hooks) are now displayed in CLI output.
+- Test failure recap now shows the test name on the first line, followed by labeled "Log messages:" and "Errors:" sections.
+
 ## v3.3.0
 
 ### Improvements

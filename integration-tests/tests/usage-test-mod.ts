@@ -16,7 +16,7 @@ async function runTest(ctx: TestContext): Promise<boolean> {
   }
   ctx.log("PASS: Found expected output")
 
-  const expectedSummary = "Tests: 1 failed, 1 todo, 2 skipped, 5 passed (9 total)"
+  const expectedSummary = "Tests: 1 failed, 2 errors, 1 todo, 2 skipped, 5 passed (9 total)"
   if (!stdout.includes(expectedSummary)) {
     ctx.log(`FAIL: Expected summary line "${expectedSummary}"`)
     ctx.log(`Output: ${stdout.slice(-500)}`)

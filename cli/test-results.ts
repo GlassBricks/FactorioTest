@@ -6,7 +6,7 @@ import { TestRunnerEvent, TestRunSummary, SourceLocation } from "../types/events
 export interface CapturedTest {
   path: string
   source?: SourceLocation
-  result: "passed" | "failed" | "skipped" | "todo"
+  result: "passed" | "failed" | "error" | "skipped" | "todo"
   errors: string[]
   logs: string[]
   durationMs?: number
@@ -19,6 +19,7 @@ export interface TestRunData {
 
 interface CollectorEvents {
   testFinished: [CapturedTest]
+  describeBlockFailed: [CapturedTest]
   runFinished: [TestRunData]
 }
 
@@ -26,12 +27,14 @@ export class TestRunCollector extends EventEmitter<CollectorEvents> {
   private data: TestRunData = { tests: [] }
   private currentTest: CapturedTest | undefined
   private currentLogs: string[] = []
+  private pendingLogs: string[] = []
   private testStartTime: number | undefined
 
   handleEvent(event: TestRunnerEvent): void {
     switch (event.type) {
       case "testStarted":
         this.flushCurrentTest()
+        this.pendingLogs = []
         this.testStartTime = performance.now()
         this.currentTest = {
           path: event.test.path,
@@ -88,6 +91,21 @@ export class TestRunCollector extends EventEmitter<CollectorEvents> {
         })
         break
 
+      case "describeBlockFailed": {
+        this.flushCurrentTest()
+        const captured: CapturedTest = {
+          path: event.block.path,
+          source: event.block.source,
+          result: "error",
+          errors: event.errors,
+          logs: [...this.pendingLogs],
+        }
+        this.data.tests.push(captured)
+        this.emit("describeBlockFailed", captured)
+        this.pendingLogs = []
+        break
+      }
+
       case "testRunFinished":
         this.flushCurrentTest()
         this.data.summary = event.results
@@ -103,6 +121,8 @@ export class TestRunCollector extends EventEmitter<CollectorEvents> {
   captureLog(line: string): void {
     if (this.currentTest) {
       this.currentLogs.push(line)
+    } else {
+      this.pendingLogs.push(line)
     }
   }
 
@@ -131,7 +151,7 @@ export interface ResultsFileContent {
   summary: TestRunData["summary"]
   tests: {
     path: string
-    result: "passed" | "failed" | "skipped" | "todo"
+    result: "passed" | "failed" | "error" | "skipped" | "todo"
     durationMs?: number
     errors?: string[]
   }[]

@@ -39,7 +39,7 @@ async function testResultsFileCreated(ctx: TestContext): Promise<boolean> {
   }
   if (!summaryPassed) return false
 
-  const expectedTestCount = 9
+  const expectedTestCount = 11
   if (content.tests.length !== expectedTestCount) {
     ctx.log(`FAIL: Expected ${expectedTestCount} tests, got ${content.tests.length}`)
     return false
