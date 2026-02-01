@@ -1,4 +1,4 @@
-## Unreleased
+## v3.3.1
 
 ### Improvements
 
