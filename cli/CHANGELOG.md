@@ -1,3 +1,9 @@
+## Unreleased
+
+### Improvements
+
+- Error messages for Factorio crashes/hangs now include the path to `factorio-current.log`.
+
 ## v3.2.0
 
 ### Features

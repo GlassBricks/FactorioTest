@@ -134,6 +134,10 @@ interface OutputComponents {
   collector: TestRunCollector
 }
 
+function factorioLogHint(dataDir: string): string {
+  return `\nCheck Factorio log for details: ${path.join(dataDir, "factorio-current.log")}`
+}
+
 function createOutputComponents(options: FactorioTestOptions): OutputComponents {
   const handler = new FactorioOutputHandler()
   const collector = new TestRunCollector()
@@ -258,13 +262,21 @@ export async function runFactorioTestsHeadless(
       if (wasCancelled) {
         resolve()
       } else if (outputTimedOut) {
-        reject(new CliError(`Factorio process stuck: no output received for ${outputTimeout} seconds`))
+        reject(
+          new CliError(
+            `Factorio process stuck: no output received for ${outputTimeout} seconds${factorioLogHint(dataDir)}`,
+          ),
+        )
       } else if (startupTimedOut) {
-        reject(new CliError("Factorio unresponsive: no test run started within 10 seconds"))
+        reject(new CliError(`Factorio unresponsive: no test run started within 10 seconds${factorioLogHint(dataDir)}`))
       } else if (handler.getResultMessage() !== undefined) {
         resolve()
       } else {
-        reject(new CliError(`Factorio exited with code ${code}, signal ${signal}, no result received`))
+        reject(
+          new CliError(
+            `Factorio exited with code ${code}, signal ${signal}, no result received${factorioLogHint(dataDir)}`,
+          ),
+        )
       }
     })
   })
@@ -320,7 +332,7 @@ export async function runFactorioTestsGraphics(
       if (handler.getResultMessage() !== undefined) {
         resolve()
       } else {
-        reject(new CliError(`Factorio exited with code ${code}, signal ${signal}`))
+        reject(new CliError(`Factorio exited with code ${code}, signal ${signal}${factorioLogHint(dataDir)}`))
       }
     })
   })

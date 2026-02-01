@@ -1,3 +1,4 @@
+import * as path from "path"
 import { runCliWithTimeout, runTestsDirectly, TestContext, TestDefinition } from "../test-utils.js"
 
 export const tests: TestDefinition[] = [
@@ -14,6 +15,7 @@ export const tests: TestDefinition[] = [
       )
 
       const output = stdout + stderr
+      const expectedLogPath = path.join(ctx.dataDir, "factorio-current.log")
 
       let passed = true
 
@@ -29,6 +31,14 @@ export const tests: TestDefinition[] = [
       } else {
         ctx.log(`FAIL: Expected "no output received for 3 seconds" in output`)
         ctx.log(`Output snippet: ${output.slice(0, 1000)}`)
+        passed = false
+      }
+
+      if (output.includes(expectedLogPath)) {
+        ctx.log(`PASS: Found log path hint`)
+      } else {
+        ctx.log(`FAIL: Expected log path "${expectedLogPath}" in output`)
+        ctx.log(`Output snippet: ${output.slice(-500)}`)
         passed = false
       }
 
