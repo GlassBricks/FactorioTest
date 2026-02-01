@@ -11,6 +11,7 @@ const DEFAULT_WATCH_PATTERNS = ["info.json", "**/*.lua"]
 export interface ResolvedConfig {
   graphics?: true
   watch?: true
+  noAutoStart?: true
 
   modPath?: string
   modName?: string
@@ -101,6 +102,7 @@ export function resolveConfig({ cliOptions, patterns }: ResolveConfigInput): Res
   return {
     graphics: cliOptions.graphics as true | undefined,
     watch: cliOptions.watch as true | undefined,
+    noAutoStart: cliOptions.autoStart === false ? true : undefined,
 
     modPath: baseConfig.modPath,
     modName: baseConfig.modName,

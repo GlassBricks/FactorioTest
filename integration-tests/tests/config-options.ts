@@ -136,6 +136,12 @@ const testCases: TestCase[] = [
     expectExitCode: 1,
   },
   {
+    name: "--no-auto-start without --graphics errors",
+    args: ["--no-auto-start"],
+    expectedError: "--no-auto-start requires --graphics",
+    expectExitCode: 1,
+  },
+  {
     name: "Invalid config key throws error",
     configFile: { invalidKey: true },
     expectedError: "invalidKey",

@@ -153,6 +153,7 @@ export interface CliOnlyOptions {
   config?: string
   graphics?: true
   watch?: true
+  autoStart?: false
 }
 
 export function registerAllCliOptions(command: Command<unknown[], Record<string, unknown>>): void {
@@ -164,6 +165,7 @@ export function registerAllCliOptions(command: Command<unknown[], Record<string,
   )
   command.option("-g --graphics", "Launch Factorio with graphics (interactive mode) instead of headless")
   command.option("-w --watch", "Watch for file changes and rerun tests")
+  command.option("--no-auto-start", "Configure tests but do not auto-start them (requires --graphics)")
 
   addOption(command, f.modPath.cli!)
   addOption(command, f.modName.cli!)

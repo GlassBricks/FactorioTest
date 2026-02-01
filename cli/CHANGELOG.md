@@ -1,3 +1,9 @@
+## Unreleased
+
+### Features
+
+- `--no-auto-start` option to configure tests without auto-starting them (requires `--graphics`).
+
 ## v3.4.0
 
 ### Improvements

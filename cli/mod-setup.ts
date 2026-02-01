@@ -186,6 +186,33 @@ export interface AutorunOptions {
   lastFailedTests?: string[]
 }
 
+export async function ensureModSettingsDat(
+  factorioPath: string,
+  dataDir: string,
+  modsDir: string,
+  verbose?: boolean,
+): Promise<void> {
+  const settingsDat = path.join(modsDir, "mod-settings.dat")
+  if (fs.existsSync(settingsDat)) return
+
+  if (verbose) console.log("Creating mod-settings.dat file by running factorio")
+  const dummySaveFile = path.join(dataDir, "____dummy_save_file.zip")
+  await runProcess(
+    false,
+    factorioPath,
+    "--create",
+    dummySaveFile,
+    "--mod-directory",
+    modsDir,
+    "-c",
+    path.join(dataDir, "config.ini"),
+  )
+
+  if (fs.existsSync(dummySaveFile)) {
+    await fsp.rm(dummySaveFile)
+  }
+}
+
 export async function setSettingsForAutorun(
   factorioPath: string,
   dataDir: string,
@@ -194,25 +221,7 @@ export async function setSettingsForAutorun(
   mode: "headless" | "graphics",
   options?: AutorunOptions,
 ): Promise<void> {
-  const settingsDat = path.join(modsDir, "mod-settings.dat")
-  if (!fs.existsSync(settingsDat)) {
-    if (options?.verbose) console.log("Creating mod-settings.dat file by running factorio")
-    const dummySaveFile = path.join(dataDir, "____dummy_save_file.zip")
-    await runProcess(
-      false,
-      factorioPath,
-      "--create",
-      dummySaveFile,
-      "--mod-directory",
-      modsDir,
-      "-c",
-      path.join(dataDir, "config.ini"),
-    )
-
-    if (fs.existsSync(dummySaveFile)) {
-      await fsp.rm(dummySaveFile)
-    }
-  }
+  await ensureModSettingsDat(factorioPath, dataDir, modsDir, options?.verbose)
   if (options?.verbose) console.log("Setting autorun settings")
   const autoStartConfig = JSON.stringify({
     mod: modToTest,

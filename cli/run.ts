@@ -17,6 +17,7 @@ import { watchDirectory, watchFile } from "./file-watcher.js"
 import {
   configureModToTest,
   ensureConfigIni,
+  ensureModSettingsDat,
   installFactorioTest,
   installModDependencies,
   installMods,
@@ -86,6 +87,9 @@ async function setupTestRun(patterns: string[], cliOptions: Record<string, unkno
   }
   if (config.modPath === undefined && config.modName === undefined) {
     throw new CliError("One of --mod-path or --mod-name must be specified.")
+  }
+  if (config.noAutoStart && !config.graphics) {
+    throw new CliError("--no-auto-start requires --graphics.")
   }
 
   const factorioPath = config.factorioPath ?? autoDetectFactorioPath()
@@ -276,10 +280,47 @@ async function runHeadlessWatchMode(ctx: TestRunContext): Promise<never> {
   return new Promise(() => {})
 }
 
+async function launchWithoutAutoStart(ctx: TestRunContext): Promise<void> {
+  const { config, factorioPath, dataDir, modsDir, modToTest, savePath, factorioArgs } = ctx
+
+  await ensureModSettingsDat(factorioPath, dataDir, modsDir, config.verbose)
+
+  await runScript(
+    "fmtk",
+    "settings",
+    "set",
+    "runtime-global",
+    "factorio-test-mod-to-test",
+    modToTest,
+    "--modsPath",
+    modsDir,
+  )
+
+  if (Object.keys(config.testConfig).length > 0) {
+    await runScript(
+      "fmtk",
+      "settings",
+      "set",
+      "runtime-global",
+      "factorio-test-config",
+      JSON.stringify(config.testConfig),
+      "--modsPath",
+      modsDir,
+    )
+  }
+
+  await runFactorioTestsGraphics(factorioPath, dataDir, savePath, factorioArgs, {
+    verbose: config.verbose,
+    quiet: config.quiet,
+  })
+}
+
 async function runTests(patterns: string[], cliOptions: Record<string, unknown>): Promise<void> {
   const ctx = await setupTestRun(patterns, cliOptions)
 
-  if (ctx.config.watch && ctx.config.graphics) {
+  if (ctx.config.noAutoStart) {
+    await launchWithoutAutoStart(ctx)
+  } else if (ctx.config.watch && ctx.config.graphics) {
     await runGraphicsWatchMode(ctx)
   } else if (ctx.config.watch) {
     await runHeadlessWatchMode(ctx)
