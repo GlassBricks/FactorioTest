@@ -152,7 +152,7 @@ function createOutputComponents(options: FactorioTestOptions): OutputComponents 
     collector.handleEvent(event)
     progress.handleEvent(event)
     if (options.verbose) {
-      progress.withPermanentOutput(() => console.log(JSON.stringify(event)))
+      progress.withPermanentOutput(() => printer.printEvent(event))
     }
   })
   handler.on("log", (line) => {

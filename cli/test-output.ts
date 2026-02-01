@@ -94,6 +94,7 @@ export interface FormatterOptions {
   verbose?: boolean
   quiet?: boolean
   showPassedLogs?: boolean
+  showLogs?: boolean
 }
 
 export class OutputFormatter {
@@ -106,7 +107,9 @@ export class OutputFormatter {
     const duration = test.durationMs !== undefined ? ` (${formatDuration(test.durationMs)})` : ""
     console.log(`${prefix} ${test.path}${duration}`)
 
-    const showLogs = test.result === "failed" || test.result === "error" || this.options.showPassedLogs
+    const showLogs =
+      this.options.showLogs !== false &&
+      (test.result === "failed" || test.result === "error" || this.options.showPassedLogs)
     if (showLogs && test.logs.length > 0) {
       console.log("Log messages:")
       for (const log of test.logs) {
@@ -157,6 +160,21 @@ export class OutputFormatter {
     console.log(`Tests: ${segments.join(", ")} (${total} total)`)
   }
 
+  formatEvent(event: TestRunnerEvent): string | undefined {
+    switch (event.type) {
+      case "testRunStarted":
+        return chalk.dim(`Running ${event.total} tests...`)
+      case "testStarted":
+        return chalk.dim(`Starting: ${event.test.path}`)
+      case "loadError":
+        return chalk.red(`Load error: ${event.error}`)
+      case "testRunCancelled":
+        return chalk.yellow("Test run cancelled")
+      default:
+        return undefined
+    }
+  }
+
   private getPrefix(result: CapturedTest["result"]): string {
     switch (result) {
       case "passed":
@@ -187,6 +205,7 @@ export class OutputPrinter {
       verbose: options.verbose,
       quiet: options.quiet,
       showPassedLogs: options.verbose,
+      showLogs: !options.verbose,
     })
   }
 
@@ -208,6 +227,13 @@ export class OutputPrinter {
 
   resetMessage(): void {
     this.isMessageFirstLine = true
+  }
+
+  printEvent(event: TestRunnerEvent): void {
+    const formatted = this.formatter.formatEvent(event)
+    if (formatted !== undefined) {
+      console.log(formatted)
+    }
   }
 
   printVerbose(line: string): void {

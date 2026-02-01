@@ -274,6 +274,120 @@ describe("OutputFormatter", () => {
   })
 })
 
+describe("OutputFormatter.formatEvent", () => {
+  it("formats testRunStarted", () => {
+    const formatter = new OutputFormatter({})
+    const result = formatter.formatEvent({ type: "testRunStarted", total: 42 })
+    expect(result).toContain("Running 42 tests...")
+  })
+
+  it("formats testStarted", () => {
+    const formatter = new OutputFormatter({})
+    const result = formatter.formatEvent({ type: "testStarted", test: { path: "root > my test" } })
+    expect(result).toContain("Starting: root > my test")
+  })
+
+  it("formats loadError", () => {
+    const formatter = new OutputFormatter({})
+    const result = formatter.formatEvent({ type: "loadError", error: "syntax error in foo.lua" })
+    expect(result).toContain("Load error: syntax error in foo.lua")
+  })
+
+  it("formats testRunCancelled", () => {
+    const formatter = new OutputFormatter({})
+    const result = formatter.formatEvent({ type: "testRunCancelled" })
+    expect(result).toContain("Test run cancelled")
+  })
+
+  it("returns undefined for testPassed", () => {
+    const formatter = new OutputFormatter({})
+    const result = formatter.formatEvent({ type: "testPassed", test: { path: "test" } })
+    expect(result).toBeUndefined()
+  })
+
+  it("returns undefined for testFailed", () => {
+    const formatter = new OutputFormatter({})
+    const result = formatter.formatEvent({ type: "testFailed", test: { path: "test" }, errors: ["err"] })
+    expect(result).toBeUndefined()
+  })
+
+  it("returns undefined for testRunFinished", () => {
+    const formatter = new OutputFormatter({})
+    const result = formatter.formatEvent({
+      type: "testRunFinished",
+      results: {
+        ran: 1,
+        passed: 1,
+        failed: 0,
+        skipped: 0,
+        todo: 0,
+        cancelled: 0,
+        describeBlockErrors: 0,
+        status: "passed",
+      },
+    })
+    expect(result).toBeUndefined()
+  })
+})
+
+describe("OutputFormatter showLogs option", () => {
+  let consoleSpy: ReturnType<typeof vi.spyOn>
+  let output: string[]
+
+  beforeEach(() => {
+    output = []
+    consoleSpy = vi.spyOn(console, "log").mockImplementation((...args) => {
+      output.push(args.join(" "))
+    })
+  })
+
+  afterEach(() => {
+    consoleSpy.mockRestore()
+  })
+
+  it("showLogs: false suppresses logs for failed tests", () => {
+    const formatter = new OutputFormatter({ showLogs: false })
+    const test: CapturedTest = {
+      path: "test",
+      result: "failed",
+      errors: ["assertion failed"],
+      logs: ["debug output"],
+    }
+    formatter.formatTestResult(test)
+
+    expect(output.some((l) => l.includes("Log messages:"))).toBe(false)
+    expect(output.some((l) => l.includes("debug output"))).toBe(false)
+  })
+
+  it("showLogs: false still shows errors", () => {
+    const formatter = new OutputFormatter({ showLogs: false })
+    const test: CapturedTest = {
+      path: "test",
+      result: "failed",
+      errors: ["assertion failed"],
+      logs: ["debug output"],
+    }
+    formatter.formatTestResult(test)
+
+    expect(output.some((l) => l.includes("Errors:"))).toBe(true)
+    expect(output.some((l) => l.includes("assertion failed"))).toBe(true)
+  })
+
+  it("showLogs: false suppresses logs for error results", () => {
+    const formatter = new OutputFormatter({ showLogs: false })
+    const test: CapturedTest = {
+      path: "block",
+      result: "error",
+      errors: ["hook error"],
+      logs: ["hook log"],
+    }
+    formatter.formatTestResult(test)
+
+    expect(output.some((l) => l.includes("hook log"))).toBe(false)
+    expect(output.some((l) => l.includes("hook error"))).toBe(true)
+  })
+})
+
 describe("OutputFormatter.formatSummary", () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>
   let output: string[]
@@ -483,6 +597,32 @@ describe("OutputPrinter", () => {
     expect(output.some((line) => line.includes("PASS"))).toBe(true)
     expect(output.some((line) => line.includes("FAIL"))).toBe(true)
     expect(output.some((line) => line.includes("TODO"))).toBe(true)
+  })
+
+  it("verbose mode: printEvent prints formatted events", () => {
+    const printer = new OutputPrinter({ verbose: true })
+    printer.printEvent({ type: "testStarted", test: { path: "root > test" } })
+    expect(output.some((l) => l.includes("Starting: root > test"))).toBe(true)
+  })
+
+  it("verbose mode: printEvent skips events that return undefined", () => {
+    const printer = new OutputPrinter({ verbose: true })
+    printer.printEvent({ type: "testPassed", test: { path: "test" } })
+    expect(output).toHaveLength(0)
+  })
+
+  it("verbose mode: printTestResult does not include logs", () => {
+    const printer = new OutputPrinter({ verbose: true })
+    const test: CapturedTest = {
+      path: "test",
+      result: "failed",
+      errors: ["err"],
+      logs: ["debug log"],
+    }
+    printer.printTestResult(test)
+    expect(output.some((l) => l.includes("FAIL"))).toBe(true)
+    expect(output.some((l) => l.includes("debug log"))).toBe(false)
+    expect(output.some((l) => l.includes("err"))).toBe(true)
   })
 
   it("hides all tests in quiet mode", () => {

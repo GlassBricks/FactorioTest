@@ -1,3 +1,10 @@
+## Unreleased
+
+### Improvements
+
+- Verbose mode now shows human-readable event messages instead of raw JSON.
+- Verbose mode no longer duplicates log lines in per-test results (logs are already streamed inline).
+
 ## v3.3.1
 
 ### Improvements
