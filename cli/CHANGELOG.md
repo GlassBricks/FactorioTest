@@ -4,6 +4,10 @@
 
 - `--reorder-failed-first` is now disabled by default. Use `--reorder-failed-first` to opt in.
 
+### Improvements
+
+- Improved help text.
+
 ## v3.5.0
 
 ### Features

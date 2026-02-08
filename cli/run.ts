@@ -6,8 +6,8 @@ import * as fsp from "fs/promises"
 import * as path from "path"
 import { CliError } from "./cli-error.js"
 import { registerAllCliOptions, resolveConfig, type ResolvedConfig } from "./config/index.js"
-import { autoDetectFactorioPath } from "./factorio-process.js"
 import {
+  autoDetectFactorioPath,
   FactorioTestResult,
   getHeadlessSavePath,
   runFactorioTestsGraphics,
@@ -35,17 +35,27 @@ const thisCommand = (program as unknown as Command)
   .summary("Runs tests with Factorio test.")
   .description(
     `Runs tests for the specified mod with Factorio test. Exits with code 0 only if all tests pass.
-
 One of --mod-path or --mod-name is required.
-Test execution options (--test-pattern, --tag-*, --bail, etc.) override in-mod config.
 
-When using variadic options (--mods, --factorio-args, etc.) with filter patterns,
-use -- to separate them:
-  factorio-test run -p ./my-mod --mods quality space-age -- "inventory"
+JSON configuration:
+  Instead of using command-line arguments, you can configure the test runner using a JSON file.
+  By default, the CLI will look for a factorio-test.json file or a "factorio-test" key in
+  package.json. You can specify a custom file using the --config option.
+  CLI arguments override file config.
+  Test execution options (options that can also be specified in the mod itself) go under the
+  "test" key using snake_case, overriding in-mod config.
+    {
+      "modPath": "./my-mod",
+      "test": { "bail": 1, "game_speed": 100, "tag_blacklist": ["slow"] }
+    }
 
-Patterns use Lua pattern syntax (not regex). Special characters like - must be
-escaped with %:
-  factorio-test run -p ./my-mod "my%-test"  Match "my-test" (escape the dash)
+Test filter patterns:
+  Filter patterns use Lua pattern syntax (not regex). Special characters like -
+  must be escaped with %:
+    factorio-test run -p ./my-mod "foo > my%-test"
+  When using variadic options (--mods, --factorio-args, etc.) with filter
+  patterns, use -- to separate them:
+    factorio-test run -p ./my-mod --mods quality space-age -- "inventory"
 
 Examples:
   factorio-test run -p ./my-mod             Run all tests
