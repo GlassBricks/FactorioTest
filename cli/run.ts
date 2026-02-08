@@ -152,7 +152,7 @@ async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions)
   const { config, factorioPath, dataDir, modsDir, modToTest, mode, savePath, factorioArgs } = ctx
   const { signal, skipResetAutorun, resolveOnResult } = execOptions ?? {}
 
-  const reorderEnabled = config.testConfig.reorder_failed_first ?? true
+  const reorderEnabled = config.testConfig.reorder_failed_first ?? false
   const lastFailedTests = reorderEnabled && config.outputFile ? await readPreviousFailedTests(config.outputFile) : []
 
   await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest, mode, {
