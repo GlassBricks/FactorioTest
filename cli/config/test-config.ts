@@ -66,7 +66,7 @@ const testConfigFields = {
     schema: z.boolean().optional(),
     cli: {
       flags: "--reorder-failed-first",
-      description: "Run previously failed tests first (default: enabled).",
+      description: "Run previously failed tests first (default: disabled).",
       negatable: true,
     },
   },

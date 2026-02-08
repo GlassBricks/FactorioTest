@@ -73,7 +73,7 @@ async function testFailedTestsReorderedFirst(ctx: TestContext): Promise<boolean>
   }
 
   ctx.log("Second run (should reorder)...")
-  const { stdout } = await runCli({ dataDir: ctx.dataDir })
+  const { stdout } = await runCli({ dataDir: ctx.dataDir, extraArgs: ["--reorder-failed-first"] })
 
   const passIndex = stdout.indexOf("PASS test1 > Pass")
   const failIndex = stdout.indexOf("FAIL test1 > each 2")

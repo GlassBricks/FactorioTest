@@ -1,3 +1,9 @@
+## Unreleased
+
+### Changes
+
+- `--reorder-failed-first` is now disabled by default. Use `--reorder-failed-first` to opt in.
+
 ## v3.5.0
 
 ### Features

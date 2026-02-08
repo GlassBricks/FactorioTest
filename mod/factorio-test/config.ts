@@ -14,7 +14,7 @@ const defaultConfig: Config = {
   log_passed_tests: true,
   log_skipped_tests: false,
   sound_effects: false,
-  reorder_failed_first: true,
+  reorder_failed_first: false,
   load_luassert: false,
 }
 
