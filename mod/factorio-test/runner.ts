@@ -19,39 +19,35 @@ export interface TestRunner {
   requestCancel(): void
 }
 
-interface TestTasks {
-  init(): void
-  enterDescribe(block: DescribeBlock): void
-  enterTest(test: Test): void
-  startTest(test: Test): void
-  runTestPart(testRun: TestRun): void
-  waitForTestPart(testRun: TestRun): void
-  leaveTest(testRun: TestRun): void
-  leaveDescribeBlock(block: DescribeBlock): void
-  finishTestRun(): void
-}
-type Task = {
-  [K in keyof TestTasks]: TestTasks[K] extends () => void
-    ? {
-        task: K
-        data?: never
-        waitTicks?: number
-      }
-    : TestTasks[K] extends (arg: infer A) => void
-      ? {
-          task: K
-          data: A
-          waitTicks?: number
-        }
-      : never
-}[keyof TestTasks]
-
-type TestTaskRunner = {
-  [K in keyof TestTasks]: TestTasks[K] extends (...args: infer T) => void ? (...args: T) => Task | undefined : never
-}
-
 export function createTestRunner(state: TestState): TestRunner {
   return new TestRunnerImpl(state)
+}
+
+/** The points at which the test runner can suspend/resume across a tick. */
+type Resumption = { kind: "beforeTest"; test: Test; ticksLeft: number } | { kind: "asyncPart"; testRun: TestRun }
+
+/**
+ * Position in the test tree: `block` has already been entered (its
+ * describeBlockEntered raised and its beforeAll run), and `block.children[index]`
+ * is the next thing to consider. Ancestor cursors are not materialized; the
+ * return position is recomputed as `child.indexInParent + 1` on the way up.
+ */
+interface Cursor {
+  block: DescribeBlock
+  index: number
+}
+
+function newTestRun(test: Test, partIndex: number): TestRun {
+  return {
+    test,
+    async: false,
+    timeout: 0,
+    asyncDone: false,
+    tickStarted: game.tick,
+    onTickFuncs: new LuaSet(),
+    afterTestFuncs: [],
+    partIndex,
+  }
 }
 
 function runBlockHooks(block: DescribeBlock, type: "beforeAll" | "afterAll", recordErrors: boolean): void {
@@ -84,102 +80,69 @@ function isPartComplete(testRun: TestRun): boolean {
   )
 }
 
-class TestRunnerImpl implements TestTaskRunner, TestRunner {
+class TestRunnerImpl implements TestRunner {
   constructor(private state: TestState) {}
-  ticksToWait = 0
-  nextTask: Task | undefined = { task: "init" }
+
+  private status: "notStarted" | "running" | "done" = "notStarted"
+  private cursor: Cursor | undefined
+  private resumePoint: Resumption | undefined
 
   tick(): void {
-    if (this.state.cancelRequested && this.nextTask) {
-      this.nextTask = this.cancelTestRun()
+    if (this.status === "done") return
+    if (this.state.cancelRequested) {
+      this.cancelRun()
       return
     }
-    if (this.ticksToWait > 0) {
-      if (--this.ticksToWait > 0) return
+    if (this.status === "notStarted") {
+      this.begin()
+      return
     }
-    while (this.nextTask) {
-      if (this.state.cancelRequested) return
-      this.nextTask = this.runTask(this.nextTask)
-      if (this.nextTask) {
-        this.ticksToWait = this.nextTask.waitTicks ?? 0
+    const resumePoint = this.resumePoint
+    this.resumePoint = undefined
+    if (!resumePoint) {
+      this.advance()
+    } else if (resumePoint.kind === "beforeTest") {
+      resumePoint.ticksLeft--
+      if (resumePoint.ticksLeft > 0) {
+        this.resumePoint = resumePoint
+      } else if (!this.startAndRunTest(resumePoint.test)) {
+        this.advance()
       }
-      if (this.ticksToWait > 0) return
+    } else if (!this.pollAsyncPart(resumePoint.testRun)) {
+      this.advance()
     }
   }
 
-  isDone() {
-    return this.nextTask === undefined
+  isDone(): boolean {
+    return this.status === "done"
   }
 
   requestCancel(): void {
     this.state.cancelRequested = true
   }
 
-  private cancelTestRun(): Task | undefined {
-    const { state } = this
-    let startBlock: DescribeBlock | undefined
-    if (state.currentTestRun) {
-      const { test } = state.currentTestRun
-      startBlock = test.parent
-      runAfterEachHooks(state.currentTestRun, false)
-      test.profiler?.stop()
-      state.currentTestRun = undefined
-    } else {
-      startBlock = this.getBlockFromNextTask()
-    }
-    let block: DescribeBlock | undefined = startBlock ?? state.rootBlock
-    while (block) {
-      // beforeAll only runs for blocks with active tests, so afterAll must match
-      if (this.hasAnyTest(block)) {
-        runBlockHooks(block, "afterAll", false)
-      }
-      state.raiseTestEvent({ type: "describeBlockFinished", block })
-      block = block.parent
-    }
-    state.profiler?.stop()
-    state.setTestStage(TestStage.Finished)
-    state.raiseTestEvent(state.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
-    return undefined
-  }
-
-  private getBlockFromNextTask(): DescribeBlock | undefined {
-    const task = this.nextTask
-    if (!task?.data) return undefined
-    const data = task.data as Test | DescribeBlock | TestRun
-    if ("type" in data) {
-      return data.type === "test" ? data.parent : data.type === "describeBlock" ? data : undefined
-    }
-    return "test" in data ? data.test.parent : undefined
-  }
-
-  private runTask(task: Task): Task | undefined {
-    const nextTask: Task | undefined = this[task.task](task.data as any)
-    if (nextTask) {
-      this.ticksToWait = nextTask.waitTicks || 0
-    }
-    return nextTask
-  }
-
-  init(): Task | undefined {
+  private begin(): void {
     if (game.is_multiplayer()) {
       error("Tests cannot be in run in multiplayer")
     }
+    this.status = "running"
     const stage = this.state.getTestStage()
     if (stage === TestStage.NotRun || stage === TestStage.Ready) {
-      return this.startTestRun()
+      this.startTestRun()
     } else if (stage === TestStage.ReloadingMods) {
-      return this.attemptResumeAfterReload()
+      this.resumeAfterReload()
     } else if (stage === TestStage.Running) {
-      return this.createLoadError(
+      this.setLoadError(
         `Save was unexpectedly reloaded while tests were running. This will cause tests to break. Aborting test run.`,
       )
     } else if (stage === TestStage.Finished || stage === TestStage.LoadError) {
-      return this.rerun()
+      this.rerun()
+    } else {
+      assertNever(stage)
     }
-    assertNever(stage)
   }
 
-  private startTestRun(): Task {
+  private startTestRun(): void {
     const { state } = this
     state.profiler = helpers.create_profiler()
     state.setTestStage(TestStage.Running)
@@ -187,121 +150,151 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
       markFailedTestsAndDescendants(state.rootBlock)
     }
     state.raiseTestEvent({ type: "testRunStarted" })
-    return { task: "enterDescribe", data: state.rootBlock }
+
+    this.enterBlock(state.rootBlock)
+    this.cursor = { block: state.rootBlock, index: 0 }
+    this.advance()
   }
 
-  private attemptResumeAfterReload(): Task | undefined {
-    const resumePoint = resumeAfterReload(this.state)
-    if (!resumePoint) {
-      return this.createLoadError(`Mod files were changed after reload. Aborting test run.`)
-    }
-    const { test, partIndex } = resumePoint
-    this.state.setTestStage(TestStage.Running)
-    return {
-      task: "runTestPart",
-      data: TestRunnerImpl.newTestRun(test!, partIndex),
-    }
-  }
-  private rerun(): Task {
-    const { state } = this
-    const tagBlacklist = (state.config.tag_blacklist ??= [])
+  private rerun(): void {
+    const tagBlacklist = (this.state.config.tag_blacklist ??= [])
     if (tagBlacklist.indexOf("no_rerun") === -1) {
       tagBlacklist.push("no_rerun")
     }
-    return this.startTestRun()
+    this.startTestRun()
   }
 
-  enterDescribe(block: DescribeBlock): Task {
-    this.state.raiseTestEvent({
-      type: "describeBlockEntered",
-      block,
-    })
-
-    if (block.errors.length !== 0) {
-      return {
-        task: "leaveDescribeBlock",
-        data: block,
-      }
+  private resumeAfterReload(): void {
+    const resumePoint = resumeAfterReload(this.state)
+    if (!resumePoint) {
+      this.setLoadError(`Mod files were changed after reload. Aborting test run.`)
+      return
     }
+    const { test, partIndex } = resumePoint
+    this.state.setTestStage(TestStage.Running)
+    // the cursor must point *past* the resumed test, or it would be re-run forever
+    this.cursor = { block: test.parent, index: test.indexInParent + 1 }
+
+    const testRun = newTestRun(test, partIndex)
+    this.runPart(testRun)
+    if (!this.advanceParts(testRun)) {
+      this.advance()
+    }
+  }
+
+  private setLoadError(message: string): void {
+    this.status = "done"
+    setToLoadErrorState(this.state, message)
+    this.state.raiseTestEvent({ type: "loadError" })
+  }
+
+  /** The flat driver: pull the next test out of the walk and run it, until suspended or done. */
+  private advance(): void {
+    while (!this.state.cancelRequested) {
+      const test = this.nextTest()
+      // a cancel during the final ascent must not be mistaken for "suite finished"
+      if (this.state.cancelRequested) return
+      if (!test) {
+        this.finishRun()
+        return
+      }
+      if (test.ticksBefore > 0) {
+        this.resumePoint = { kind: "beforeTest", test, ticksLeft: test.ticksBefore }
+        return
+      }
+      if (this.startAndRunTest(test)) return
+    }
+  }
+
+  /**
+   * Walks the tree from the cursor to the next runnable test, entering and leaving
+   * describe blocks and consuming skipped tests on the way. Returns undefined once
+   * the walk pops past the root.
+   *
+   * Every iteration must descend, ascend, or advance the index, or advance() spins
+   * forever within a single tick.
+   */
+  private nextTest(): Test | undefined {
+    while (true) {
+      // a cancel from a before_all/after_all hook must stop the walk here
+      if (this.state.cancelRequested) return undefined
+
+      const cursor = this.cursor!
+      const { block } = cursor
+
+      if (block.errors.length > 0 || cursor.index >= block.children.length) {
+        this.leaveBlock(block)
+        if (!block.parent) {
+          this.cursor = undefined
+          return undefined
+        }
+        this.cursor = { block: block.parent, index: block.indexInParent + 1 }
+        continue
+      }
+
+      const child = block.children[cursor.index]!
+      if (child.type === "describeBlock") {
+        this.enterBlock(child)
+        this.cursor = { block: child, index: 0 }
+        continue
+      }
+
+      // reorderChildren rewrites indexInParent, so advance the cursor directly
+      cursor.index++
+      this.state.raiseTestEvent({ type: "testEntered", test: child })
+      if (!isSkippedTest(child, this.state)) return child
+      this.state.raiseTestEvent(
+        child.mode === "todo" ? { type: "testTodo", test: child } : { type: "testSkipped", test: child },
+      )
+    }
+  }
+
+  private enterBlock(block: DescribeBlock): void {
+    this.state.raiseTestEvent({ type: "describeBlockEntered", block })
+    if (block.errors.length !== 0) return
+
     if (block.children.length === 0) {
       block.errors.push("No tests defined")
     }
-
     if (shouldReorderFailedFirst(this.state)) {
       reorderChildren(block)
     }
-
     if (this.hasAnyTest(block)) {
       runBlockHooks(block, "beforeAll", true)
     }
-    return TestRunnerImpl.getNextDescribeBlockTask(block, 0)
   }
 
-  enterTest(test: Test): Task {
-    this.state.raiseTestEvent({
-      type: "testEntered",
-      test,
-    })
-    if (isSkippedTest(test, this.state)) {
-      if (test.mode === "todo") {
-        this.state.raiseTestEvent({
-          type: "testTodo",
-          test,
-        })
-      } else {
-        this.state.raiseTestEvent({
-          type: "testSkipped",
-          test,
-        })
-      }
-      return TestRunnerImpl.getNextDescribeBlockTask(test.parent, test.indexInParent + 1)
+  private leaveBlock(block: DescribeBlock): void {
+    if (this.hasAnyTest(block)) {
+      runBlockHooks(block, "afterAll", true)
     }
-
-    return {
-      task: "startTest",
-      data: test,
-      waitTicks: test.ticksBefore,
-    }
+    this.state.raiseTestEvent(
+      block.errors.length > 0 ? { type: "describeBlockFailed", block } : { type: "describeBlockFinished", block },
+    )
   }
 
-  startTest(test: Test): Task {
+  /** Returns true if the runner suspended on an async part. */
+  private startAndRunTest(test: Test): boolean {
     test.profiler = helpers.create_profiler()
-    const testRun = TestRunnerImpl.newTestRun(test, 0)
+    const testRun = newTestRun(test, 0)
     this.state.currentTestRun = testRun
-    this.state.raiseTestEvent({
-      type: "testStarted",
-      test,
-    })
+    this.state.raiseTestEvent({ type: "testStarted", test })
 
     const beforeEach = collectBeforeEachHooks(test.parent)
     for (const hook of beforeEach) {
       if (test.errors.length !== 0) break
-      const [success, error] = __factorio_test__pcallWithStacktrace(hook)
+      const [success, message] = __factorio_test__pcallWithStacktrace(hook)
       if (!success) {
-        test.errors.push(error as string)
+        test.errors.push(message as string)
       }
     }
-    return {
-      task: "runTestPart",
-      data: testRun,
-    }
+
+    this.runPart(testRun)
+    return this.advanceParts(testRun)
   }
 
-  runTestPart(testRun: TestRun): Task {
-    const { test, partIndex } = testRun
-    const part = test.parts[partIndex]!
-    this.state.currentTestRun = testRun
-    if (test.errors.length === 0) {
-      const [success, error] = __factorio_test__pcallWithStacktrace(part.func)
-      if (!success) {
-        test.errors.push(error as string)
-      }
-    }
-    return TestRunnerImpl.nextTestTask(testRun)
-  }
-
-  waitForTestPart(testRun: TestRun): Task {
-    // run on tick events
+  /** Returns true if the runner is still suspended on the part. */
+  private pollAsyncPart(testRun: TestRun): boolean {
     const { test, partIndex } = testRun
     const tickNumber = game.tick - testRun.tickStarted
     const timeout = testRun.timeout
@@ -310,6 +303,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     }
 
     if (test.errors.length === 0) {
+      // snapshot: a handler registered during this tick must not run until the next
       for (const func of Object.keys(testRun.onTickFuncs)) {
         const [success, result] = __factorio_test__pcallWithStacktrace(func, tickNumber)
         if (!success) {
@@ -320,136 +314,103 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
         }
       }
     }
-    return TestRunnerImpl.nextTestTask(testRun)
+    return this.advanceParts(testRun)
   }
 
-  leaveTest(testRun: TestRun): Task {
+  private runPart(testRun: TestRun): void {
+    const { test, partIndex } = testRun
+    this.state.currentTestRun = testRun
+    if (test.errors.length === 0) {
+      const [success, message] = __factorio_test__pcallWithStacktrace(test.parts[partIndex]!.func)
+      if (!success) {
+        test.errors.push(message as string)
+      }
+    }
+  }
+
+  /**
+   * Called after a part has run or been polled: runs any following parts, then either
+   * suspends on an unfinished part or leaves the test. Returns true if suspended.
+   */
+  private advanceParts(testRun: TestRun): boolean {
+    let current = testRun
+    while (isPartComplete(current)) {
+      const { test, partIndex } = current
+      if (partIndex + 1 >= test.parts.length) {
+        // A cancel raised from the test body must not emit testPassed/testFailed.
+        // Leave currentTestRun set, so the next tick's cancelRun runs afterEach.
+        if (this.state.cancelRequested) return true
+        this.leaveTest(current)
+        return false
+      }
+      current = newTestRun(test, partIndex + 1)
+      this.runPart(current)
+    }
+    this.resumePoint = { kind: "asyncPart", testRun: current }
+    return true
+  }
+
+  private leaveTest(testRun: TestRun): void {
     const { test } = testRun
     runAfterEachHooks(testRun, true)
     this.state.currentTestRun = undefined
     test.profiler!.stop()
-    if (test.errors.length > 0) {
-      this.state.raiseTestEvent({
-        type: "testFailed",
-        test,
-      })
-      if (this.state.config.bail !== undefined) {
-        this.state.failureCount++
-        if (this.state.failureCount >= this.state.config.bail) {
-          this.state.bailedOut = true
-          this.requestCancel()
-        }
+
+    if (test.errors.length === 0) {
+      this.state.raiseTestEvent({ type: "testPassed", test })
+      return
+    }
+    this.state.raiseTestEvent({ type: "testFailed", test })
+    const { bail } = this.state.config
+    if (bail !== undefined) {
+      this.state.failureCount++
+      if (this.state.failureCount >= bail) {
+        this.state.bailedOut = true
+        this.requestCancel()
       }
-    } else {
-      this.state.raiseTestEvent({
-        type: "testPassed",
-        test,
-      })
     }
-
-    return TestRunnerImpl.getNextDescribeBlockTask(test.parent, test.indexInParent + 1)
   }
 
-  leaveDescribeBlock(block: DescribeBlock): Task | undefined {
-    if (this.hasAnyTest(block)) {
-      runBlockHooks(block, "afterAll", true)
-    }
-    if (block.errors.length > 0) {
-      this.state.raiseTestEvent({
-        type: "describeBlockFailed",
-        block,
-      })
-    } else {
-      this.state.raiseTestEvent({
-        type: "describeBlockFinished",
-        block,
-      })
-    }
-    return block.parent
-      ? TestRunnerImpl.getNextDescribeBlockTask(block.parent, block.indexInParent + 1)
-      : {
-          task: "finishTestRun",
-        }
-  }
-
-  finishTestRun() {
+  private finishRun(): void {
+    this.status = "done"
     const { state } = this
     state.profiler?.stop()
     state.setTestStage(TestStage.Finished)
-    state.raiseTestEvent({
-      type: "testRunFinished",
-    })
-    return undefined
+    state.raiseTestEvent({ type: "testRunFinished" })
   }
 
-  private static getNextDescribeBlockTask(block: DescribeBlock, index: number): Task {
-    if (block.errors.length > 0) {
-      return {
-        task: "leaveDescribeBlock",
-        data: block,
-      }
+  private cancelRun(): void {
+    const { state } = this
+    let block: DescribeBlock | undefined
+    if (state.currentTestRun) {
+      const { test } = state.currentTestRun
+      block = test.parent
+      runAfterEachHooks(state.currentTestRun, false)
+      test.profiler?.stop()
+      state.currentTestRun = undefined
+    } else {
+      block = this.cursor?.block
     }
 
-    const item = block.children[index]
-    if (item) {
-      return item.type === "describeBlock"
-        ? {
-            task: "enterDescribe",
-            data: item,
-          }
-        : {
-            task: "enterTest",
-            data: item,
-          }
+    block ??= state.rootBlock
+    while (block) {
+      // beforeAll only runs for blocks with active tests, so afterAll must match
+      if (this.hasAnyTest(block)) {
+        runBlockHooks(block, "afterAll", false)
+      }
+      state.raiseTestEvent({ type: "describeBlockFinished", block })
+      block = block.parent
     }
-    return {
-      task: "leaveDescribeBlock",
-      data: block,
-    }
+
+    this.status = "done"
+    state.profiler?.stop()
+    state.setTestStage(TestStage.Finished)
+    state.raiseTestEvent(state.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
   }
 
   private hasAnyTest(block: DescribeBlock): boolean {
     return block.children.some((child) =>
       child.type === "test" ? !isSkippedTest(child, this.state) : this.hasAnyTest(child),
     )
-  }
-
-  private createLoadError(message: string) {
-    setToLoadErrorState(this.state, message)
-    this.state.raiseTestEvent({ type: "loadError" })
-    return undefined
-  }
-
-  private static nextTestTask(testRun: TestRun): Task {
-    const { test, partIndex } = testRun
-    if (isPartComplete(testRun)) {
-      if (partIndex + 1 < test.parts.length) {
-        return {
-          task: "runTestPart",
-          data: TestRunnerImpl.newTestRun(test, partIndex + 1),
-        }
-      }
-      return {
-        task: "leaveTest",
-        data: testRun,
-      }
-    }
-    return {
-      task: "waitForTestPart",
-      data: testRun,
-      waitTicks: 1,
-    }
-  }
-  private static newTestRun(test: Test, partIndex: number): TestRun {
-    return {
-      test,
-      async: false,
-      timeout: 0,
-      asyncDone: false,
-      tickStarted: game.tick,
-      onTickFuncs: new LuaSet(),
-      afterTestFuncs: [],
-      partIndex,
-    }
   }
 }
