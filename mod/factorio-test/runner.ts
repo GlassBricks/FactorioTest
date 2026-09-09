@@ -3,7 +3,14 @@ import { TestStage } from "../constants"
 import { __factorio_test__pcallWithStacktrace, assertNever } from "./_util"
 import { resumeAfterReload } from "./reload-resume"
 import { TestRun, TestState, setToLoadErrorState } from "./state"
-import { DescribeBlock, Test, collectHooks, formatSource, isSkippedTest } from "./tests"
+import {
+  DescribeBlock,
+  Test,
+  collectAfterEachHooks,
+  collectBeforeEachHooks,
+  formatSource,
+  isSkippedTest,
+} from "./tests"
 import { shouldReorderFailedFirst, markFailedTestsAndDescendants, reorderChildren } from "./test-reordering"
 
 export interface TestRunner {
@@ -47,6 +54,36 @@ export function createTestRunner(state: TestState): TestRunner {
   return new TestRunnerImpl(state)
 }
 
+function runBlockHooks(block: DescribeBlock, type: "beforeAll" | "afterAll", recordErrors: boolean): void {
+  for (const hook of block.hooks) {
+    if (hook.type !== type) continue
+    const [success, message] = __factorio_test__pcallWithStacktrace(hook.func)
+    if (!success && recordErrors) {
+      block.errors.push(`Error running ${type}: ${message}`)
+    }
+  }
+}
+
+function runAfterEachHooks(testRun: TestRun, recordErrors: boolean): void {
+  const { test, afterTestFuncs } = testRun
+  const hooks = [...afterTestFuncs, ...collectAfterEachHooks(test.parent)]
+  for (const hook of hooks) {
+    const [success, message] = __factorio_test__pcallWithStacktrace(hook)
+    if (!success && recordErrors) {
+      test.errors.push(message as string)
+    }
+  }
+}
+
+function isPartComplete(testRun: TestRun): boolean {
+  return (
+    testRun.test.errors.length !== 0 ||
+    !testRun.async ||
+    testRun.asyncDone ||
+    (!testRun.explicitAsync && next(testRun.onTickFuncs)[0] === undefined)
+  )
+}
+
 class TestRunnerImpl implements TestTaskRunner, TestRunner {
   constructor(private state: TestState) {}
   ticksToWait = 0
@@ -82,12 +119,9 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     const { state } = this
     let startBlock: DescribeBlock | undefined
     if (state.currentTestRun) {
-      const { test, afterTestFuncs } = state.currentTestRun
+      const { test } = state.currentTestRun
       startBlock = test.parent
-      const afterEach = [...afterTestFuncs, ...collectHooks(test.parent, "afterEach", "descendants-first")]
-      for (const hook of afterEach) {
-        __factorio_test__pcallWithStacktrace(hook)
-      }
+      runAfterEachHooks(state.currentTestRun, false)
       test.profiler?.stop()
       state.currentTestRun = undefined
     } else {
@@ -97,10 +131,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     while (block) {
       // beforeAll only runs for blocks with active tests, so afterAll must match
       if (this.hasAnyTest(block)) {
-        const hooks = block.hooks.filter((x) => x.type === "afterAll")
-        for (const hook of hooks) {
-          __factorio_test__pcallWithStacktrace(hook.func)
-        }
+        runBlockHooks(block, "afterAll", false)
       }
       state.raiseTestEvent({ type: "describeBlockFinished", block })
       block = block.parent
@@ -201,13 +232,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     }
 
     if (this.hasAnyTest(block)) {
-      const hooks = block.hooks.filter((x) => x.type === "beforeAll")
-      for (const hook of hooks) {
-        const [success, message] = __factorio_test__pcallWithStacktrace(hook.func)
-        if (!success) {
-          block.errors.push(`Error running ${hook.type}: ${message}`)
-        }
-      }
+      runBlockHooks(block, "beforeAll", true)
     }
     return TestRunnerImpl.getNextDescribeBlockTask(block, 0)
   }
@@ -248,7 +273,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
       test,
     })
 
-    const beforeEach = collectHooks(test.parent, "beforeEach", "ancestors-first")
+    const beforeEach = collectBeforeEachHooks(test.parent)
     for (const hook of beforeEach) {
       if (test.errors.length !== 0) break
       const [success, error] = __factorio_test__pcallWithStacktrace(hook)
@@ -299,15 +324,8 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
   }
 
   leaveTest(testRun: TestRun): Task {
-    const { test, afterTestFuncs } = testRun
-    const afterEach = [...afterTestFuncs, ...collectHooks(test.parent, "afterEach", "descendants-first")]
-
-    for (const hook of afterEach) {
-      const [success, error] = __factorio_test__pcallWithStacktrace(hook)
-      if (!success) {
-        test.errors.push(error as string)
-      }
-    }
+    const { test } = testRun
+    runAfterEachHooks(testRun, true)
     this.state.currentTestRun = undefined
     test.profiler!.stop()
     if (test.errors.length > 0) {
@@ -333,15 +351,8 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
   }
 
   leaveDescribeBlock(block: DescribeBlock): Task | undefined {
-    const hasTests = this.hasAnyTest(block)
-    if (hasTests) {
-      const hooks = block.hooks.filter((x) => x.type === "afterAll")
-      for (const hook of hooks) {
-        const [success, message] = __factorio_test__pcallWithStacktrace(hook.func)
-        if (!success) {
-          block.errors.push(`Error running ${hook.type}: ${message}`)
-        }
-      }
+    if (this.hasAnyTest(block)) {
+      runBlockHooks(block, "afterAll", true)
     }
     if (block.errors.length > 0) {
       this.state.raiseTestEvent({
@@ -411,12 +422,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
 
   private static nextTestTask(testRun: TestRun): Task {
     const { test, partIndex } = testRun
-    if (
-      test.errors.length !== 0 ||
-      !testRun.async ||
-      testRun.asyncDone ||
-      (!testRun.explicitAsync && next(testRun.onTickFuncs)[0] === undefined)
-    ) {
+    if (isPartComplete(testRun)) {
       if (partIndex + 1 < test.parts.length) {
         return {
           task: "runTestPart",

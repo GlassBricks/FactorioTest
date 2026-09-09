@@ -223,26 +223,16 @@ export function countActiveTests(block: DescribeBlock, state: TestState): number
   return result
 }
 
-export type HookTraversalOrder = "ancestors-first" | "descendants-first"
-
-export function collectHooks(block: DescribeBlock, type: HookType, order: HookTraversalOrder): HookFn[] {
-  const hooks: HookFn[] = []
-  collectHooksRecursive(block, type, order, hooks)
-  return hooks
+function hooksOfType(block: DescribeBlock, type: HookType): HookFn[] {
+  return block.hooks.filter((hook) => hook.type === type).map((hook) => hook.func)
 }
 
-function collectHooksRecursive(block: DescribeBlock, type: HookType, order: HookTraversalOrder, hooks: HookFn[]): void {
-  if (order === "ancestors-first" && block.parent) {
-    collectHooksRecursive(block.parent, type, order, hooks)
-  }
+export function collectBeforeEachHooks(block: DescribeBlock): HookFn[] {
+  const parentHooks = block.parent ? collectBeforeEachHooks(block.parent) : []
+  return [...parentHooks, ...hooksOfType(block, "beforeEach")]
+}
 
-  for (const hook of block.hooks) {
-    if (hook.type === type) {
-      hooks.push(hook.func)
-    }
-  }
-
-  if (order === "descendants-first" && block.parent) {
-    collectHooksRecursive(block.parent, type, order, hooks)
-  }
+export function collectAfterEachHooks(block: DescribeBlock): HookFn[] {
+  const parentHooks = block.parent ? collectAfterEachHooks(block.parent) : []
+  return [...hooksOfType(block, "afterEach"), ...parentHooks]
 }
