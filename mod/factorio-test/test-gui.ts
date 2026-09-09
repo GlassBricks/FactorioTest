@@ -251,21 +251,9 @@ export const progressGuiListener: TestEventListener = (event, state) => {
       gui.statusText.caption = [ProgressGui.RunningTest, test.path]
       break
     }
-    case "testFailed": {
-      updateTestCounts(gui, state.results)
-      gui.statusText.caption = [ProgressGui.RunningTest, event.test.parent.path]
-      break
-    }
-    case "testPassed": {
-      updateTestCounts(gui, state.results)
-      gui.statusText.caption = [ProgressGui.RunningTest, event.test.parent.path]
-      break
-    }
-    case "testSkipped": {
-      updateTestCounts(gui, state.results)
-      gui.statusText.caption = [ProgressGui.RunningTest, event.test.parent.path]
-      break
-    }
+    case "testFailed":
+    case "testPassed":
+    case "testSkipped":
     case "testTodo": {
       updateTestCounts(gui, state.results)
       gui.statusText.caption = [ProgressGui.RunningTest, event.test.parent.path]
@@ -290,23 +278,15 @@ export const progressGuiListener: TestEventListener = (event, state) => {
             ? ProgressGui.TestsPassedWithTodo
             : ProgressGui.TestsFailed
 
-      gui.statusText.caption = [statusLocale]
-      gui.actionButton.caption = [ConfigGui.RerunTests]
-      gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
+      showRunEnded(gui, statusLocale)
       break
     }
-    case "testRunCancelled": {
-      gui.statusText.caption = [ProgressGui.TestsCancelled]
-      gui.actionButton.caption = [ConfigGui.RerunTests]
-      gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
+    case "testRunCancelled":
+      showRunEnded(gui, ProgressGui.TestsCancelled)
       break
-    }
-    case "loadError": {
-      gui.statusText.caption = [ProgressGui.LoadError]
-      gui.actionButton.caption = [ConfigGui.RerunTests]
-      gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
+    case "loadError":
+      showRunEnded(gui, ProgressGui.LoadError)
       break
-    }
     case "customEvent": {
       if (event.name === "closeProgressGui") {
         closeTestProgressGui()
@@ -314,6 +294,12 @@ export const progressGuiListener: TestEventListener = (event, state) => {
       break
     }
   }
+}
+
+function showRunEnded(gui: TestGui, statusLocale: ProgressGui): void {
+  gui.statusText.caption = [statusLocale]
+  gui.actionButton.caption = [ConfigGui.RerunTests]
+  gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
 }
 
 const profilerLength = "(Duration: 0.082400ms)".length - "(<Profiler>)".length

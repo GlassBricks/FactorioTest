@@ -58,6 +58,20 @@ export interface Test {
   profiler?: LuaProfiler | undefined
 }
 
+function childPath(parent: DescribeBlock, name: string): string {
+  return parent.path !== "" ? parent.path + " > " + name : name
+}
+
+function warnOnDuplicatePath(parent: DescribeBlock, kind: string, name: string, path: string, source: Source): void {
+  for (const sibling of parent.children) {
+    if (sibling.path === path) {
+      log(
+        `Warning: Duplicate ${kind} name "${name}" in "${parent.path}" at ${formatSource(source)} (first at ${formatSource(sibling.source)})`,
+      )
+    }
+  }
+}
+
 export function addTest(
   parent: DescribeBlock,
   name: string,
@@ -66,14 +80,8 @@ export function addTest(
   declaredMode: TestMode,
   tags: TestTags,
 ): Test {
-  const path = parent.path + " > " + name
-  for (const sibling of parent.children) {
-    if (sibling.path === path) {
-      log(
-        `Warning: Duplicate test name "${name}" in "${parent.path}" at ${formatSource(source)} (first at ${formatSource(sibling.source)})`,
-      )
-    }
-  }
+  const path = childPath(parent, name)
+  warnOnDuplicatePath(parent, "test", name, path, source)
   const test: Test = {
     type: "test",
     name,
@@ -134,21 +142,15 @@ export function addDescribeBlock(
   declaredMode: TestMode,
   tags: TestTags,
 ): DescribeBlock {
-  const path = parent.path !== "" ? parent.path + " > " + name : name
-  for (const sibling of parent.children) {
-    if (sibling.path === path) {
-      log(
-        `Warning: Duplicate describe name "${name}" in "${parent.path}" at ${formatSource(source)} (first at ${formatSource(sibling.source)})`,
-      )
-    }
-  }
+  const path = childPath(parent, name)
+  warnOnDuplicatePath(parent, "describe", name, path, source)
   const block: DescribeBlock = {
     type: "describeBlock",
     name,
     path,
     tags,
     parent,
-    indexInParent: parent?.children.length ?? -1,
+    indexInParent: parent.children.length,
     source,
     hooks: [],
     children: [],
@@ -181,12 +183,12 @@ export function createRootDescribeBlock(config: Config): DescribeBlock {
 function testMatchesTagList(test: Test, config: Config): boolean {
   if (config.tag_whitelist) {
     for (const tag of config.tag_whitelist) {
-      if (!(tag in test.tags)) return false
+      if (!test.tags.has(tag)) return false
     }
   }
   if (config.tag_blacklist) {
     for (const tag of config.tag_blacklist) {
-      if (tag in test.tags) return false
+      if (test.tags.has(tag)) return false
     }
   }
   return true
