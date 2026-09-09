@@ -1,39 +1,51 @@
 /** @noSelfInFile */
 import { TestStage } from "../constants"
 import { createEmptyRunResults, TestRunResults } from "./results"
-import { _raiseTestEvent, TestEvent } from "./test-events"
+import { notifyListeners, TestEvent } from "./test-events"
 import { createRootDescribeBlock, DescribeBlock, Test, TestTags } from "./tests"
 import Config = FactorioTest.Config
 import OnTickFn = FactorioTest.OnTickFn
 import HookFn = FactorioTest.HookFn
 import { LuaProfiler } from "factorio:runtime"
 
-/** @noSelf */
-export interface TestState {
-  config: Config
-  rootBlock: DescribeBlock
-  // setup
-  currentBlock?: DescribeBlock | undefined
-  currentTags?: TestTags | undefined
-  hasFocusedTests: boolean
+/**
+ * Interface between the test framework, and the world around it.
+ *
+ * Mocked in tests.
+ * @noSelf
+ */
+export interface TestEnvironment {
+  getTestStage(): TestStage
+  setTestStage(stage: TestStage): void
+  emit(event: TestEvent): void
+}
 
-  // run
+/** State belonging to a single test run; recreated for each run. */
+export interface RunState {
   currentTestRun?: TestRun | undefined
   cancelRequested: boolean
   failureCount: number
   bailedOut: boolean
-
-  results: TestRunResults
   profiler?: LuaProfiler
+}
 
+/** @noSelf */
+export interface TestState {
+  config: Config
+  rootBlock: DescribeBlock
+
+  // definition phase
+  currentBlock?: DescribeBlock | undefined
+  currentTags?: TestTags | undefined
+  hasFocusedTests: boolean
+
+  run: RunState
+
+  // outlives the run: read by the getResults remote after it finishes
+  results: TestRunResults
   reloaded?: boolean
 
-  // state that is persistent across game reload
-  // here as a function so is mock-able in meta test
-  getTestStage(): TestStage
-  setTestStage(state: TestStage): void
-
-  raiseTestEvent(this: this, event: TestEvent): void
+  env: TestEnvironment
 }
 
 export interface TestRun {
@@ -74,38 +86,45 @@ function setGlobalTestStage(stage: TestStage): void {
   script.raise_event(onTestStageChanged, { stage })
 }
 
+export function createRunState(): RunState {
+  return {
+    cancelRequested: false,
+    failureCount: 0,
+    bailedOut: false,
+  }
+}
+
 export function resetTestState(config: Config): void {
   const rootBlock = createRootDescribeBlock(config)
-  _setTestState({
+  const state: TestState = {
     config,
     rootBlock,
     currentBlock: rootBlock,
     hasFocusedTests: false,
-    cancelRequested: false,
-    failureCount: 0,
-    bailedOut: false,
+    run: createRunState(),
     results: createEmptyRunResults(),
-    getTestStage: getGlobalTestStage,
-    setTestStage: setGlobalTestStage,
-    raiseTestEvent(event) {
-      _raiseTestEvent(this, event)
+    env: {
+      getTestStage: getGlobalTestStage,
+      setTestStage: setGlobalTestStage,
+      emit: (event) => notifyListeners(state, event),
     },
-  })
+  }
+  _setTestState(state)
 }
 
+/** Frees the test tree once a run is over. */
 export function cleanupTestState(): void {
   const state = getTestState()
-  state.config = undefined!
-  state.rootBlock = undefined!
+  state.run = createRunState()
+  state.rootBlock = createRootDescribeBlock(state.config)
   state.currentBlock = undefined
-  state.currentTestRun = undefined
 }
 
 export function setToLoadErrorState(state: TestState, error: string): void {
-  state.setTestStage(TestStage.LoadError)
+  state.env.setTestStage(TestStage.LoadError)
   state.rootBlock = createRootDescribeBlock(state.config)
   state.currentBlock = undefined
-  state.currentTestRun = undefined
+  state.run.currentTestRun = undefined
   state.rootBlock.errors = [error]
   game.speed = 1
 }

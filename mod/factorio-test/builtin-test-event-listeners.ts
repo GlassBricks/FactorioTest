@@ -25,20 +25,21 @@ const setupListener: TestEventListener = (event, state) => {
       game.play_sound({ path: passed ? "utility/game_won" : "utility/game_lost" })
     }
 
+    const bailedPrefix = state.run.bailedOut ? "bailed:" : ""
+    const focusedSuffix = state.hasFocusedTests ? ":focused" : ""
+
     state.config.after_test_run?.()
     cleanupTestState()
-
-    const bailedPrefix = state.bailedOut ? "bailed:" : ""
-    const focusedSuffix = state.hasFocusedTests ? ":focused" : ""
     emitResult(bailedPrefix + status + focusedSuffix)
   } else if (event.type === "testRunCancelled") {
     game.speed = 1
     if (state.config.sound_effects) {
       game.play_sound({ path: "utility/console_message" })
     }
+    const status = state.run.bailedOut ? "bailed" : "cancelled"
+
     state.config.after_test_run?.()
     cleanupTestState()
-    const status = state.bailedOut ? "bailed" : "cancelled"
     emitResult(status)
   } else if (event.type === "loadError") {
     game.speed = 1

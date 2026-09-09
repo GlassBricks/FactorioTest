@@ -2,7 +2,7 @@ import { LuaProfiler } from "factorio:runtime"
 import { table } from "util"
 import { TestStage } from "../constants"
 import { TestRunResults } from "./results"
-import type { TestState } from "./state"
+import { type TestState } from "./state"
 import { DescribeBlock, HookType, Source, Test, TestMode, TestTags } from "./tests"
 import compare = table.compare
 
@@ -205,17 +205,17 @@ declare const storage: {
 }
 
 export function prepareReload(testState: TestState): void {
-  const currentRun = testState.currentTestRun!
+  const currentRun = testState.run.currentTestRun!
   storage.__testResume = {
     rootBlock: saveDescribeBlock(testState.rootBlock),
     results: testState.results,
     resumeTestPath: currentRun.test.path,
     resumePartIndex: currentRun.partIndex + 1,
-    profiler: testState.profiler!,
+    profiler: testState.run.profiler!,
   }
   testState.rootBlock = undefined!
-  testState.currentTestRun = undefined!
-  testState.setTestStage(TestStage.ReloadingMods)
+  testState.run.currentTestRun = undefined
+  testState.env.setTestStage(TestStage.ReloadingMods)
 }
 
 export function resumeAfterReload(state: TestState): { test: Test; partIndex: number } | undefined {
@@ -223,7 +223,7 @@ export function resumeAfterReload(state: TestState): { test: Test; partIndex: nu
   storage.__testResume = undefined
 
   state.results = testResume.results
-  state.profiler = testResume.profiler
+  state.run.profiler = testResume.profiler
   state.reloaded = true
 
   const saved = testResume.rootBlock

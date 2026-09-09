@@ -17,7 +17,7 @@ import Config = FactorioTest.Config
 declare const ____originalRequire: typeof require
 
 function isRunning() {
-  const stage = getTestState().getTestStage()
+  const stage = getTestState().env.getTestStage()
   return !(stage === TestStage.NotRun || stage === TestStage.LoadError || stage === TestStage.Finished)
 }
 
@@ -28,10 +28,10 @@ export = function (files: string[], config: Partial<Config>): void {
     runTests,
     cancelTestRun,
     modName: () => script.mod_name,
-    getTestStage: () => getTestState().getTestStage(),
+    getTestStage: () => getTestState().env.getTestStage(),
     isRunning,
     fireCustomEvent: (name, data) => {
-      getTestState().raiseTestEvent({
+      getTestState().env.emit({
         type: "customEvent",
         name,
         data,
@@ -75,7 +75,7 @@ function loadTests(files: string[], partialConfig: Partial<Config>): void {
 }
 
 function tryContinueTests() {
-  const testStage = getTestState().getTestStage()
+  const testStage = getTestState().env.getTestStage()
   if (testStage === TestStage.Running || testStage === TestStage.ReloadingMods) {
     doRunTests()
   } else {
@@ -89,7 +89,7 @@ function runTests() {
   if (isRunning()) return
 
   log(`Running tests for ${script.mod_name}`)
-  getTestState().setTestStage(TestStage.Ready)
+  getTestState().env.setTestStage(TestStage.Ready)
   doRunTests()
 }
 

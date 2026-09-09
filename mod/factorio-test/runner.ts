@@ -2,7 +2,8 @@
 import { TestStage } from "../constants"
 import { __factorio_test__pcallWithStacktrace, assertNever } from "./_util"
 import { resumeAfterReload } from "./reload-resume"
-import { TestRun, TestState, setToLoadErrorState } from "./state"
+import { TestRun, TestState, createRunState, setToLoadErrorState } from "./state"
+import { markFailedTestsAndDescendants, reorderChildren, shouldReorderFailedFirst } from "./test-reordering"
 import {
   DescribeBlock,
   Test,
@@ -11,7 +12,6 @@ import {
   formatSource,
   isSkippedTest,
 } from "./tests"
-import { shouldReorderFailedFirst, markFailedTestsAndDescendants, reorderChildren } from "./test-reordering"
 
 export interface TestRunner {
   tick(): void
@@ -81,7 +81,10 @@ function isPartComplete(testRun: TestRun): boolean {
 }
 
 class TestRunnerImpl implements TestRunner {
-  constructor(private state: TestState) {}
+  constructor(private state: TestState) {
+    // A runner owns exactly one run. Reset state between runs.
+    state.run = createRunState()
+  }
 
   private status: "notStarted" | "running" | "done" = "notStarted"
   private cursor: Cursor | undefined
@@ -89,7 +92,7 @@ class TestRunnerImpl implements TestRunner {
 
   tick(): void {
     if (this.status === "done") return
-    if (this.state.cancelRequested) {
+    if (this.state.run.cancelRequested) {
       this.cancelRun()
       return
     }
@@ -118,7 +121,7 @@ class TestRunnerImpl implements TestRunner {
   }
 
   requestCancel(): void {
-    this.state.cancelRequested = true
+    this.state.run.cancelRequested = true
   }
 
   private begin(): void {
@@ -126,7 +129,7 @@ class TestRunnerImpl implements TestRunner {
       error("Tests cannot be in run in multiplayer")
     }
     this.status = "running"
-    const stage = this.state.getTestStage()
+    const stage = this.state.env.getTestStage()
     if (stage === TestStage.NotRun || stage === TestStage.Ready) {
       this.startTestRun()
     } else if (stage === TestStage.ReloadingMods) {
@@ -144,12 +147,12 @@ class TestRunnerImpl implements TestRunner {
 
   private startTestRun(): void {
     const { state } = this
-    state.profiler = helpers.create_profiler()
-    state.setTestStage(TestStage.Running)
+    state.run.profiler = helpers.create_profiler()
+    state.env.setTestStage(TestStage.Running)
     if (shouldReorderFailedFirst(state)) {
       markFailedTestsAndDescendants(state.rootBlock)
     }
-    state.raiseTestEvent({ type: "testRunStarted" })
+    state.env.emit({ type: "testRunStarted" })
 
     this.enterBlock(state.rootBlock)
     this.cursor = { block: state.rootBlock, index: 0 }
@@ -171,7 +174,7 @@ class TestRunnerImpl implements TestRunner {
       return
     }
     const { test, partIndex } = resumePoint
-    this.state.setTestStage(TestStage.Running)
+    this.state.env.setTestStage(TestStage.Running)
     // the cursor must point *past* the resumed test, or it would be re-run forever
     this.cursor = { block: test.parent, index: test.indexInParent + 1 }
 
@@ -185,15 +188,15 @@ class TestRunnerImpl implements TestRunner {
   private setLoadError(message: string): void {
     this.status = "done"
     setToLoadErrorState(this.state, message)
-    this.state.raiseTestEvent({ type: "loadError" })
+    this.state.env.emit({ type: "loadError" })
   }
 
   /** The flat driver: pull the next test out of the walk and run it, until suspended or done. */
   private advance(): void {
-    while (!this.state.cancelRequested) {
+    while (!this.state.run.cancelRequested) {
       const test = this.nextTest()
       // a cancel during the final ascent must not be mistaken for "suite finished"
-      if (this.state.cancelRequested) return
+      if (this.state.run.cancelRequested) return
       if (!test) {
         this.finishRun()
         return
@@ -217,7 +220,7 @@ class TestRunnerImpl implements TestRunner {
   private nextTest(): Test | undefined {
     while (true) {
       // a cancel from a before_all/after_all hook must stop the walk here
-      if (this.state.cancelRequested) return undefined
+      if (this.state.run.cancelRequested) return undefined
 
       const cursor = this.cursor!
       const { block } = cursor
@@ -241,16 +244,16 @@ class TestRunnerImpl implements TestRunner {
 
       // reorderChildren rewrites indexInParent, so advance the cursor directly
       cursor.index++
-      this.state.raiseTestEvent({ type: "testEntered", test: child })
+      this.state.env.emit({ type: "testEntered", test: child })
       if (!isSkippedTest(child, this.state)) return child
-      this.state.raiseTestEvent(
+      this.state.env.emit(
         child.mode === "todo" ? { type: "testTodo", test: child } : { type: "testSkipped", test: child },
       )
     }
   }
 
   private enterBlock(block: DescribeBlock): void {
-    this.state.raiseTestEvent({ type: "describeBlockEntered", block })
+    this.state.env.emit({ type: "describeBlockEntered", block })
     if (block.errors.length !== 0) return
 
     if (block.children.length === 0) {
@@ -268,7 +271,7 @@ class TestRunnerImpl implements TestRunner {
     if (this.hasAnyTest(block)) {
       runBlockHooks(block, "afterAll", true)
     }
-    this.state.raiseTestEvent(
+    this.state.env.emit(
       block.errors.length > 0 ? { type: "describeBlockFailed", block } : { type: "describeBlockFinished", block },
     )
   }
@@ -277,8 +280,8 @@ class TestRunnerImpl implements TestRunner {
   private startAndRunTest(test: Test): boolean {
     test.profiler = helpers.create_profiler()
     const testRun = newTestRun(test, 0)
-    this.state.currentTestRun = testRun
-    this.state.raiseTestEvent({ type: "testStarted", test })
+    this.state.run.currentTestRun = testRun
+    this.state.env.emit({ type: "testStarted", test })
 
     const beforeEach = collectBeforeEachHooks(test.parent)
     for (const hook of beforeEach) {
@@ -319,7 +322,7 @@ class TestRunnerImpl implements TestRunner {
 
   private runPart(testRun: TestRun): void {
     const { test, partIndex } = testRun
-    this.state.currentTestRun = testRun
+    this.state.run.currentTestRun = testRun
     if (test.errors.length === 0) {
       const [success, message] = __factorio_test__pcallWithStacktrace(test.parts[partIndex]!.func)
       if (!success) {
@@ -339,7 +342,7 @@ class TestRunnerImpl implements TestRunner {
       if (partIndex + 1 >= test.parts.length) {
         // A cancel raised from the test body must not emit testPassed/testFailed.
         // Leave currentTestRun set, so the next tick's cancelRun runs afterEach.
-        if (this.state.cancelRequested) return true
+        if (this.state.run.cancelRequested) return true
         this.leaveTest(current)
         return false
       }
@@ -353,19 +356,19 @@ class TestRunnerImpl implements TestRunner {
   private leaveTest(testRun: TestRun): void {
     const { test } = testRun
     runAfterEachHooks(testRun, true)
-    this.state.currentTestRun = undefined
+    this.state.run.currentTestRun = undefined
     test.profiler!.stop()
 
     if (test.errors.length === 0) {
-      this.state.raiseTestEvent({ type: "testPassed", test })
+      this.state.env.emit({ type: "testPassed", test })
       return
     }
-    this.state.raiseTestEvent({ type: "testFailed", test })
+    this.state.env.emit({ type: "testFailed", test })
     const { bail } = this.state.config
     if (bail !== undefined) {
-      this.state.failureCount++
-      if (this.state.failureCount >= bail) {
-        this.state.bailedOut = true
+      this.state.run.failureCount++
+      if (this.state.run.failureCount >= bail) {
+        this.state.run.bailedOut = true
         this.requestCancel()
       }
     }
@@ -374,20 +377,20 @@ class TestRunnerImpl implements TestRunner {
   private finishRun(): void {
     this.status = "done"
     const { state } = this
-    state.profiler?.stop()
-    state.setTestStage(TestStage.Finished)
-    state.raiseTestEvent({ type: "testRunFinished" })
+    state.run.profiler?.stop()
+    state.env.setTestStage(TestStage.Finished)
+    state.env.emit({ type: "testRunFinished" })
   }
 
   private cancelRun(): void {
     const { state } = this
     let block: DescribeBlock | undefined
-    if (state.currentTestRun) {
-      const { test } = state.currentTestRun
+    if (state.run.currentTestRun) {
+      const { test } = state.run.currentTestRun
       block = test.parent
-      runAfterEachHooks(state.currentTestRun, false)
+      runAfterEachHooks(state.run.currentTestRun, false)
       test.profiler?.stop()
-      state.currentTestRun = undefined
+      state.run.currentTestRun = undefined
     } else {
       block = this.cursor?.block
     }
@@ -398,14 +401,14 @@ class TestRunnerImpl implements TestRunner {
       if (this.hasAnyTest(block)) {
         runBlockHooks(block, "afterAll", false)
       }
-      state.raiseTestEvent({ type: "describeBlockFinished", block })
+      state.env.emit({ type: "describeBlockFinished", block })
       block = block.parent
     }
 
     this.status = "done"
-    state.profiler?.stop()
-    state.setTestStage(TestStage.Finished)
-    state.raiseTestEvent(state.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
+    state.run.profiler?.stop()
+    state.env.setTestStage(TestStage.Finished)
+    state.env.emit(state.run.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
   }
 
   private hasAnyTest(block: DescribeBlock): boolean {

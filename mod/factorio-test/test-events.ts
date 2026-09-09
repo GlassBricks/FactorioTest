@@ -1,4 +1,4 @@
-import { TestState } from "./state"
+import type { TestState } from "./state"
 import { DescribeBlock, Test } from "./tests"
 
 interface BaseTestEvent {
@@ -85,7 +85,7 @@ export function addTestListener(this: unknown, listener: TestEventListener): voi
   testListeners.push(listener)
 }
 
-export function _raiseTestEvent(state: TestState, event: TestEvent) {
+export function notifyListeners(state: TestState, event: TestEvent): void {
   for (const handler of testListeners) {
     handler(event, state)
   }

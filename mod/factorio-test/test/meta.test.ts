@@ -35,19 +35,21 @@ before_each(() => {
   mockTestState = getTestState()
 
   let testStage = TestStage.NotRun
-  mockTestState.getTestStage = () => testStage
-  mockTestState.setTestStage = (state) => {
-    testStage = state
-  }
-  mockTestState.raiseTestEvent = (event) => {
-    events.push(event)
-    resultCollector(event, mockTestState)
+  mockTestState.env = {
+    getTestStage: () => testStage,
+    setTestStage: (stage) => {
+      testStage = stage
+    },
+    emit: (event) => {
+      events.push(event)
+      resultCollector(event, mockTestState)
+    },
   }
 })
 
 after_each(() => {
   _setTestState(originalTestState)
-  const testStage = mockTestState.getTestStage()
+  const testStage = mockTestState.env.getTestStage()
   if (mockTestState.rootBlock.children.length > 0 && testStage === TestStage.NotRun) {
     error("Simulated test defined but not run")
   }
@@ -72,7 +74,7 @@ function runTestAsyncWithRunner<T extends Test | DescribeBlock = Test>(
   callback: (item: T) => void,
 ): void {
   propagateTestMode(mockTestState, mockTestState.rootBlock, undefined)
-  if (mockTestState.getTestStage() !== TestStage.NotRun) {
+  if (mockTestState.env.getTestStage() !== TestStage.NotRun) {
     error("duplicate call to runTestAsync/cannot re-run mock test async")
   }
   const runner = createTestRunner(mockTestState)
@@ -96,7 +98,7 @@ function runTestAsync<T extends Test | DescribeBlock = Test>(callback: (item: T)
 }
 
 function skipRun() {
-  mockTestState.setTestStage(TestStage.Finished)
+  mockTestState.env.setTestStage(TestStage.Finished)
 }
 
 describe("setup", () => {
@@ -931,12 +933,12 @@ describe("reload state", () => {
     test("", () => {
       // empty
     })
-    assertEqual(TestStage.NotRun, mockTestState.getTestStage())
+    assertEqual(TestStage.NotRun, mockTestState.env.getTestStage())
     const runner = createTestRunner(mockTestState)
     runner.tick()
-    assertEqual(TestStage.Running, mockTestState.getTestStage())
+    assertEqual(TestStage.Running, mockTestState.env.getTestStage())
     runner.tick()
-    assertEqual(TestStage.Finished, mockTestState.getTestStage())
+    assertEqual(TestStage.Finished, mockTestState.env.getTestStage())
   })
 
   test("Cannot reload while testing", () => {
@@ -947,17 +949,17 @@ describe("reload state", () => {
     assertDeepEquals([], mockTestState.rootBlock.errors)
     reloadAndTick()
     assertNotDeepEquals([], mockTestState.rootBlock.errors)
-    assertEqual(TestStage.LoadError, mockTestState.getTestStage())
+    assertEqual(TestStage.LoadError, mockTestState.env.getTestStage())
   })
 
   test("can reload after load error", () => {
     test("Test 1", () => {
       actions.push("test 1")
     })
-    mockTestState.setTestStage(TestStage.LoadError)
+    mockTestState.env.setTestStage(TestStage.LoadError)
     reloadAndTick()
     assertDeepEquals([], mockTestState.rootBlock.errors)
-    assertEqual(TestStage.Finished, mockTestState.getTestStage())
+    assertEqual(TestStage.Finished, mockTestState.env.getTestStage())
     assertDeepEquals(["test 1"], actions)
   })
 })
@@ -1275,6 +1277,30 @@ describe("rerun", () => {
     assertEqual(1, mockTestState.results?.passed)
   })
 
+  test("rerun after a cancelled run resets the run state", () => {
+    test("1", () => {
+      actions.push("1")
+    })
+    ticks_between_tests(2)
+    test("2", () => {
+      actions.push("2")
+    })
+    runTestAsyncWithRunner(
+      (runner, tickNumber) => {
+        if (tickNumber === 2) runner.requestCancel()
+      },
+      () => {
+        assertDeepEquals(["1"], actions, "cancelled before test 2 ran")
+        actions = []
+
+        const runner = createTestRunner(mockTestState)
+        for (let i = 0; i < 10 && !runner.isDone(); i++) runner.tick()
+        assertTrue(runner.isDone(), "rerun must not inherit the cancel request")
+        assertDeepEquals(["1", "2"], actions)
+      },
+    )
+  })
+
   test("rerun blacklists tests with no_rerun tag", () => {
     test("run both", () => {
       actions.push("run both")
@@ -1376,7 +1402,7 @@ describe("cancellation", () => {
     test("not run", () => actions.push("not run"))
     runTestAsync(() => {
       assertDeepEquals(["fail", "afterAll"], actions)
-      assertTrue(mockTestState.bailedOut)
+      assertTrue(mockTestState.run.bailedOut)
       assertLastEvents(["describeBlockFinished", "testRunFinished"])
       assertEqual("failed", mockTestState.results.status)
     })

@@ -1,6 +1,5 @@
 import { LuaProfiler } from "factorio:runtime"
 import { assertNever } from "./_util"
-import { TestState } from "./state"
 import Config = FactorioTest.Config
 import HookFn = FactorioTest.HookFn
 import TestFn = FactorioTest.TestFn
@@ -198,7 +197,13 @@ function testMatchesTagList(test: Test, config: Config): boolean {
   return true
 }
 
-export function isSkippedTest(test: Test, state: TestState) {
+/** The subset of TestState that decides whether a test runs. */
+export interface TestSelection {
+  readonly hasFocusedTests: boolean
+  readonly config: Config
+}
+
+export function isSkippedTest(test: Test, state: TestSelection): boolean {
   return (
     test.mode === "skip" ||
     test.mode === "todo" ||
@@ -208,7 +213,7 @@ export function isSkippedTest(test: Test, state: TestState) {
   )
 }
 
-export function countActiveTests(block: DescribeBlock, state: TestState): number {
+export function countActiveTests(block: DescribeBlock, state: TestSelection): number {
   if (block.mode === "skip") return 0
   let result = 0
   for (const child of block.children) {
