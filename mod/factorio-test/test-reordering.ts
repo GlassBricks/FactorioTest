@@ -1,55 +1,42 @@
-import { DescribeBlock, Test } from "./tests"
-import { TestState } from "./state"
+import { DescribeBlock, Test, TestSelection } from "./tests"
 import { getFailedTestsSet, hasFailedTests } from "./failed-test-storage"
 
-export function shouldReorderFailedFirst(state: TestState): boolean {
+type TestNode = Test | DescribeBlock
+
+export function shouldReorderFailedFirst(state: TestSelection): boolean {
   return state.config.reorder_failed_first !== false && hasFailedTests()
 }
 
-export function markFailedTestsAndDescendants(block: DescribeBlock): void {
-  markRecursive(block, getFailedTestsSet())
+export function reorderFailedFirst(root: DescribeBlock): void {
+  const prioritized = new LuaSet<TestNode>()
+  markPrioritized(root, getFailedTestsSet(), prioritized)
+  sortRecursive(root, prioritized)
 }
 
-function markRecursive(block: DescribeBlock, failedPaths: LuaSet<string>): boolean {
-  let hasFailedDescendant = false
+function markPrioritized(block: DescribeBlock, failedPaths: LuaSet<string>, prioritized: LuaSet<TestNode>): boolean {
+  let anyFailed = false
 
   for (const child of block.children) {
-    if (child.type === "test") {
-      if (failedPaths.has(child.path)) {
-        child._previouslyFailed = true
-        hasFailedDescendant = true
-      }
-    } else {
-      if (markRecursive(child, failedPaths)) {
-        child._hasFailedDescendant = true
-        hasFailedDescendant = true
-      }
+    const failed =
+      child.type === "test" ? failedPaths.has(child.path) : markPrioritized(child, failedPaths, prioritized)
+    if (failed) {
+      prioritized.add(child)
+      anyFailed = true
     }
   }
 
-  return hasFailedDescendant
+  return anyFailed
 }
 
-export function reorderChildren(block: DescribeBlock): void {
-  if (block._reordered) return
-  block._reordered = true
-
+function sortRecursive(block: DescribeBlock, prioritized: LuaSet<TestNode>): void {
   table.sort(block.children, (a, b) => {
-    const aPriority = hasPriority(a)
-    const bPriority = hasPriority(b)
-    if (aPriority && !bPriority) return true
-    if (!aPriority && bPriority) return false
+    const aPriority = prioritized.has(a)
+    if (aPriority !== prioritized.has(b)) return aPriority
     return a.indexInParent < b.indexInParent
   })
 
   for (const [i, child] of ipairs(block.children)) {
     child.indexInParent = i - 1
+    if (child.type === "describeBlock") sortRecursive(child, prioritized)
   }
-}
-
-function hasPriority(node: Test | DescribeBlock): boolean {
-  if (node.type === "test") {
-    return node._previouslyFailed === true
-  }
-  return node._hasFailedDescendant === true
 }

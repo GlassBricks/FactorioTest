@@ -4,7 +4,7 @@ import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
 import { assertNever } from "./shared/util"
 import { resumeAfterReload } from "./reload-resume"
 import { TestRun, TestState, createRunState, setToLoadErrorState } from "./state"
-import { markFailedTestsAndDescendants, reorderChildren, shouldReorderFailedFirst } from "./test-reordering"
+import { reorderFailedFirst, shouldReorderFailedFirst } from "./test-reordering"
 import {
   DescribeBlock,
   Test,
@@ -151,7 +151,7 @@ class TestRunnerImpl implements TestRunner {
     state.run.profiler = helpers.create_profiler()
     state.env.setTestStage(TestStage.Running)
     if (shouldReorderFailedFirst(state)) {
-      markFailedTestsAndDescendants(state.rootBlock)
+      reorderFailedFirst(state.rootBlock)
     }
     state.env.emit({ type: "testRunStarted" })
 
@@ -243,7 +243,6 @@ class TestRunnerImpl implements TestRunner {
         continue
       }
 
-      // reorderChildren rewrites indexInParent, so advance the cursor directly
       cursor.index++
       this.state.env.emit({ type: "testEntered", test: child })
       if (!isSkippedTest(child, this.state)) return child
@@ -259,9 +258,6 @@ class TestRunnerImpl implements TestRunner {
 
     if (block.children.length === 0) {
       block.errors.push("No tests defined")
-    }
-    if (shouldReorderFailedFirst(this.state)) {
-      reorderChildren(block)
     }
     if (this.hasAnyTest(block)) {
       runBlockHooks(block, "beforeAll", true)
