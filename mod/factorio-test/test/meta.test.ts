@@ -2,7 +2,7 @@ import * as util from "util"
 import { TestStage } from "../../constants"
 import { fillConfig } from "../config"
 import { resultCollector } from "../results"
-import { createTestRunner } from "../runner"
+import { createTestRunner, TestRunner } from "../runner"
 import { _setTestState, getTestState, resetTestState, TestState } from "../state"
 import { TestEvent } from "../test-events"
 import { DescribeBlock, Test } from "../tests"
@@ -67,7 +67,10 @@ function runTestSync<T extends Test | DescribeBlock = Test>(): T {
   return getFirst()
 }
 
-function runTestAsync<T extends Test | DescribeBlock = Test>(callback: (item: T) => void): void {
+function runTestAsyncWithRunner<T extends Test | DescribeBlock = Test>(
+  beforeTick: (runner: TestRunner, tickNumber: number) => void,
+  callback: (item: T) => void,
+): void {
   propagateTestMode(mockTestState, mockTestState.rootBlock, undefined)
   if (mockTestState.getTestStage() !== TestStage.NotRun) {
     error("duplicate call to runTestAsync/cannot re-run mock test async")
@@ -75,7 +78,9 @@ function runTestAsync<T extends Test | DescribeBlock = Test>(callback: (item: T)
   const runner = createTestRunner(mockTestState)
   _setTestState(originalTestState)
   async()
+  let tickNumber = 0
   on_tick(() => {
+    beforeTick(runner, ++tickNumber)
     runner.tick()
     if (runner.isDone()) {
       callback(getFirst())
@@ -84,6 +89,10 @@ function runTestAsync<T extends Test | DescribeBlock = Test>(callback: (item: T)
     }
   })
   _setTestState(mockTestState)
+}
+
+function runTestAsync<T extends Test | DescribeBlock = Test>(callback: (item: T) => void): void {
+  runTestAsyncWithRunner<T>(() => {}, callback)
 }
 
 function skipRun() {
@@ -1165,9 +1174,9 @@ describe("tags", () => {
 
   test("automatic after_reload_script tag", () => {
     tags("tag1")
-    test("foo", () => 0).after_reload_mods(() => 0)
+    test("foo", () => 0).after_reload_script(() => 0)
     skipRun()
-    assertDeepEquals(util.list_to_map(["tag1", "after_reload_mods"]), getFirst().tags)
+    assertDeepEquals(util.list_to_map(["tag1", "after_reload_script"]), getFirst().tags)
   })
 
   test("tag whitelist", () => {
@@ -1285,6 +1294,92 @@ describe("rerun", () => {
     assertDeepEquals(["run both", "run one"], actions)
     runTestSync()
     assertDeepEquals(["run both", "run one", "run both"], actions)
+  })
+})
+
+describe("cancellation", () => {
+  function setupHooks(prefix: string) {
+    before_all(() => actions.push(prefix + "beforeAll"))
+    after_all(() => actions.push(prefix + "afterAll"))
+    before_each(() => actions.push(prefix + "beforeEach"))
+    after_each(() => actions.push(prefix + "afterEach"))
+  }
+
+  function assertLastEvents(expected: TestEvent["type"][]) {
+    const types = events.map((x) => x.type)
+    assertDeepEquals(expected, types.slice(types.length - expected.length))
+  }
+
+  test("cancel during a test runs after hooks up the tree", () => {
+    setupHooks("root ")
+    describe("block", () => {
+      setupHooks("block ")
+      test("async test", () => {
+        after_test(() => actions.push("afterTest"))
+        actions.push("test")
+        async(100)
+        on_tick(() => {
+          actions.push("tick")
+        })
+      })
+    })
+    runTestAsyncWithRunner(
+      (runner, tickNumber) => {
+        if (tickNumber === 2) runner.requestCancel()
+      },
+      () => {
+        assertDeepEquals(
+          [
+            "root beforeAll",
+            "block beforeAll",
+            "root beforeEach",
+            "block beforeEach",
+            "test",
+            "afterTest",
+            "block afterEach",
+            "root afterEach",
+            "block afterAll",
+            "root afterAll",
+          ],
+          actions,
+        )
+        assertLastEvents(["describeBlockFinished", "describeBlockFinished", "testRunCancelled"])
+        assertEqual("cancelled", mockTestState.results.status)
+      },
+    )
+  })
+
+  test("cancel between tests", () => {
+    setupHooks("root ")
+    test("1", () => actions.push("1"))
+    ticks_between_tests(2)
+    test("2", () => actions.push("2"))
+    runTestAsyncWithRunner(
+      (runner, tickNumber) => {
+        if (tickNumber === 2) runner.requestCancel()
+      },
+      () => {
+        assertDeepEquals(["root beforeAll", "root beforeEach", "1", "root afterEach", "root afterAll"], actions)
+        assertLastEvents(["describeBlockFinished", "testRunCancelled"])
+        assertEqual("cancelled", mockTestState.results.status)
+      },
+    )
+  })
+
+  test("bail finishes the run instead of cancelling it", () => {
+    mockTestState.config = fillConfig({ bail: 1 })
+    after_all(() => actions.push("afterAll"))
+    test("fail", () => {
+      actions.push("fail")
+      error("oh no")
+    })
+    test("not run", () => actions.push("not run"))
+    runTestAsync(() => {
+      assertDeepEquals(["fail", "afterAll"], actions)
+      assertTrue(mockTestState.bailedOut)
+      assertLastEvents(["describeBlockFinished", "testRunFinished"])
+      assertEqual("failed", mockTestState.results.status)
+    })
   })
 })
 
