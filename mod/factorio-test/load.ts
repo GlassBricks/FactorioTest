@@ -4,6 +4,7 @@ import { debugAdapterEnabled } from "./_util"
 import { builtinTestEventListeners } from "./builtin-test-event-listeners"
 import { cliEventEmitter } from "./cli-events"
 import { initializeFailedTestsFromConfig } from "./failed-test-storage"
+import { resultCollector } from "./results"
 import { fillConfig } from "./config"
 import { addMessageHandler, debugAdapterLogger, logLogger } from "./output"
 import { progressGuiListener, progressGuiLogger } from "./test-gui"
@@ -101,8 +102,12 @@ function doRunTests() {
   const state = getTestState()
   initializeFailedTestsFromConfig()
   clearTestListeners()
+  // resultCollector must run first; every other listener reads state.results.
+  addTestListener(resultCollector)
   const headless = isHeadlessMode()
   if (headless) {
+    // cliEventEmitter must run before builtins, since setupListener ends the
+    // headless process.
     addTestListener(cliEventEmitter)
   }
   builtinTestEventListeners.forEach(addTestListener)

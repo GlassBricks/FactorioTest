@@ -1,18 +1,7 @@
 import { TestEventListener } from "./test-events"
-import { TestRunResults } from "./results"
 import { countActiveTests, DescribeBlock, Source, Test } from "./tests"
 import { TestInfo, BlockInfo, SourceLocation, TestRunnerEvent, TestRunSummary } from "../../types/events"
 import { Protocol } from "../constants"
-
-function computeStatus(r: TestRunResults): TestRunSummary["status"] {
-  if (r.failed !== 0 || r.describeBlockErrors !== 0) return "failed"
-  if (r.todo !== 0) return "todo"
-  return "passed"
-}
-
-function toSummary(r: TestRunResults): TestRunSummary {
-  return { ...r, status: r.status ?? computeStatus(r) }
-}
 
 function emitEvent(event: TestRunnerEvent): void {
   print(Protocol.Event + helpers.table_to_json(event))
@@ -76,11 +65,9 @@ export const cliEventEmitter: TestEventListener = (event, state) => {
         errors: [...event.block.errors],
       })
       break
-    case "testRunFinished": {
-      const results = toSummary(state.results)
-      emitEvent({ type: "testRunFinished", results })
+    case "testRunFinished":
+      emitEvent({ type: "testRunFinished", results: state.results as TestRunSummary })
       break
-    }
     case "testRunCancelled":
       emitEvent({ type: "testRunCancelled" })
       break

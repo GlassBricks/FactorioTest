@@ -1,6 +1,5 @@
 import { Protocol } from "../constants"
 import { logListener } from "./output"
-import { resultCollector } from "./results"
 import { TestEventListener } from "./test-events"
 import { cleanupTestState } from "./state"
 import { isHeadlessMode } from "./auto-start-config"
@@ -50,9 +49,4 @@ const setupListener: TestEventListener = (event, state) => {
   }
 }
 
-export const builtinTestEventListeners: TestEventListener[] = [
-  resultCollector,
-  setupListener,
-  logListener,
-  failedTestCollector,
-]
+export const builtinTestEventListeners: TestEventListener[] = [setupListener, logListener, failedTestCollector]

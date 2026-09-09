@@ -1,15 +1,9 @@
+import { TestRunSummary } from "../../types/events"
 import { TestEventListener } from "./test-events"
 
-export interface TestRunResults {
-  ran: number
-  passed: number
-  failed: number
-  skipped: number
-  todo: number
-  cancelled: number
-  describeBlockErrors: number
-
-  status?: "passed" | "failed" | "todo" | "cancelled"
+/** The wire summary, with `status` unset until the run finishes. */
+export interface TestRunResults extends Omit<TestRunSummary, "status"> {
+  status?: TestRunSummary["status"] | undefined
 }
 
 export function createEmptyRunResults(): TestRunResults {
@@ -31,56 +25,23 @@ export const resultCollector: TestEventListener = (event, state) => {
   }
   const results = state.results
   switch (event.type) {
-    case "testPassed": {
+    case "testPassed":
       results.ran++
       results.passed++
-      // const { path, source, errors } = event.test
-      // results.tests.push({
-      //   path,
-      //   source,
-      //   errors,
-      //   result: "passed",
-      // })
       break
-    }
-    case "testFailed": {
+    case "testFailed":
       results.ran++
       results.failed++
-      // const { path, source, errors } = event.test
-      // results.tests.push({
-      //   path,
-      //   source,
-      //   errors,
-      //   result: "failed",
-      // })
       break
-    }
-    case "testSkipped": {
+    case "testSkipped":
       results.skipped++
-      // const { path, source, errors } = event.test
-      // results.tests.push({
-      //   path,
-      //   source,
-      //   errors,
-      //   result: "skipped",
-      // })
       break
-    }
-    case "testTodo": {
+    case "testTodo":
       results.todo++
-      // const { path, source, errors } = event.test
-      // results.tests.push({
-      //   path,
-      //   source,
-      //   errors,
-      //   result: "todo",
-      // })
       break
-    }
-    case "describeBlockFailed": {
+    case "describeBlockFailed":
       results.describeBlockErrors += event.block.errors.length
       break
-    }
     case "testRunFinished":
       if (results.failed !== 0 || results.describeBlockErrors !== 0) {
         results.status = "failed"
