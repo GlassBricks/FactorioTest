@@ -33,7 +33,8 @@ interface SavedDescribeBlockData {
   readonly errors: string[]
 }
 
-function saveTest(test: Test): SavedTestData {
+/** Snapshots a test, and detaches its `parts` so they are not saved into `storage`. */
+function snapshotAndDetachTest(test: Test): SavedTestData {
   const result: SavedTestData = {
     type: "test",
     path: test.path,
@@ -49,13 +50,16 @@ function saveTest(test: Test): SavedTestData {
   return result
 }
 
-function saveDescribeBlock(block: DescribeBlock): SavedDescribeBlockData {
+/** Snapshots a describe block, and detaches its `hooks` so they are not saved into `storage`. */
+function snapshotAndDetachDescribeBlock(block: DescribeBlock): SavedDescribeBlockData {
   const result: SavedDescribeBlockData = {
     type: "describeBlock",
     path: block.path,
     tags: block.tags,
     source: block.source,
-    children: block.children.map((child) => (child.type === "test" ? saveTest(child) : saveDescribeBlock(child))),
+    children: block.children.map((child) =>
+      child.type === "test" ? snapshotAndDetachTest(child) : snapshotAndDetachDescribeBlock(child),
+    ),
     hookTypes: block.hooks.map((hook) => hook.type),
     mode: block.mode,
     ticksBetweenTests: block.ticksBetweenTests,
@@ -66,93 +70,72 @@ function saveDescribeBlock(block: DescribeBlock): SavedDescribeBlockData {
   return result
 }
 
-function structuresMatch(saved: SavedTestData, current: Test): boolean {
-  if (saved.path !== current.path) {
-    log(`Structure mismatch: path "${saved.path}" !== "${current.path}"`)
-    return false
-  }
-  if (!compare(saved.tags, current.tags)) {
-    log(`Structure mismatch in "${saved.path}": tags differ`)
-    return false
-  }
-  if (!compare(saved.source, current.source)) {
-    log(
-      `Structure mismatch in "${saved.path}": source ${serpent.line(saved.source)} !== ${serpent.line(current.source)}`,
-    )
-    return false
-  }
-  if (saved.numParts !== current.parts.length) {
-    log(`Structure mismatch in "${saved.path}": numParts ${saved.numParts} !== ${current.parts.length}`)
-    return false
-  }
-  if (saved.mode !== current.mode) {
-    log(`Structure mismatch in "${saved.path}": mode "${saved.mode}" !== "${current.mode}"`)
-    return false
-  }
-  if (saved.ticksBefore !== current.ticksBefore) {
-    log(`Structure mismatch in "${saved.path}": ticksBefore ${saved.ticksBefore} !== ${current.ticksBefore}`)
+function valuesMatch(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  return typeof a === "object" && typeof b === "object" && compare(a as object, b as object)
+}
+
+function fieldsMatch(path: string, fields: [name: string, saved: unknown, current: unknown][]): boolean {
+  for (const [name, saved, current] of fields) {
+    if (valuesMatch(saved, current)) continue
+    log(`Structure mismatch in "${path}": ${name} ${serpent.line(saved)} !== ${serpent.line(current)}`)
     return false
   }
   return true
 }
 
-function describeBlockStructuresMatch(saved: SavedDescribeBlockData, current: DescribeBlock): boolean {
-  if (saved.path !== current.path) {
-    log(`Block mismatch: path "${saved.path}" !== "${current.path}"`)
-    return false
-  }
-  if (!compare(saved.tags, current.tags)) {
-    log(`Block mismatch in "${saved.path}": tags differ`)
-    return false
-  }
-  if (!compare(saved.source, current.source)) {
-    log(`Block mismatch in "${saved.path}": source ${serpent.line(saved.source)} !== ${serpent.line(current.source)}`)
-    return false
-  }
-  if (
-    !compare(
-      saved.hookTypes,
-      current.hooks.map((hook) => hook.type),
-    )
-  ) {
-    log(`Block mismatch in "${saved.path}": hookTypes differ`)
-    return false
-  }
-  if (saved.mode !== current.mode) {
-    log(`Block mismatch in "${saved.path}": mode "${saved.mode}" !== "${current.mode}"`)
-    return false
-  }
-  if (saved.ticksBetweenTests !== current.ticksBetweenTests) {
-    log(
-      `Block mismatch in "${saved.path}": ticksBetweenTests ${saved.ticksBetweenTests} !== ${current.ticksBetweenTests}`,
-    )
-    return false
-  }
-  if (saved.children.length !== current.children.length) {
-    log(`Block mismatch in "${saved.path}": children.length ${saved.children.length} !== ${current.children.length}`)
-    return false
-  }
+function testFieldsMatch(saved: SavedTestData, current: Test): boolean {
+  return fieldsMatch(saved.path, [
+    ["path", saved.path, current.path],
+    ["tags", saved.tags, current.tags],
+    ["source", saved.source, current.source],
+    ["numParts", saved.numParts, current.parts.length],
+    ["mode", saved.mode, current.mode],
+    ["ticksBefore", saved.ticksBefore, current.ticksBefore],
+  ])
+}
 
-  const currentByPath = new LuaMap<string, Test | DescribeBlock>()
-  for (const child of current.children) {
-    if (currentByPath.has(child.path)) {
+function describeBlockFieldsMatch(saved: SavedDescribeBlockData, current: DescribeBlock): boolean {
+  return fieldsMatch(saved.path, [
+    ["path", saved.path, current.path],
+    ["tags", saved.tags, current.tags],
+    ["source", saved.source, current.source],
+    ["hookTypes", saved.hookTypes, current.hooks.map((hook) => hook.type)],
+    ["mode", saved.mode, current.mode],
+    ["ticksBetweenTests", saved.ticksBetweenTests, current.ticksBetweenTests],
+    ["children.length", saved.children.length, current.children.length],
+  ])
+}
+
+function childrenByPath(block: DescribeBlock): LuaMap<string, Test | DescribeBlock> {
+  const map = new LuaMap<string, Test | DescribeBlock>()
+  for (const child of block.children) {
+    if (map.has(child.path)) {
       log(`Duplicate test/describe path "${child.path}" - this will cause reload issues`)
     }
-    currentByPath.set(child.path, child)
+    map.set(child.path, child)
   }
+  return map
+}
 
+function describeBlockStructuresMatch(saved: SavedDescribeBlockData, current: DescribeBlock): boolean {
+  if (!describeBlockFieldsMatch(saved, current)) return false
+
+  const currentByPath = childrenByPath(current)
   return saved.children.every((child) => {
     const currentChild = currentByPath.get(child.path)
     if (!currentChild) {
-      log(`Block mismatch in "${saved.path}": child "${child.path}" not found in current`)
+      log(`Structure mismatch in "${saved.path}": child "${child.path}" not found in current`)
       return false
     }
     if (currentChild.type !== child.type) {
-      log(`Block mismatch in "${saved.path}": child "${child.path}" type "${child.type}" !== "${currentChild.type}"`)
+      log(
+        `Structure mismatch in "${saved.path}": child "${child.path}" type "${child.type}" !== "${currentChild.type}"`,
+      )
       return false
     }
     return child.type === "test"
-      ? structuresMatch(child, currentChild as Test)
+      ? testFieldsMatch(child, currentChild as Test)
       : describeBlockStructuresMatch(child, currentChild as DescribeBlock)
   })
 }
@@ -167,11 +150,7 @@ function restoreDescribeBlockState(saved: SavedDescribeBlockData, current: Descr
   current.errors.length = 0
   current.errors.push(...saved.errors)
 
-  const currentByPath = new LuaMap<string, Test | DescribeBlock>()
-  for (const child of current.children) {
-    currentByPath.set(child.path, child)
-  }
-
+  const currentByPath = childrenByPath(current)
   for (const savedChild of saved.children) {
     const currentChild = currentByPath.get(savedChild.path)!
     if (savedChild.type === "test") {
@@ -205,7 +184,7 @@ export interface ResumeData {
 export function prepareReload(testState: TestState): void {
   const currentRun = testState.run.currentTestRun!
   testStorage().resume = {
-    rootBlock: saveDescribeBlock(testState.rootBlock),
+    rootBlock: snapshotAndDetachDescribeBlock(testState.rootBlock),
     results: testState.results,
     resumeTestPath: currentRun.test.path,
     resumePartIndex: currentRun.partIndex + 1,
