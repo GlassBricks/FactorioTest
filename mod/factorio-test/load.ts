@@ -98,20 +98,16 @@ function cancelTestRun() {
   currentRunner?.requestCancel()
 }
 
-function doRunTests() {
-  const state = getTestState()
-  initializeFailedTestsFromConfig()
+function wireListeners(headless: boolean) {
   clearTestListeners()
   // resultCollector must run first; every other listener reads state.results.
   addTestListener(resultCollector)
-  const headless = isHeadlessMode()
   if (headless) {
     // cliEventEmitter must run before builtins, since setupListener ends the
     // headless process.
     addTestListener(cliEventEmitter)
   }
   builtinTestEventListeners.forEach(addTestListener)
-  if (game !== undefined) game.tick_paused = false
 
   if (!headless) {
     addTestListener(progressGuiListener)
@@ -123,6 +119,13 @@ function doRunTests() {
   } else if (!headless) {
     addMessageHandler(logLogger)
   }
+}
+
+function doRunTests() {
+  const state = getTestState()
+  initializeFailedTestsFromConfig()
+  wireListeners(isHeadlessMode())
+  if (game !== undefined) game.tick_paused = false
 
   tapEvent(defines.events.on_tick, () => {
     if (!currentRunner) {
@@ -141,19 +144,26 @@ function doRunTests() {
   })
 }
 
-const tappedHandlers: Record<defines.events, [((data: any) => void) | undefined, () => void]> = {}
+interface TappedHandler {
+  /** The mod-under-test's own handler, restored when the run ends. */
+  original: ((this: void, data: any) => void) | undefined
+  ours: (this: void) => void
+}
+
+const tappedHandlers: Record<defines.events, TappedHandler> = {}
 const oldScript: LuaBootstrap = script
 
 function tapEvent(event: defines.events, func: () => void) {
-  if (!tappedHandlers[event]) {
-    tappedHandlers[event] = [script.get_event_handler(event), func]
+  const existing = tappedHandlers[event]
+  if (existing) {
+    existing.ours = func
+  } else {
+    tappedHandlers[event] = { original: script.get_event_handler(event), ours: func }
     oldScript.on_event(event, (data) => {
       const handlers = tappedHandlers[event]!
-      handlers[0]?.(data)
-      handlers[1]()
+      handlers.original?.(data)
+      handlers.ours()
     })
-  } else {
-    tappedHandlers[event]![1] = func
   }
 
   if (rawequal(script, oldScript)) {
@@ -161,7 +171,7 @@ function tapEvent(event: defines.events, func: () => void) {
       on_event(this: void, event: any, func: any) {
         const handler = tappedHandlers[event]
         if (handler) {
-          handler[0] = func
+          handler.original = func
         } else {
           oldScript.on_event(event, func)
         }
@@ -179,6 +189,6 @@ function revertTappedEvents() {
   ;(_G as any).script = oldScript
   for (const [event, handler] of pairs(tappedHandlers)) {
     tappedHandlers[event] = undefined!
-    script.on_event(event, handler[0])
+    script.on_event(event, handler.original)
   }
 }
