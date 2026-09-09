@@ -6,7 +6,7 @@ import { createTestRunner, TestRunner } from "../runner"
 import { _setTestState, getTestState, resetTestState, TestState } from "../state"
 import { TestEvent } from "../test-events"
 import { DescribeBlock, Test } from "../tests"
-import { propagateTestMode } from "../setup-globals"
+import { propagateTestMode } from "../test-mode"
 import {
   assertEqual,
   assertNotNil,
