@@ -2,6 +2,7 @@
 import { TestStage } from "../constants"
 import { createEmptyRunResults, TestRunResults } from "./results"
 import { notifyListeners, TestEvent } from "./test-events"
+import { testStorage } from "./storage"
 import { createRootDescribeBlock, DescribeBlock, Test, TestTags } from "./tests"
 import Config = FactorioTest.Config
 import OnTickFn = FactorioTest.OnTickFn
@@ -61,9 +62,6 @@ export interface TestRun {
 }
 
 let TheTestState: TestState | undefined
-declare const storage: {
-  __factorio_testTestStage?: TestStage
-}
 
 export function getTestState(): TestState {
   return TheTestState ?? error("Tests are not configured to be run")
@@ -75,14 +73,14 @@ export function _setTestState(state: TestState): void {
 }
 
 export function getGlobalTestStage(): TestStage {
-  return storage.__factorio_testTestStage ?? TestStage.NotRun
+  return testStorage().testStage ?? TestStage.NotRun
 }
 
 const onTestStageChanged = script.generate_event_name<{ stage: TestStage }>()
 export { onTestStageChanged }
 
 function setGlobalTestStage(stage: TestStage): void {
-  storage.__factorio_testTestStage = stage
+  testStorage().testStage = stage
   script.raise_event(onTestStageChanged, { stage })
 }
 

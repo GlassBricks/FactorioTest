@@ -1,12 +1,9 @@
 import { getAutoStartConfig } from "./auto-start-config"
+import { testStorage } from "./storage"
 import { TestEventListener } from "./test-events"
 
-declare const storage: {
-  __lastFailedTests?: LuaSet<string>
-}
-
 export function initializeFailedTestsFromConfig(): void {
-  if (storage.__lastFailedTests !== undefined) return
+  if (testStorage().lastFailedTests !== undefined) return
 
   const fromConfig = getAutoStartConfig().last_failed_tests
   if (fromConfig && fromConfig.length > 0) {
@@ -14,16 +11,16 @@ export function initializeFailedTestsFromConfig(): void {
     for (const path of fromConfig) {
       set.add(path)
     }
-    storage.__lastFailedTests = set
+    testStorage().lastFailedTests = set
   }
 }
 
 export function getFailedTestsSet(): LuaSet<string> {
-  return storage.__lastFailedTests ?? new LuaSet<string>()
+  return testStorage().lastFailedTests ?? new LuaSet<string>()
 }
 
 export function hasFailedTests(): boolean {
-  const set = storage.__lastFailedTests
+  const set = testStorage().lastFailedTests
   return set !== undefined && next(set)[0] !== undefined
 }
 
@@ -40,7 +37,7 @@ export const failedTestCollector: TestEventListener = (event) => {
     case "testRunFinished":
     case "testRunCancelled":
       if (currentRunFailedPaths) {
-        storage.__lastFailedTests = currentRunFailedPaths
+        testStorage().lastFailedTests = currentRunFailedPaths
         currentRunFailedPaths = undefined
       }
       break

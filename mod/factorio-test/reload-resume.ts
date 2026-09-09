@@ -3,6 +3,7 @@ import { table } from "util"
 import { TestStage } from "../constants"
 import { TestRunResults } from "./results"
 import { type TestState } from "./state"
+import { testStorage } from "./storage"
 import { DescribeBlock, HookType, Source, Test, TestMode, TestTags } from "./tests"
 import compare = table.compare
 
@@ -193,20 +194,17 @@ function findTestByPath(block: DescribeBlock, path: string): Test | undefined {
   return undefined
 }
 
-interface ResumeData {
+export interface ResumeData {
   rootBlock: SavedDescribeBlockData
   results: TestRunResults
   profiler: LuaProfiler
   resumeTestPath: string
   resumePartIndex: number
 }
-declare const storage: {
-  __testResume: ResumeData | undefined
-}
 
 export function prepareReload(testState: TestState): void {
   const currentRun = testState.run.currentTestRun!
-  storage.__testResume = {
+  testStorage().resume = {
     rootBlock: saveDescribeBlock(testState.rootBlock),
     results: testState.results,
     resumeTestPath: currentRun.test.path,
@@ -219,8 +217,8 @@ export function prepareReload(testState: TestState): void {
 }
 
 export function resumeAfterReload(state: TestState): { test: Test; partIndex: number } | undefined {
-  const testResume = storage.__testResume ?? error("attempting to resume after reload without resume data saved")
-  storage.__testResume = undefined
+  const testResume = testStorage().resume ?? error("attempting to resume after reload without resume data saved")
+  testStorage().resume = undefined
 
   state.results = testResume.results
   state.run.profiler = testResume.profiler

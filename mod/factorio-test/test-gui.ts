@@ -13,12 +13,13 @@ import { getPlayer } from "./_util"
 import { MessageHandler } from "./output"
 import { TestRunResults } from "./results"
 import { TestState } from "./state"
+import { testStorage } from "./storage"
 import { TestEventListener } from "./test-events"
 import { countActiveTests } from "./tests"
 import ProgressGui = Locale.ProgressGui
 import ConfigGui = Locale.ConfigGui
 
-interface TestGui {
+export interface TestGui {
   player: LuaPlayer
   mainFrame: FrameGuiElement
   statusText: LabelGuiElement
@@ -29,10 +30,6 @@ interface TestGui {
   actionButton: ButtonGuiElement
 
   totalTests: number
-}
-
-declare const storage: {
-  __testGui: TestGui
 }
 
 function StatusText(parent: LuaGuiElement) {
@@ -120,7 +117,7 @@ function closeTestProgressGui(): void {
 
   const screen = player.gui.screen
   screen[Misc.TestGui]?.destroy()
-  storage.__testGui = undefined!
+  testStorage().gui = undefined
 }
 
 function createTestProgressGui(state: TestState): TestGui {
@@ -206,9 +203,9 @@ function createTestProgressGui(state: TestState): TestGui {
 }
 
 function getTestProgressGui() {
-  const gui = storage.__testGui
+  const gui = testStorage().gui
   if (!gui?.mainFrame.valid) {
-    storage.__testGui = undefined!
+    testStorage().gui = undefined
     return undefined
   }
   return gui
@@ -238,7 +235,7 @@ function updateTestCounts(gui: TestGui, results: TestRunResults) {
 
 export const progressGuiListener: TestEventListener = (event, state) => {
   if (event.type === "testRunStarted") {
-    storage.__testGui = createTestProgressGui(state)
+    testStorage().gui = createTestProgressGui(state)
     return
   }
   const gui = getTestProgressGui()
@@ -321,7 +318,7 @@ export const progressGuiListener: TestEventListener = (event, state) => {
 
 const profilerLength = "(Duration: 0.082400ms)".length - "(<Profiler>)".length
 export const progressGuiLogger: MessageHandler = (message) => {
-  const gui = storage.__testGui
+  const gui = testStorage().gui
   if (!gui || !gui.progressBar.valid) return
   const output = gui.output
   const textBox = output.add({
