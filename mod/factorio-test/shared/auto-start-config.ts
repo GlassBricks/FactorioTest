@@ -1,4 +1,4 @@
-import { Settings } from "../constants"
+import { Settings } from "../../constants"
 
 export interface AutoStartConfig {
   mod?: string

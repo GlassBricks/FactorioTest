@@ -1,5 +1,5 @@
 import { Misc, Remote } from "../constants"
-import { getPlayer } from "../factorio-test/_util"
+import { getPlayer } from "../factorio-test/shared/util"
 import { guiAction } from "./guiAction"
 
 guiAction(Misc.CloseTestGui, () => {

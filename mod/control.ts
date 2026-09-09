@@ -1,5 +1,5 @@
 import "./control/index"
-import { isAutoStartEnabled, getAutoStartMod } from "./factorio-test/auto-start-config"
+import { isAutoStartEnabled, getAutoStartMod } from "./factorio-test/shared/auto-start-config"
 
 const shouldAutoStart = isAutoStartEnabled() && getAutoStartMod() === script.mod_name
 if (shouldAutoStart) {

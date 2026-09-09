@@ -5,6 +5,7 @@ This is a testing framework for Factorio mods. Monorepo, containing:
 - **cli** - Test runner (plain TypeScript/Node, published as `factorio-test-cli`)
 - **mod** - Factorio mod, with in-game test GUI (using TypeScriptToLua). Provides a minimal GUI to interface with the mod under test.
 - **mod/factorio-test/** - The lua mod API. The bundle is injected into the mod-under-test (not the factorio-test mod itself)
+- **mod/factorio-test/shared/** - Modules imported by _both_ the bundle and the outer mod. `mod/tsconfig.json` excludes `factorio-test/**/*`, but the outer mod imports these anyway, so they compile twice and emit standalone `.lua`. Moving them or renaming their exports breaks the outer mod build.
 - **types** - Common TypeScript definitions (`factorio-test` npm)
 - **integration-tests** - E2E tests
 

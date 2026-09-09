@@ -1,6 +1,6 @@
 import { Remote, Settings, TestStage } from "../constants"
-import { getAutoStartMod, isHeadlessMode } from "./auto-start-config"
-import { debugAdapterEnabled } from "./_util"
+import { getAutoStartMod, isHeadlessMode } from "./shared/auto-start-config"
+import { debugAdapterEnabled } from "./shared/util"
 import { builtinTestEventListeners } from "./builtin-test-event-listeners"
 import { cliEventEmitter } from "./cli-events"
 import { initializeFailedTestsFromConfig } from "./failed-test-storage"

@@ -1,6 +1,6 @@
 import Config = FactorioTest.Config
 import { Settings } from "./constants"
-import { getAutoStartMod } from "./factorio-test/auto-start-config"
+import { getAutoStartMod } from "./factorio-test/shared/auto-start-config"
 
 let initCalled = false
 function init(this: void, files: string[], config?: Partial<Config>): void

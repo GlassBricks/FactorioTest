@@ -1,4 +1,4 @@
-import { getAutoStartConfig } from "./auto-start-config"
+import { getAutoStartConfig } from "./shared/auto-start-config"
 import { testStorage } from "./storage"
 import { TestEventListener } from "./test-events"
 

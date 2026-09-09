@@ -9,7 +9,7 @@ import {
   ScrollPaneGuiElement,
 } from "factorio:runtime"
 import { Locale, Misc, Prototypes } from "../constants"
-import { getPlayer } from "./_util"
+import { getPlayer } from "./shared/util"
 import { MessageHandler } from "./output"
 import { TestRunResults } from "./results"
 import { TestState } from "./state"

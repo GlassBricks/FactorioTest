@@ -1,5 +1,5 @@
 import { Protocol, Remote } from "../constants"
-import { getAutoStartConfig, isAutoStartEnabled, isHeadlessMode } from "../factorio-test/auto-start-config"
+import { getAutoStartConfig, isAutoStartEnabled, isHeadlessMode } from "../factorio-test/shared/auto-start-config"
 import { LocalisedString } from "factorio:runtime"
 import { hasAutoStarted, markAutoStarted, startTests } from "./start-tests"
 

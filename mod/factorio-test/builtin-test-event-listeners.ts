@@ -2,7 +2,7 @@ import { Protocol } from "../constants"
 import { logListener } from "./output"
 import { TestEventListener } from "./test-events"
 import { cleanupTestState } from "./state"
-import { isHeadlessMode } from "./auto-start-config"
+import { isHeadlessMode } from "./shared/auto-start-config"
 import { failedTestCollector } from "./failed-test-storage"
 
 function emitResult(status: string) {

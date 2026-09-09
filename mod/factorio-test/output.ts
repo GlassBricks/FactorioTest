@@ -1,6 +1,6 @@
 import { Protocol } from "../constants"
 import { ColorArray, LocalisedString, LuaProfiler } from "factorio:runtime"
-import { debugAdapterEnabled } from "./_util"
+import { debugAdapterEnabled } from "./shared/util"
 import { TestEventListener } from "./test-events"
 import { Source } from "./tests"
 

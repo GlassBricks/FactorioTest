@@ -1,4 +1,4 @@
-import { isHeadlessMode } from "../factorio-test/auto-start-config"
+import { isHeadlessMode } from "../factorio-test/shared/auto-start-config"
 import { reloadAndStartTests } from "./start-tests"
 
 if (!isHeadlessMode()) {

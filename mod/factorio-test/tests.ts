@@ -1,5 +1,5 @@
 import { LuaProfiler } from "factorio:runtime"
-import { assertNever } from "./_util"
+import { assertNever } from "./shared/util"
 import Config = FactorioTest.Config
 import HookFn = FactorioTest.HookFn
 import TestFn = FactorioTest.TestFn

@@ -1,7 +1,7 @@
 // noinspection JSUnusedGlobalSymbols
 
 import * as util from "util"
-import { __factorio_test__pcallWithStacktrace } from "./_util"
+import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
 import { prepareReload } from "./reload-resume"
 import { getCurrentBlock, getTestState, TestRun, TestState } from "./state"
 import {

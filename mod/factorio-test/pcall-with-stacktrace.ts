@@ -13,21 +13,11 @@ function getErrorWithStacktrace(error: unknown) {
 
   const lines = stacktrace.split("\n")
   for (let i = 1, l = lines.length; i <= l; i++) {
+    // the function is found by its own name; renaming it breaks the trimming
     if (lines[i - 1]!.endsWith(": in function '__factorio_test__pcallWithStacktrace'")) {
       if (lines[i - 3] === "\t[C]: in function 'rawxpcall'") i-- // remove extra line from debugadapter
       return table.concat(lines, "\n", 1, i - 2)
     }
   }
   return stacktrace
-}
-
-import { LuaPlayer } from "factorio:runtime"
-
-export function getPlayer(): LuaPlayer {
-  return game.players[1] ?? error("No player found")
-}
-
-export const debugAdapterEnabled = script.active_mods["debugadapter"] !== undefined
-export function assertNever(value: never): never {
-  return error(`value ${value} should be never`)
 }

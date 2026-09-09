@@ -1,6 +1,7 @@
 /** @noSelfInFile */
 import { TestStage } from "../constants"
-import { __factorio_test__pcallWithStacktrace, assertNever } from "./_util"
+import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
+import { assertNever } from "./shared/util"
 import { resumeAfterReload } from "./reload-resume"
 import { TestRun, TestState, createRunState, setToLoadErrorState } from "./state"
 import { markFailedTestsAndDescendants, reorderChildren, shouldReorderFailedFirst } from "./test-reordering"
