@@ -1,4 +1,4 @@
-import { Settings } from "../constants"
+import { Protocol, Settings } from "../constants"
 
 const deprecatedAutoStart = settings.startup[Settings.DeprecatedAutoStart]?.value as boolean | undefined
 
@@ -20,9 +20,9 @@ if (deprecatedAutoStart) {
 ================================================================================
 `
 
-  print("FACTORIO-TEST-MESSAGE-START")
+  print(Protocol.MessageStart)
   log(message)
-  print("FACTORIO-TEST-MESSAGE-END")
-  print("FACTORIO-TEST-RESULT:incompatible cli version")
-  error("FACTORIO-TEST-EXIT")
+  print(Protocol.MessageEnd)
+  print(Protocol.Result + "incompatible cli version")
+  error(Protocol.Exit)
 }

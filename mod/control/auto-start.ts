@@ -1,4 +1,4 @@
-import { Remote } from "../constants"
+import { Protocol, Remote } from "../constants"
 import { getAutoStartConfig, isAutoStartEnabled, isHeadlessMode } from "../factorio-test/auto-start-config"
 import { LocalisedString } from "factorio:runtime"
 import { hasAutoStarted, markAutoStarted, startTests } from "./start-tests"
@@ -16,11 +16,11 @@ function armAutoStart() {
     function autoStartError(message: LocalisedString) {
       if (!headless) game.print(message)
       log(message)
-      print("FACTORIO-TEST-MESSAGE-START")
+      print(Protocol.MessageStart)
       log(message)
-      print("FACTORIO-TEST-MESSAGE-END")
-      print("FACTORIO-TEST-RESULT:could not auto start")
-      if (headless) error("FACTORIO-TEST-EXIT")
+      print(Protocol.MessageEnd)
+      print(Protocol.Result + "could not auto start")
+      if (headless) error(Protocol.Exit)
     }
 
     if (!(modToTest in script.active_mods)) {

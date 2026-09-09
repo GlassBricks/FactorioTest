@@ -2,8 +2,7 @@ import { TestEventListener } from "./test-events"
 import { TestRunResults } from "./results"
 import { countActiveTests, DescribeBlock, Source, Test } from "./tests"
 import { TestInfo, BlockInfo, SourceLocation, TestRunnerEvent, TestRunSummary } from "../../types/events"
-
-const EVENT_PREFIX = "FACTORIO-TEST-EVENT:"
+import { Protocol } from "../constants"
 
 function computeStatus(r: TestRunResults): TestRunSummary["status"] {
   if (r.failed !== 0 || r.describeBlockErrors !== 0) return "failed"
@@ -16,7 +15,7 @@ function toSummary(r: TestRunResults): TestRunSummary {
 }
 
 function emitEvent(event: TestRunnerEvent): void {
-  print(EVENT_PREFIX + helpers.table_to_json(event))
+  print(Protocol.Event + helpers.table_to_json(event))
 }
 
 function sourceToLocation(source: Source): SourceLocation | undefined {

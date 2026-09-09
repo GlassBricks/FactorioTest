@@ -1,14 +1,26 @@
 import { EventEmitter } from "events"
 import { TestRunnerEvent } from "../types/events.js"
 
-const EVENT_PREFIX = "FACTORIO-TEST-EVENT:"
+/**
+ * The stdout wire protocol. Mirrored by mod/constants.d.ts.
+ */
+export const enum Protocol {
+  Event = "FACTORIO-TEST-EVENT:",
+  Result = "FACTORIO-TEST-RESULT:",
+  MessageStart = "FACTORIO-TEST-MESSAGE-START",
+  MessageEnd = "FACTORIO-TEST-MESSAGE-END",
+}
+
+/** Sub-protocol within a result message. */
+export const BAILED_PREFIX = "bailed:"
+export const FOCUSED_SUFFIX = ":focused"
 
 export function parseEvent(line: string): TestRunnerEvent | undefined {
-  if (!line.startsWith(EVENT_PREFIX)) {
+  if (!line.startsWith(Protocol.Event)) {
     return undefined
   }
   try {
-    return JSON.parse(line.slice(EVENT_PREFIX.length)) as TestRunnerEvent
+    return JSON.parse(line.slice(Protocol.Event.length)) as TestRunnerEvent
   } catch {
     return undefined
   }
@@ -30,17 +42,17 @@ export class FactorioOutputHandler extends EventEmitter<FactorioOutputEvents> {
   }
 
   handleLine(line: string): void {
-    if (line.startsWith("FACTORIO-TEST-RESULT:")) {
-      this.resultMessage = line.slice("FACTORIO-TEST-RESULT:".length)
+    if (line.startsWith(Protocol.Result)) {
+      this.resultMessage = line.slice(Protocol.Result.length)
       this.emit("result", this.resultMessage)
       return
     }
 
-    if (line === "FACTORIO-TEST-MESSAGE-START") {
+    if (line === Protocol.MessageStart) {
       this.inMessage = true
       return
     }
-    if (line === "FACTORIO-TEST-MESSAGE-END") {
+    if (line === Protocol.MessageEnd) {
       this.inMessage = false
       return
     }

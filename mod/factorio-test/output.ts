@@ -1,3 +1,4 @@
+import { Protocol } from "../constants"
 import { ColorArray, LocalisedString, LuaProfiler } from "factorio:runtime"
 import { debugAdapterEnabled } from "./_util"
 import { TestEventListener } from "./test-events"
@@ -186,9 +187,9 @@ export const debugAdapterLogger: MessageHandler = (message, source) => {
 }
 
 export const logLogger: MessageHandler = (message) => {
-  print("FACTORIO-TEST-MESSAGE-START")
+  print(Protocol.MessageStart)
   log(message.plainText)
-  print("FACTORIO-TEST-MESSAGE-END")
+  print(Protocol.MessageEnd)
 }
 
 export const logListener: TestEventListener = (event, state) => {

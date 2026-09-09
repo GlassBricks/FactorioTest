@@ -1,3 +1,4 @@
+import { Protocol } from "../constants"
 import { logListener } from "./output"
 import { resultCollector } from "./results"
 import { TestEventListener } from "./test-events"
@@ -6,9 +7,9 @@ import { isHeadlessMode } from "./auto-start-config"
 import { failedTestCollector } from "./failed-test-storage"
 
 function emitResult(status: string) {
-  print("FACTORIO-TEST-RESULT:" + status)
+  print(Protocol.Result + status)
   if (isHeadlessMode()) {
-    error("FACTORIO-TEST-EXIT")
+    error(Protocol.Exit)
   }
 }
 

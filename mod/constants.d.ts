@@ -1,3 +1,15 @@
+/**
+ * The stdout wire protocol to the CLI. Mirrored by cli/factorio-output-parser.ts.
+ */
+export const enum Protocol {
+  Event = "FACTORIO-TEST-EVENT:",
+  Result = "FACTORIO-TEST-RESULT:",
+  MessageStart = "FACTORIO-TEST-MESSAGE-START",
+  MessageEnd = "FACTORIO-TEST-MESSAGE-END",
+  /** Never parsed. Just the error message thrown to force headless. */
+  Exit = "Factorio Test: intentionally erroring to exit the process",
+}
+
 export const enum Remote {
   TestsAvailableFor = "factorio-test-tests-available-for-",
   FactorioTest = "factorio-test",

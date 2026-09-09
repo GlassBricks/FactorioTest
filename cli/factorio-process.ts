@@ -5,7 +5,7 @@ import * as os from "os"
 import * as path from "path"
 import { Readable } from "stream"
 import { fileURLToPath } from "url"
-import { FactorioOutputHandler } from "./factorio-output-parser.js"
+import { BAILED_PREFIX, FactorioOutputHandler, FOCUSED_SUFFIX } from "./factorio-output-parser.js"
 import { OutputPrinter, ProgressRenderer } from "./test-output.js"
 import { TestRunCollector, TestRunData } from "./test-results.js"
 import { CliError } from "./cli-error.js"
@@ -114,10 +114,10 @@ export function parseResultMessage(message: string): Pick<FactorioTestResult, "s
   let remaining = message
   let status: string
 
-  const hasFocused = remaining.endsWith(":focused")
-  if (hasFocused) remaining = remaining.slice(0, -":focused".length)
+  const hasFocused = remaining.endsWith(FOCUSED_SUFFIX)
+  if (hasFocused) remaining = remaining.slice(0, -FOCUSED_SUFFIX.length)
 
-  if (remaining.startsWith("bailed:")) {
+  if (remaining.startsWith(BAILED_PREFIX)) {
     status = "bailed"
   } else {
     status = remaining
