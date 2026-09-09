@@ -10,8 +10,8 @@ describe("parseRequiredDependencies", () => {
     [["? optional-mod >= 1.0.0"], []],
     [["! incompatible-mod"], []],
     [["(?) hidden-optional >= 1.0.0"], []],
-    [["base >= 1.1.0"], []],
-    [["quality >= 1.0.0"], []],
+    [["base >= 1.1.0"], [{ name: "base", minVersion: "1.1.0" }]],
+    [["quality >= 1.0.0"], [{ name: "quality", minVersion: "1.0.0" }]],
     [["  mod-name  >=  1.0.0  "], [{ name: "mod-name", minVersion: "1.0.0" }]],
     [["~  soft-mod"], [{ name: "soft-mod" }]],
     [
@@ -25,6 +25,7 @@ describe("parseRequiredDependencies", () => {
         "another-required",
       ],
       [
+        { name: "base", minVersion: "1.1.0" },
         { name: "required-mod", minVersion: "2.0.0" },
         { name: "soft-required", minVersion: "1.0.0" },
         { name: "another-required" },

@@ -16,12 +16,14 @@ import {
 import { watchDirectory, watchFile } from "./file-watcher.js"
 import {
   configureModToTest,
+  DLC_MODS,
   ensureConfigIni,
   ensureModSettingsDat,
   installFactorioTest,
   installModDependencies,
   installMods,
   parseModRequirement,
+  parseModSpecName,
   resetAutorunSettings,
   resolveModWatchTarget,
   setSettingsForAutorun,
@@ -120,7 +122,10 @@ async function setupTestRun(patterns: string[], cliOptions: Record<string, unkno
     await installMods(modsDir, configModRequirements)
   }
 
+  const configuredMods = new Set([modToTest, ...modDependencies, ...(config.mods?.map(parseModSpecName) ?? [])])
+
   const enableModsOptions = [
+    ...DLC_MODS.filter((m) => !configuredMods.has(m)).map((m) => `${m}=false`),
     "factorio-test=true",
     `${modToTest}=true`,
     ...modDependencies.map((m) => `${m}=true`),

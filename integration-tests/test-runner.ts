@@ -5,6 +5,7 @@ import { tests as configTests } from "./tests/config-options.js"
 import { tests as resultsTests } from "./tests/results-file.js"
 import { tests as watchTests } from "./tests/watch-mode.js"
 import { tests as outputTimeoutTests } from "./tests/output-timeout.js"
+import { tests as dlcModsTests } from "./tests/dlc-mods.js"
 
 const allTests: TestDefinition[] = [
   ...watchTests,
@@ -12,6 +13,7 @@ const allTests: TestDefinition[] = [
   ...usageTests,
   ...configTests,
   ...outputTimeoutTests,
+  ...dlcModsTests,
 ]
 
 async function main() {

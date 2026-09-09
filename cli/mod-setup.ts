@@ -7,7 +7,11 @@ import { CliError } from "./cli-error.js"
 
 const MIN_FACTORIO_TEST_VERSION = "3.0.0"
 
-const BUILTIN_MODS = new Set(["base", "quality", "elevated-rails", "space-age", "recycler"])
+// Ship with the game rather than the mod portal, so they cannot be downloaded, and Factorio enables
+// any of them missing from mod-list.json
+export const DLC_MODS = ["quality", "elevated-rails", "space-age", "recycler"]
+
+const BUILTIN_MODS = new Set(["base", ...DLC_MODS])
 
 type Version = [number, number, number]
 
@@ -260,8 +264,12 @@ export function parseModRequirement(spec: string): ModRequirement | undefined {
   const match = withoutPrefix.match(/^(\S+)(?:\s*>=?\s*(\d+\.\d+\.\d+))?/)
   if (!match) return undefined
   const name = match[1]
-  if (!name || BUILTIN_MODS.has(name)) return undefined
+  if (!name) return undefined
   return { name, minVersion: match[2] }
+}
+
+export function parseModSpecName(spec: string): string {
+  return spec.trim().split(/[\s=]/)[0]!
 }
 
 export function parseRequiredDependencies(dependencies: string[]): ModRequirement[] {
@@ -277,6 +285,7 @@ export async function installMods(modsDir: string, mods: ModRequirement[]): Prom
   const playerDataPath = getFactorioPlayerDataPath()
 
   for (const { name, minVersion } of mods) {
+    if (BUILTIN_MODS.has(name)) continue
     const installedVersion = await getInstalledModVersion(modsDir, name)
 
     if (installedVersion) {
