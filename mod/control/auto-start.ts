@@ -3,7 +3,7 @@ import { getAutoStartConfig, isAutoStartEnabled, isHeadlessMode } from "../facto
 import { LocalisedString } from "factorio:runtime"
 import { hasAutoStarted, markAutoStarted, startTests } from "./start-tests"
 
-script.on_load(() => {
+function armAutoStart() {
   if (!isAutoStartEnabled()) return
   if (hasAutoStarted()) return
 
@@ -34,4 +34,8 @@ script.on_load(() => {
     markAutoStarted()
     startTests(modToTest)
   })
-})
+}
+
+// on_init instead of on_load when the save was created without factorio-test present
+script.on_load(armAutoStart)
+script.on_init(armAutoStart)
