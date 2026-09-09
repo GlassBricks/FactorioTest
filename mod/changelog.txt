@@ -1,7 +1,18 @@
 ---------------------------------------------------------------------------------------------------
 Version: 3.1.1
 Date: ????
+  Features:
+    - Step mode: with the `step` config option (or `--step` in the CLI), a test run pauses
+      before each test, and before each part declared with `test(...).step("caption", func)`.
+      The test GUI shows the caption with Continue, Skip test and Run the rest controls.
+      The world is held still while a step waits, so what is on screen is the state at the
+      step boundary. Requires graphics mode; ignored when running headless.
   Changes:
+    - `after_test` hooks registered in an earlier part of a multi-part test now also run after
+      later parts, instead of being dropped at the part boundary.
+  Bugfixes:
+    - Async timeouts and `after_ticks` are now measured from when a test part starts running,
+      rather than from when the runner queued it.
 ---------------------------------------------------------------------------------------------------
 Version: 3.1.0
 Date: 2026-06-24

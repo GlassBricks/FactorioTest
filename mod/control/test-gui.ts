@@ -15,3 +15,15 @@ guiAction(Misc.CancelTestRun, () => {
     remote.call(Remote.FactorioTest, "cancelTestRun")
   }
 })
+
+function stepAction(action: string) {
+  return () => {
+    if (remote.interfaces[Remote.FactorioTest]?.stepAction) {
+      remote.call(Remote.FactorioTest, "stepAction", action)
+    }
+  }
+}
+
+guiAction(Misc.StepNext, stepAction("next"))
+guiAction(Misc.StepSkipTest, stepAction("skipTest"))
+guiAction(Misc.StepRunRest, stepAction("runRest"))

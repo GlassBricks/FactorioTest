@@ -11,4 +11,5 @@ export interface TestRunnerConfig {
   log_skipped_tests?: boolean
   reorder_failed_first?: boolean
   bail?: number
+  step?: boolean
 }

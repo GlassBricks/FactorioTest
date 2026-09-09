@@ -28,6 +28,15 @@ declare namespace FactorioTest {
     reorder_failed_first: boolean
     bail?: number
 
+    /**
+     * Walk the run: pause before each test, and before each part declared with
+     * {@link TestBuilder.step}, until the user continues from the test GUI.
+     *
+     * Only supported when running with graphics; ignored (with a warning) in headless mode.
+     * While stepping, `game_speed` is forced to 1 and the world is held still between steps.
+     */
+    step: boolean
+
     default_ticks_between_tests: number
     before_test_run?(): void
     after_test_run?(): void
@@ -73,6 +82,26 @@ declare namespace FactorioTest {
   export interface TestBuilder<F extends (this: void, ...args: any) => void = TestFn> {
     after_reload_script(func: F): TestBuilder<F>
     after_reload_mods(func: F): TestBuilder<F>
+
+    /**
+     * Adds another part to this test, with a caption describing what it does.
+     *
+     * Parts run back-to-back, exactly like the rest of the test body, unless step mode is on
+     * (`step` config option / `--step` CLI flag). In step mode the run pauses before this
+     * part, showing the caption in the test GUI, until the user chooses to continue.
+     *
+     * @example
+     * test("connects an underground pipe", () => {
+     *   placeUnderground()
+     * })
+     *   .step("place the covering tile", () => {
+     *     placeTile()
+     *   })
+     *   .step("check the connector", () => {
+     *     assertConnected()
+     *   })
+     */
+    step(caption: string, func: F): TestBuilder<F>
   }
 
   /** @noSelf */

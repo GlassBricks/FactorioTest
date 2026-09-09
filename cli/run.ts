@@ -62,6 +62,7 @@ Examples:
   factorio-test run -p ./my-mod -v          Run with verbose output
   factorio-test run -p ./my-mod -gw         Run with graphics in watch mode
   factorio-test run -p ./my-mod -b          Bail on first failure
+  factorio-test run -p ./my-mod -g --step   Walk the run step by step, in a window
   factorio-test run -p ./my-mod "inventory" Run tests matching "inventory"
 `,
   )
@@ -100,6 +101,9 @@ async function setupTestRun(patterns: string[], cliOptions: Record<string, unkno
   }
   if (config.noAutoStart && !config.graphics) {
     throw new CliError("--no-auto-start requires --graphics.")
+  }
+  if (config.testConfig.step && !config.graphics) {
+    throw new CliError("Step mode requires --graphics: there is no in-game GUI to continue from otherwise.")
   }
 
   const factorioPath = config.factorioPath ?? autoDetectFactorioPath()

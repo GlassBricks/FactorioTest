@@ -4,6 +4,8 @@ if ("factorio-test" in script.active_mods) {
     log_passed_tests: true,
     log_skipped_tests: true,
     sound_effects: true,
+    // step mode is not usable headless; the framework should ignore it rather than hang
+    step: true,
     after_test_run() {
       const results = remote.call("factorio-test", "getResults") as any
       const config = remote.call("factorio-test", "getConfig") as FactorioTest.Config
@@ -11,6 +13,7 @@ if ("factorio-test" in script.active_mods) {
       print("FACTORIO-TEST-MESSAGE-START")
       log(`CONFIG:game_speed=${config.game_speed}`)
       log(`CONFIG:default_timeout=${config.default_timeout}`)
+      log(`CONFIG:step=${config.step}`)
       if (config.test_pattern) {
         log(`CONFIG:test_pattern=${config.test_pattern}`)
       }

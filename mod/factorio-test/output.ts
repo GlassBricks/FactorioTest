@@ -229,6 +229,13 @@ export const logListener: TestEventListener = (event, state) => {
       }
       break
     }
+    case "stepStarted": {
+      // only while walking a run; this would be noise in a normal headless run
+      if (state.config.step) {
+        output(m`${yellow("STEP")} ${event.caption}`)
+      }
+      break
+    }
     case "describeBlockFailed": {
       const { block } = event
       output(m`${red("ERROR")} ${block.path}`, block.source)

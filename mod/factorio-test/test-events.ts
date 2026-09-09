@@ -52,6 +52,20 @@ export interface TestRunCancelled extends BaseTestEvent {
 export interface LoadError extends BaseTestEvent {
   type: "loadError"
 }
+/** Raised when a part with a caption starts running, whether or not step mode is on. */
+export interface StepStarted extends BaseTestEvent {
+  type: "stepStarted"
+  caption: string
+}
+/** Raised when the run pauses at a step, in step mode. */
+export interface StepPaused extends BaseTestEvent {
+  type: "stepPaused"
+  caption: string
+}
+/** Raised when a paused run continues, whichever action the user chose. */
+export interface StepResumed extends BaseTestEvent {
+  type: "stepResumed"
+}
 export interface CustomEvent extends BaseTestEvent {
   type: "customEvent"
   name: string
@@ -72,6 +86,9 @@ export type TestEvent =
   | TestRunFinished
   | TestRunCancelled
   | LoadError
+  | StepStarted
+  | StepPaused
+  | StepResumed
   | CustomEvent
 
 export type TestEventListener = (event: TestEvent, state: TestState) => void

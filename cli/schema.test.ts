@@ -22,6 +22,10 @@ describe("testRunnerConfigSchema", () => {
   it("rejects unknown keys", () => {
     expect(() => testRunnerConfigSchema.parse({ unknown_key: true })).toThrow()
   })
+
+  it("parses step", () => {
+    expect(testRunnerConfigSchema.parse({ step: true })).toEqual({ step: true })
+  })
 })
 
 describe("fileConfigSchema", () => {
@@ -84,5 +88,13 @@ describe("parseCliTestOptions", () => {
 
   it("positional patterns override CLI testPattern", () => {
     expect(parseCliTestOptions({ testPattern: "cli" }, ["pos"]).test_pattern).toBe("(pos)")
+  })
+
+  it.each([
+    [{ step: true }, { step: true }],
+    [{ step: false }, { step: false }],
+    [{}, {}],
+  ])("passes --step through (%o -> %o)", (opts, expected) => {
+    expect(parseCliTestOptions(opts, [])).toEqual(expected)
   })
 })

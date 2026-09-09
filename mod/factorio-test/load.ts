@@ -9,7 +9,7 @@ import { addMessageHandler, debugAdapterLogger, logLogger } from "./output"
 import { progressGuiListener, progressGuiLogger } from "./test-gui"
 import { createTestRunner, TestRunner } from "./runner"
 import { globals } from "./setup-globals"
-import { getTestState, onTestStageChanged, resetTestState } from "./state"
+import { getTestState, onTestStageChanged, requestStepAction, resetTestState, StepAction } from "./state"
 import { addTestListener, clearTestListeners } from "./test-events"
 import { LuaBootstrap } from "factorio:runtime"
 import Config = FactorioTest.Config
@@ -27,6 +27,7 @@ export = function (files: string[], config: Partial<Config>): void {
   remote.add_interface(Remote.FactorioTest, {
     runTests,
     cancelTestRun,
+    stepAction: (action: StepAction) => requestStepAction(action),
     modName: () => script.mod_name,
     getTestStage: () => getTestState().getTestStage(),
     isRunning,
@@ -94,6 +95,8 @@ function runTests() {
 }
 
 function cancelTestRun() {
+  // may be cancelled while frozen at a step; the runner needs ticks to wind the run down
+  if (game !== undefined) game.tick_paused = false
   currentRunner?.requestCancel()
 }
 
@@ -104,6 +107,10 @@ function doRunTests() {
   const headless = isHeadlessMode()
   if (headless) {
     addTestListener(cliEventEmitter)
+    if (state.config.step) {
+      log("factorio-test: step requires graphics mode (there is no GUI to continue from); ignoring it")
+      state.config.step = false
+    }
   }
   builtinTestEventListeners.forEach(addTestListener)
   if (game !== undefined) game.tick_paused = false
@@ -127,10 +134,11 @@ function doRunTests() {
     if (currentRunner.isDone()) {
       currentRunner = undefined
       revertTappedEvents()
-    } else if (game !== undefined) {
+    } else if (game !== undefined && !state.stepPause) {
       // A test hook may have paused the game (e.g. entering the map editor pauses by default
       // since 2.1). The runner is driven by on_tick, which only fires while ticks advance, so
-      // keep the game unpaused for the duration of the run.
+      // keep the game unpaused for the duration of the run -- except while step mode is
+      // deliberately holding the world still, waiting for the user.
       game.tick_paused = false
     }
   })

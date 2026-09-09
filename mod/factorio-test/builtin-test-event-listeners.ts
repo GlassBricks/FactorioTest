@@ -14,7 +14,8 @@ function emitResult(status: string) {
 
 const setupListener: TestEventListener = (event, state) => {
   if (event.type === "testRunStarted") {
-    game.speed = state.config.game_speed
+    // watching a run at 1000x is pointless; step mode always runs at normal speed
+    game.speed = state.stepMode ? 1 : state.config.game_speed
     game.autosave_enabled = false
     state.config.before_test_run?.()
   } else if (event.type === "testRunFinished") {

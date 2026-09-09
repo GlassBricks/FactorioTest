@@ -3,7 +3,7 @@ import { TestStage } from "../../constants"
 import { fillConfig } from "../config"
 import { resultCollector } from "../results"
 import { createTestRunner } from "../runner"
-import { _setTestState, getTestState, resetTestState, TestState } from "../state"
+import { _setTestState, getTestState, requestStepAction, resetTestState, StepAction, TestState } from "../state"
 import { TestEvent } from "../test-events"
 import { DescribeBlock, Test } from "../tests"
 import { propagateTestMode } from "../setup-globals"
@@ -46,6 +46,7 @@ before_each(() => {
 })
 
 after_each(() => {
+  if (game !== undefined) game.tick_paused = false
   _setTestState(originalTestState)
   const testStage = mockTestState.getTestStage()
   if (mockTestState.rootBlock.children.length > 0 && testStage === TestStage.NotRun) {
@@ -1338,6 +1339,270 @@ describe("after_test", () => {
     })
     runTestSync()
     assertDeepEquals(["foo", "after_foo", "after_foo2"], actions)
+  })
+})
+
+describe("step mode", () => {
+  /**
+   * Drives the runner to completion, answering every step pause with `respond`.
+   * Returns the captions of the pauses that happened, in order.
+   */
+  function runWithSteps(respond: (caption: string, index: number) => StepAction = () => "next"): string[] {
+    propagateTestMode(mockTestState, mockTestState.rootBlock, undefined)
+    const runner = createTestRunner(mockTestState)
+    const captions: string[] = []
+    let ticks = 0
+    while (ticks < 100) {
+      ticks++
+      runner.tick()
+      if (runner.isDone()) return captions
+      const pause = mockTestState.stepPause
+      if (pause) {
+        captions.push(pause.caption)
+        requestStepAction(respond(pause.caption, captions.length))
+      }
+    }
+    error("test run did not finish")
+  }
+
+  function enableStepMode() {
+    mockTestState.config.step = true
+  }
+
+  test("step parts run back to back when step mode is off", () => {
+    test("foo", () => {
+      actions.push("one")
+    })
+      .step("second thing", () => {
+        actions.push("two")
+      })
+      .step("third thing", () => {
+        actions.push("three")
+      })
+    const captions = runWithSteps()
+    assertDeepEquals([], captions)
+    assertDeepEquals(["one", "two", "three"], actions)
+  })
+
+  test("pauses before each test, and before each step part", () => {
+    enableStepMode()
+    test("foo", () => {
+      actions.push("one")
+    }).step("second thing", () => {
+      actions.push("two")
+    })
+    test("bar", () => {
+      actions.push("bar")
+    })
+    const captions = runWithSteps()
+    assertDeepEquals([" > foo", "second thing", " > bar"], captions)
+    assertDeepEquals(["one", "two", "bar"], actions)
+  })
+
+  test("does not pause before skipped tests", () => {
+    enableStepMode()
+    test.skip("skipped", () => {
+      actions.push("nope")
+    })
+    test("run me", () => {
+      actions.push("yes")
+    })
+    const captions = runWithSteps()
+    assertDeepEquals([" > run me"], captions)
+    assertDeepEquals(["yes"], actions)
+    assertEqual(1, mockTestState.results.skipped)
+  })
+
+  test("the game is not advanced while paused", () => {
+    enableStepMode()
+    test("foo", () => {
+      actions.push("one")
+    })
+    propagateTestMode(mockTestState, mockTestState.rootBlock, undefined)
+    const runner = createTestRunner(mockTestState)
+    runner.tick()
+    assertNotNil(mockTestState.stepPause)
+    // further ticks do nothing until the pause is answered
+    runner.tick()
+    runner.tick()
+    assertDeepEquals([], actions)
+    assertFalse(runner.isDone())
+    requestStepAction("next")
+    runner.tick()
+    assertDeepEquals(["one"], actions)
+    assertTrue(runner.isDone())
+  })
+
+  test("run the rest stops pausing for the remainder of the run", () => {
+    enableStepMode()
+    test("foo", () => {
+      actions.push("one")
+    })
+      .step("second thing", () => {
+        actions.push("two")
+      })
+      .step("third thing", () => {
+        actions.push("three")
+      })
+    test("bar", () => {
+      actions.push("bar")
+    })
+    const captions = runWithSteps((_, index) => (index === 2 ? "runRest" : "next"))
+    assertDeepEquals([" > foo", "second thing"], captions)
+    assertDeepEquals(["one", "two", "three", "bar"], actions)
+  })
+
+  test("skip test before it starts does not run it, and reports it skipped", () => {
+    enableStepMode()
+    before_each(() => {
+      actions.push("beforeEach")
+    })
+    test("foo", () => {
+      actions.push("foo")
+    })
+    test("bar", () => {
+      actions.push("bar")
+    })
+    const captions = runWithSteps((caption) => (caption === " > foo" ? "skipTest" : "next"))
+    assertDeepEquals([" > foo", " > bar"], captions)
+    assertDeepEquals(["beforeEach", "bar"], actions)
+    assertEqual(1, mockTestState.results.skipped)
+    assertEqual(1, mockTestState.results.passed)
+  })
+
+  test("skip test mid-test abandons remaining parts but still runs after hooks", () => {
+    enableStepMode()
+    after_each(() => {
+      actions.push("afterEach")
+    })
+    test("foo", () => {
+      after_test(() => {
+        actions.push("afterTest")
+      })
+      actions.push("one")
+    })
+      .step("second thing", () => {
+        actions.push("two")
+      })
+      .step("third thing", () => {
+        actions.push("three")
+      })
+    const captions = runWithSteps((caption) => (caption === "second thing" ? "skipTest" : "next"))
+    assertDeepEquals([" > foo", "second thing"], captions)
+    assertDeepEquals(["one", "afterTest", "afterEach"], actions)
+    assertEqual(1, mockTestState.results.skipped)
+    assertEqual(0, mockTestState.results.passed)
+  })
+
+  test("step requires a caption and a function", () => {
+    const builder = test("foo", () => {
+      actions.push("foo")
+    })
+    assertThrows(() => builder.step(undefined as unknown as string, () => {}))
+    assertThrows(() => builder.step("a caption", undefined as unknown as () => void))
+    runWithSteps()
+    assertDeepEquals(["foo"], actions)
+  })
+
+  test("after_test hooks registered in an earlier part still run", () => {
+    enableStepMode()
+    test("foo", () => {
+      after_test(() => {
+        actions.push("afterTest")
+      })
+      actions.push("one")
+    }).step("second thing", () => {
+      actions.push("two")
+    })
+    runWithSteps()
+    assertDeepEquals(["one", "two", "afterTest"], actions)
+  })
+
+  test("a test that already failed is still reported as failed when skipped", () => {
+    enableStepMode()
+    test("foo", () => {
+      actions.push("one")
+    }).step("second thing", () => {
+      error("oh no")
+    })
+    const captions = runWithSteps()
+    assertDeepEquals([" > foo", "second thing"], captions)
+    assertEqual(1, mockTestState.results.failed)
+  })
+
+  test("does not pause before a step part when the test already failed", () => {
+    enableStepMode()
+    test("foo", () => {
+      error("oh no")
+    }).step("second thing", () => {
+      actions.push("two")
+    })
+    const captions = runWithSteps()
+    assertDeepEquals([" > foo"], captions)
+    assertDeepEquals([], actions)
+    assertEqual(1, mockTestState.results.failed)
+  })
+
+  test("cancelling while paused ends the run", () => {
+    enableStepMode()
+    after_each(() => {
+      actions.push("afterEach")
+    })
+    test("foo", () => {
+      actions.push("one")
+    }).step("second thing", () => {
+      actions.push("two")
+    })
+    propagateTestMode(mockTestState, mockTestState.rootBlock, undefined)
+    const runner = createTestRunner(mockTestState)
+    runner.tick()
+    requestStepAction("next")
+    runner.tick()
+    assertNotNil(mockTestState.stepPause)
+    runner.requestCancel()
+    runner.tick()
+    assertTrue(runner.isDone())
+    assertEqual(undefined, mockTestState.stepPause)
+    assertDeepEquals(["one", "afterEach"], actions)
+    assertEqual("cancelled", mockTestState.results.status)
+  })
+
+  test("step mode emits stepPaused and stepResumed events", () => {
+    enableStepMode()
+    test("foo", () => {
+      actions.push("one")
+    })
+    runWithSteps()
+    const stepEvents = events.filter((e) => e.type === "stepPaused" || e.type === "stepResumed").map((e) => e.type)
+    assertDeepEquals(["stepPaused", "stepResumed"], stepEvents)
+  })
+
+  test("stepStarted is raised when a captioned part runs, not when it is queued", () => {
+    enableStepMode()
+    test("foo", () => {
+      actions.push("one")
+    }).step("second thing", () => {
+      actions.push("two")
+    })
+    runWithSteps((caption) => {
+      // the caption is announced as "next" before it has run
+      const started = events.filter((e) => e.type === "stepStarted").length
+      if (caption === "second thing") assertEqual(0, started)
+      return "next"
+    })
+    const started = events.filter((e) => e.type === "stepStarted")
+    assertEqual(1, started.length)
+    assertEqual("second thing", (started[0] as { caption: string }).caption)
+  })
+
+  test("captioned parts are announced even when step mode is off", () => {
+    test("foo", () => {
+      actions.push("one")
+    }).step("second thing", () => {
+      actions.push("two")
+    })
+    runWithSteps()
+    assertEqual(1, events.filter((e) => e.type === "stepStarted").length)
   })
 })
 

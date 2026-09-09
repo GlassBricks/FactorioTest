@@ -27,6 +27,8 @@ interface TestGui {
   testSummary: LabelGuiElement
   output: ScrollPaneGuiElement
   actionButton: ButtonGuiElement
+  stepBar: FrameGuiElement
+  stepLabel: LabelGuiElement
 
   totalTests: number
 }
@@ -90,6 +92,53 @@ function TestOutput(parent: LuaGuiElement): ScrollPaneGuiElement {
   pane.style.height = 600
   pane.style.horizontally_stretchable = true
   return pane
+}
+
+function StepBar(parent: LuaGuiElement): {
+  stepBar: FrameGuiElement
+  stepLabel: LabelGuiElement
+} {
+  const stepBar = parent.add<"frame">({
+    type: "frame",
+    style: "inside_shallow_frame_with_padding",
+    direction: "horizontal",
+  })
+  stepBar.visible = false
+  stepBar.style.horizontally_stretchable = true
+
+  // alignment and spacing belong on a flow; frame styles reject them
+  const flow = stepBar.add<"flow">({
+    type: "flow",
+    direction: "horizontal",
+  })
+  const flowStyle = flow.style
+  flowStyle.horizontally_stretchable = true
+  flowStyle.vertical_align = "center"
+  flowStyle.horizontal_spacing = 8
+
+  const stepLabel = flow.add({ type: "label" })
+  stepLabel.style.font = "default-bold"
+  stepLabel.style.single_line = false
+
+  const spacer = flow.add({ type: "empty-widget" })
+  spacer.style.horizontally_stretchable = true
+
+  function stepButton(caption: string, action: string, style: string) {
+    flow.add({
+      type: "button",
+      style,
+      caption: [caption],
+      tags: {
+        modName: "factorio-test",
+        on_gui_click: action,
+      },
+    })
+  }
+  stepButton(ProgressGui.StepSkipTest, Misc.StepSkipTest, "button")
+  stepButton(ProgressGui.StepRunRest, Misc.StepRunRest, "button")
+  stepButton(ProgressGui.StepNext, Misc.StepNext, "confirm_button")
+
+  return { stepBar, stepLabel }
 }
 
 function bottomButtonsBar(parent: LuaGuiElement) {
@@ -198,6 +247,7 @@ function createTestProgressGui(state: TestState): TestGui {
     ...ProgressBar(topFrame),
     testSummary: TestSummary(topFrame),
     output: TestOutput(contentFlow),
+    ...StepBar(contentFlow),
     ...bottomButtonsBar(contentFlow),
   }
 
@@ -285,7 +335,20 @@ export const progressGuiListener: TestEventListener = (event, state) => {
       if (block.parent) gui.statusText.caption = [ProgressGui.RunningTest, block.parent.path]
       break
     }
+    case "stepPaused": {
+      gui.stepLabel.caption = [ProgressGui.StepPaused, event.caption]
+      gui.stepBar.visible = true
+      // Freeze the world while we wait, so what you are looking at is the state at the
+      // step boundary and not whatever it drifted into while you were reading.
+      game.tick_paused = true
+      break
+    }
+    case "stepResumed": {
+      gui.stepBar.visible = false
+      break
+    }
     case "testRunFinished": {
+      gui.stepBar.visible = false
       const statusLocale =
         state.results.status == "passed"
           ? ProgressGui.TestsPassed
@@ -299,12 +362,14 @@ export const progressGuiListener: TestEventListener = (event, state) => {
       break
     }
     case "testRunCancelled": {
+      gui.stepBar.visible = false
       gui.statusText.caption = [ProgressGui.TestsCancelled]
       gui.actionButton.caption = [ConfigGui.RerunTests]
       gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
       break
     }
     case "loadError": {
+      gui.stepBar.visible = false
       gui.statusText.caption = [ProgressGui.LoadError]
       gui.actionButton.caption = [ConfigGui.RerunTests]
       gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }

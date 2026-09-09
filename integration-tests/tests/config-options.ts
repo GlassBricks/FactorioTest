@@ -136,6 +136,23 @@ const testCases: TestCase[] = [
     expectExitCode: 1,
   },
   {
+    name: "--step without --graphics errors",
+    args: ["--step"],
+    expectedError: "Step mode requires --graphics",
+    expectExitCode: 1,
+  },
+  {
+    name: "step in config file without --graphics errors",
+    configFile: { test: { step: true } },
+    expectedError: "Step mode requires --graphics",
+    expectExitCode: 1,
+  },
+  {
+    name: "step declared by the mod is ignored in headless mode",
+    expectedOutput: ["CONFIG:step=false", "Tests: 1 failed, 2 errors, 1 todo, 2 skipped, 5 passed (9 total)"],
+    expectExitCode: 1,
+  },
+  {
     name: "Invalid config key throws error",
     configFile: { invalidKey: true },
     expectedError: "invalidKey",

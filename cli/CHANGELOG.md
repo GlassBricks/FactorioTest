@@ -1,3 +1,13 @@
+## Unreleased
+
+### Features
+
+- Added `--step` option to walk a test run in a window: the run pauses before each test and before
+  each part declared with `test(...).step("caption", func)`, showing the caption and
+  Continue / Skip test / Run the rest controls in the in-game test GUI. The world is held still
+  while a step waits on you. Requires `--graphics`, and forces `game_speed` to 1. Also settable
+  as `step` in the `test` section of a config file.
+
 ## v3.6.0
 
 - Updated for Factorio 2.1!

@@ -5,6 +5,7 @@ import { resumeAfterReload } from "./reload-resume"
 import { TestRun, TestState, setToLoadErrorState } from "./state"
 import { DescribeBlock, Test, collectHooks, formatSource, isSkippedTest } from "./tests"
 import { shouldReorderFailedFirst, markFailedTestsAndDescendants, reorderChildren } from "./test-reordering"
+import HookFn = FactorioTest.HookFn
 
 export interface TestRunner {
   tick(): void
@@ -21,6 +22,7 @@ interface TestTasks {
   waitForTestPart(testRun: TestRun): void
   leaveTest(testRun: TestRun): void
   leaveDescribeBlock(block: DescribeBlock): void
+  resumeStep(): void
   finishTestRun(): void
 }
 type Task = {
@@ -51,17 +53,20 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
   constructor(private state: TestState) {}
   ticksToWait = 0
   nextTask: Task | undefined = { task: "init" }
+  /** The task to run once the user resumes from a step pause. */
+  private stepResumeTask: Task | undefined
 
   tick(): void {
     if (this.state.cancelRequested && this.nextTask) {
       this.nextTask = this.cancelTestRun()
       return
     }
+    if (this.state.stepPause) return
     if (this.ticksToWait > 0) {
       if (--this.ticksToWait > 0) return
     }
     while (this.nextTask) {
-      if (this.state.cancelRequested) return
+      if (this.state.cancelRequested || this.state.stepPause) return
       this.nextTask = this.runTask(this.nextTask)
       if (this.nextTask) {
         this.ticksToWait = this.nextTask.waitTicks ?? 0
@@ -80,6 +85,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
 
   private cancelTestRun(): Task | undefined {
     const { state } = this
+    this.clearStepPause()
     let startBlock: DescribeBlock | undefined
     if (state.currentTestRun) {
       const { test, afterTestFuncs } = state.currentTestRun
@@ -109,7 +115,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
   }
 
   private getBlockFromNextTask(): DescribeBlock | undefined {
-    const task = this.nextTask
+    const task = this.nextTask?.task === "resumeStep" ? this.stepResumeTask : this.nextTask
     if (!task?.data) return undefined
     const data = task.data as Test | DescribeBlock | TestRun
     if ("type" in data) {
@@ -148,6 +154,8 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
   private startTestRun(): Task {
     const { state } = this
     state.profiler = helpers.create_profiler()
+    state.stepMode = state.config.step
+    this.clearStepPause()
     state.setTestStage(TestStage.Running)
     if (shouldReorderFailedFirst(state)) {
       markFailedTestsAndDescendants(state.rootBlock)
@@ -229,11 +237,15 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
       return TestRunnerImpl.getNextDescribeBlockTask(test.parent, test.indexInParent + 1)
     }
 
-    return {
+    const startTest: Task = {
       task: "startTest",
       data: test,
       waitTicks: test.ticksBefore,
     }
+    if (this.state.stepMode) {
+      return this.pauseForStep(test.path, startTest)
+    }
+    return startTest
   }
 
   startTest(test: Test): Task {
@@ -263,13 +275,19 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     const { test, partIndex } = testRun
     const part = test.parts[partIndex]!
     this.state.currentTestRun = testRun
+    // A step pause may have sat between this task being queued and it running; async timeouts
+    // and after_ticks are measured from when the part actually starts, not from the user's think time.
+    testRun.tickStarted = game.tick
+    if (part.caption !== undefined) {
+      this.state.raiseTestEvent({ type: "stepStarted", caption: part.caption })
+    }
     if (test.errors.length === 0) {
       const [success, error] = __factorio_test__pcallWithStacktrace(part.func)
       if (!success) {
         test.errors.push(error as string)
       }
     }
-    return TestRunnerImpl.nextTestTask(testRun)
+    return this.nextTestTask(testRun)
   }
 
   waitForTestPart(testRun: TestRun): Task {
@@ -292,7 +310,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
         }
       }
     }
-    return TestRunnerImpl.nextTestTask(testRun)
+    return this.nextTestTask(testRun)
   }
 
   leaveTest(testRun: TestRun): Task {
@@ -307,7 +325,12 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     }
     this.state.currentTestRun = undefined
     test.profiler!.stop()
-    if (test.errors.length > 0) {
+    if (testRun.stepSkipped && test.errors.length === 0) {
+      this.state.raiseTestEvent({
+        type: "testSkipped",
+        test,
+      })
+    } else if (test.errors.length > 0) {
       this.state.raiseTestEvent({
         type: "testFailed",
         test,
@@ -406,7 +429,7 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     return undefined
   }
 
-  private static nextTestTask(testRun: TestRun): Task {
+  private nextTestTask(testRun: TestRun): Task {
     const { test, partIndex } = testRun
     if (
       test.errors.length !== 0 ||
@@ -414,11 +437,16 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
       testRun.asyncDone ||
       (!testRun.explicitAsync && next(testRun.onTickFuncs)[0] === undefined)
     ) {
-      if (partIndex + 1 < test.parts.length) {
-        return {
+      const nextPart = test.parts[partIndex + 1]
+      if (nextPart) {
+        const runNextPart: Task = {
           task: "runTestPart",
-          data: TestRunnerImpl.newTestRun(test, partIndex + 1),
+          data: TestRunnerImpl.newTestRun(test, partIndex + 1, testRun.afterTestFuncs),
         }
+        if (this.state.stepMode && test.errors.length === 0 && nextPart.caption !== undefined) {
+          return this.pauseForStep(nextPart.caption, runNextPart)
+        }
+        return runNextPart
       }
       return {
         task: "leaveTest",
@@ -431,7 +459,63 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
       waitTicks: 1,
     }
   }
-  private static newTestRun(test: Test, partIndex: number): TestRun {
+
+  /**
+   * Suspends the run until the user picks a step action. `tick()` refuses to advance while
+   * `state.stepPause` is set; the returned task runs once it is cleared.
+   */
+  private pauseForStep(caption: string, next: Task): Task {
+    const { state } = this
+    state.stepPause = { caption }
+    state.stepAction = undefined
+    this.stepResumeTask = next
+    state.raiseTestEvent({ type: "stepPaused", caption })
+    return { task: "resumeStep" }
+  }
+
+  private clearStepPause(): void {
+    this.state.stepPause = undefined
+    this.state.stepAction = undefined
+    this.stepResumeTask = undefined
+  }
+
+  resumeStep(): Task | undefined {
+    const { state } = this
+    const next = this.stepResumeTask
+    const action = state.stepAction
+    this.clearStepPause()
+    state.raiseTestEvent({ type: "stepResumed" })
+    if (!next) return undefined
+    if (action === "runRest") {
+      state.stepMode = false
+    } else if (action === "skipTest") {
+      return this.skipCurrentTest(next)
+    }
+    return next
+  }
+
+  /**
+   * "Skip test" from the step GUI: abandon the rest of the current test and move on.
+   * A test that already started still runs its after_test/after_each hooks.
+   */
+  private skipCurrentTest(next: Task): Task | undefined {
+    const testRun = this.state.currentTestRun
+    if (testRun) {
+      testRun.stepSkipped = true
+      return {
+        task: "leaveTest",
+        data: testRun,
+      }
+    }
+    if (next.task !== "startTest") return next
+    const test = next.data
+    this.state.raiseTestEvent({
+      type: "testSkipped",
+      test,
+    })
+    return TestRunnerImpl.getNextDescribeBlockTask(test.parent, test.indexInParent + 1)
+  }
+  private static newTestRun(test: Test, partIndex: number, afterTestFuncs: HookFn[] = []): TestRun {
     return {
       test,
       async: false,
@@ -439,7 +523,8 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
       asyncDone: false,
       tickStarted: game.tick,
       onTickFuncs: new LuaSet(),
-      afterTestFuncs: [],
+      // after_test hooks belong to the whole test, not to the part that registered them
+      afterTestFuncs,
       partIndex,
     }
   }

@@ -49,6 +49,8 @@ export interface Test {
   readonly parts: {
     func: TestFn
     source: Source
+    /** If set, this part is a step: the run pauses before it in step mode. */
+    caption?: string | undefined
   }[]
 
   readonly declaredMode: TestMode

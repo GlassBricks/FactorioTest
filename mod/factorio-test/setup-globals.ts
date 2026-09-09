@@ -64,13 +64,16 @@ function createTest(name: string, func: TestFn, mode: TestMode, upStack: number 
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-function addPart(test: Test, func: TestFn, funcForSource: Function = func) {
+function addPart(test: Test, func: TestFn, funcForSource: Function = func, caption?: string) {
   const info = debug.getinfo(funcForSource, "Sl")
   const source = createSource(info.source, info.linedefined)
-  test.parts.push({ func, source })
+  test.parts.push({ func, source, caption })
 }
 
-function createTestBuilder<F extends () => void>(addPart: (func: F) => void, addTag: (tag: string) => void) {
+function createTestBuilder<F extends () => void>(
+  addPart: (func: F, caption?: string) => void,
+  addTag: (tag: string) => void,
+) {
   function reloadFunc(reload: () => void, what: string, tag: string) {
     return (func: F) => {
       addPart((() => {
@@ -87,6 +90,15 @@ function createTestBuilder<F extends () => void>(addPart: (func: F) => void, add
   const result: TestBuilder<F> = {
     after_reload_script: reloadFunc(() => game.reload_script(), "script", "after_reload_script"),
     after_reload_mods: reloadFunc(() => game.reload_mods(), "mods", "after_reload_mods"),
+    step(caption: string, func: F) {
+      // Lua users reaching for `:step(...)` land here with the builder as `caption`;
+      // without this the failure is an opaque debug.getinfo error.
+      if (typeof caption !== "string" || typeof func !== "function") {
+        error(`step() takes a caption and a function, as test(...).step("caption", func)`)
+      }
+      addPart(func, caption)
+      return result
+    },
   }
   return result
 }
@@ -223,7 +235,7 @@ function createTestEach(mode: TestMode): TestCreatorBase {
   const result: TestCreatorBase = (name, func) => {
     const test = createTest(name, func, mode)
     return createTestBuilder(
-      (func1) => addPart(test, func1),
+      (func1, caption) => addPart(test, func1, func1, caption),
       (tag) => test.tags.add(tag),
     )
   }
@@ -235,7 +247,7 @@ function createTestEach(mode: TestMode): TestCreatorBase {
       return { test, row: item.row }
     })
     return createTestBuilder<(...args: unknown[]) => void>(
-      (func) => {
+      (func, caption) => {
         for (const { test, row } of testBuilders) {
           addPart(
             test,
@@ -243,6 +255,7 @@ function createTestEach(mode: TestMode): TestCreatorBase {
               func(...row)
             },
             func,
+            caption,
           )
         }
       },

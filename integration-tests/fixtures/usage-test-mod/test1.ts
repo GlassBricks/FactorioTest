@@ -1,5 +1,11 @@
+let stepPartRan = false
 test("Pass", () => {
+  after_test(() => {
+    assert(stepPartRan, "step part did not run")
+  })
   assert(2 === 2, "2 should equal 2")
+}).step("the second half of Pass", () => {
+  stepPartRan = true
 })
 test.skip("Skip", () => {
   error("Uh oh")

@@ -8,6 +8,13 @@ import OnTickFn = FactorioTest.OnTickFn
 import HookFn = FactorioTest.HookFn
 import { LuaProfiler } from "factorio:runtime"
 
+/** An action the user can take while the test run is paused at a step. */
+export type StepAction = "next" | "skipTest" | "runRest"
+
+export interface StepPause {
+  caption: string
+}
+
 /** @noSelf */
 export interface TestState {
   config: Config
@@ -22,6 +29,14 @@ export interface TestState {
   cancelRequested: boolean
   failureCount: number
   bailedOut: boolean
+
+  // step mode
+  /** Whether the run currently pauses at steps. Turned off by the "run the rest" action. */
+  stepMode: boolean
+  /** Set while the run is paused, waiting for a step action. */
+  stepPause?: StepPause | undefined
+  /** The action chosen by the user, consumed by the runner on the next tick. */
+  stepAction?: StepAction | undefined
 
   results: TestRunResults
   profiler?: LuaProfiler
@@ -46,6 +61,8 @@ export interface TestRun {
   tickStarted: number
   onTickFuncs: LuaSet<OnTickFn>
   afterTestFuncs: HookFn[]
+  /** Set when the user skipped the rest of this test from the step GUI. */
+  stepSkipped?: boolean
 }
 
 let TheTestState: TestState | undefined
@@ -82,6 +99,7 @@ export function resetTestState(config: Config): void {
     currentBlock: rootBlock,
     hasFocusedTests: false,
     cancelRequested: false,
+    stepMode: config.step,
     failureCount: 0,
     bailedOut: false,
     results: createEmptyRunResults(),
@@ -91,6 +109,19 @@ export function resetTestState(config: Config): void {
       _raiseTestEvent(this, event)
     },
   })
+}
+
+/**
+ * Called from outside the runner (the test GUI) to resume a run paused at a step.
+ * The runner picks the action up on its next tick.
+ */
+export function requestStepAction(action: StepAction): void {
+  const state = TheTestState
+  if (!state?.stepPause) return
+  state.stepAction = action
+  state.stepPause = undefined
+  // The runner only advances on_tick, which does not fire while the game is paused.
+  if (game !== undefined) game.tick_paused = false
 }
 
 export function cleanupTestState(): void {

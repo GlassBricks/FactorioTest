@@ -16,6 +16,7 @@ const defaultConfig: Config = {
   sound_effects: false,
   reorder_failed_first: false,
   load_luassert: false,
+  step: false,
 }
 
 export function fillConfig(modConfig: Partial<Config>): Config {
