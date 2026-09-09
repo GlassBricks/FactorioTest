@@ -95,9 +95,12 @@ class TestRunnerImpl implements TestTaskRunner, TestRunner {
     }
     let block: DescribeBlock | undefined = startBlock ?? state.rootBlock
     while (block) {
-      const hooks = block.hooks.filter((x) => x.type === "afterAll")
-      for (const hook of hooks) {
-        __factorio_test__pcallWithStacktrace(hook.func)
+      // beforeAll only runs for blocks with active tests, so afterAll must match
+      if (this.hasAnyTest(block)) {
+        const hooks = block.hooks.filter((x) => x.type === "afterAll")
+        for (const hook of hooks) {
+          __factorio_test__pcallWithStacktrace(hook.func)
+        }
       }
       state.raiseTestEvent({ type: "describeBlockFinished", block })
       block = block.parent

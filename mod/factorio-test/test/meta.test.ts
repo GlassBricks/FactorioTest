@@ -1381,6 +1381,21 @@ describe("cancellation", () => {
       assertEqual("failed", mockTestState.results.status)
     })
   })
+
+  test("cancel does not run after_all for a block whose before_all never ran", () => {
+    mockTestState.config = fillConfig({ bail: 1 })
+    test("fail", () => {
+      error("oh no")
+    })
+    describe("no active tests", () => {
+      before_all(() => actions.push("beforeAll"))
+      after_all(() => actions.push("afterAll"))
+      test.skip("x", () => {})
+    })
+    runTestAsync(() => {
+      assertDeepEquals([], actions)
+    })
+  })
 })
 
 describe("after_test", () => {
