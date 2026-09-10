@@ -62,7 +62,6 @@ export function _setTestState(state: TestState): void {
   TheTestState = state
 }
 
-/** Unlike `getTestState`, does not error before the definition phase has finished. */
 export function peekTestState(): TestState | undefined {
   return TheTestState
 }

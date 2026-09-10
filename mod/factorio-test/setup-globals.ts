@@ -1,10 +1,10 @@
 // noinspection JSUnusedGlobalSymbols
 
 import * as util from "util"
-import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
-import { createEachItems } from "./each-format"
-import { prepareReload } from "./reload-resume"
 import { consumeTags, getDefinitionState } from "./definition"
+import { createEachItems } from "./each-format"
+import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
+import { prepareReload } from "./reload-resume"
 import { getTestState, PartRun, TestRun } from "./state"
 import { propagateTestMode } from "./test-mode"
 import { addDescribeBlock, addTest, createSource, DescribeBlock, HookType, Source, Test, TestMode } from "./tests"
@@ -26,7 +26,7 @@ export function getCurrentTestRun(): TestRun {
 }
 
 function addHook(type: HookType, func: HookFn): void {
-  getDefinitionState(`Hook (${type})`).currentBlock.hooks.push({
+  getDefinitionState().currentBlock.hooks.push({
     type,
     func,
   })
@@ -37,7 +37,7 @@ function afterTest(func: TestFn): void {
 }
 
 function createTest(name: string, func: TestFn, mode: TestMode, upStack: number = 1): Test {
-  const parent = getDefinitionState(`Test "${name}"`).currentBlock
+  const parent = getDefinitionState().currentBlock
   return addTest(parent, name, getCallerSource(upStack + 1), func, mode, util.merge([consumeTags(), parent.tags]))
 }
 
@@ -70,7 +70,7 @@ function createTestBuilder<F extends () => void>(addPart: (func: F) => void, add
 }
 
 function createDescribe(name: string, block: TestFn, mode: TestMode, upStack: number = 1): DescribeBlock {
-  const definition = getDefinitionState(`Describe block "${name}"`)
+  const definition = getDefinitionState()
   const source = getCallerSource(upStack + 1)
 
   const parent = definition.currentBlock
@@ -160,7 +160,7 @@ describe.skip = createDescribeEach("skip")
 describe.only = createDescribeEach("only")
 
 function tags(...tags: string[]) {
-  const definition = getDefinitionState("Tags")
+  const definition = getDefinitionState()
   if (definition.currentTags) {
     definition.currentBlock.errors.push(`Double call to tags()`)
   }

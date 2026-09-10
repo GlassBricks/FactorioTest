@@ -1,13 +1,12 @@
 /** @noSelfInFile */
-import { peekTestState, initTestState, TestState } from "./state"
+import { initTestState, peekTestState, TestState } from "./state"
 import { createRootDescribeBlock, DescribeBlock, TestTags } from "./tests"
 import Config = FactorioTest.Config
 
 /**
- * Everything needed to collect tests, and nothing else.
+ * State needed to collect tests.
  *
- * Live only while tests are being defined; outside that, `getDefinitionState` is
- * what tells a caller it is using the DSL at the wrong time.
+ * Live only while tests are being defined.
  */
 export interface DefinitionState {
   config: Config
@@ -44,11 +43,11 @@ export function _clearDefinition(): DefinitionState | undefined {
   return definition
 }
 
-export function getDefinitionState(what: string = "Tests and hooks"): DefinitionState {
+export function getDefinitionState(): DefinitionState {
   if (theDefinition) return theDefinition
   const testRun = peekTestState()?.currentTestRun
-  if (testRun) error(`${what} cannot be nested inside test "${testRun.test.path}"`)
-  error(`${what} cannot be added/configured at this time`)
+  if (testRun) error(`Tests and hooks cannot be nested inside test "${testRun.test.path}"`)
+  error(`Tests and hooks cannot be added/configured at this time`)
 }
 
 export function consumeTags(): TestTags {
