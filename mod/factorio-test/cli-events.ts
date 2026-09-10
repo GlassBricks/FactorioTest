@@ -31,7 +31,7 @@ function blockToInfo(block: DescribeBlock): BlockInfo {
 export const cliEventEmitter: TestEventListener = (event, state) => {
   switch (event.type) {
     case "testRunStarted":
-      emitEvent({ type: "testRunStarted", total: countActiveTests(state.rootBlock, state) })
+      emitEvent({ type: "testRunStarted", total: countActiveTests(state) })
       break
     case "testStarted":
       emitEvent({ type: "testStarted", test: testToInfo(event.test) })
@@ -74,7 +74,7 @@ export const cliEventEmitter: TestEventListener = (event, state) => {
     case "loadError":
       emitEvent({
         type: "loadError",
-        error: state.rootBlock.errors[0] ?? "Unknown error",
+        error: state.suite.rootBlock.errors[0] ?? "Unknown error",
       })
       break
   }

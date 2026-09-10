@@ -145,7 +145,7 @@ function createTestProgressGui(state: TestState): TestGui {
   style.height = 28
   titleBar.add({
     type: "label",
-    caption: state.hasFocusedTests
+    caption: state.suite.hasFocusedTests
       ? ["", [ProgressGui.Title, script.mod_name], " (.only)"]
       : [ProgressGui.Title, script.mod_name],
     style: "frame_title",
@@ -190,7 +190,7 @@ function createTestProgressGui(state: TestState): TestGui {
   const gui: TestGui = {
     player,
     mainFrame,
-    totalTests: countActiveTests(state.rootBlock, state),
+    totalTests: countActiveTests(state),
     statusText: StatusText(topFrame),
     ...ProgressBar(topFrame),
     testSummary: TestSummary(topFrame),

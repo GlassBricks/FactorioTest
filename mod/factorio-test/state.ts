@@ -3,7 +3,7 @@ import { TestStage } from "../constants"
 import { RunReport } from "./results"
 import { notifyListeners, TestEvent } from "./test-events"
 import { testStorage } from "./storage"
-import { createRootDescribeBlock, DescribeBlock, Test, TestTags } from "./tests"
+import { createRootDescribeBlock, DescribeBlock, Test, TestSuite, TestTags } from "./tests"
 import Config = FactorioTest.Config
 import OnTickFn = FactorioTest.OnTickFn
 import HookFn = FactorioTest.HookFn
@@ -23,12 +23,11 @@ export interface TestEnvironment {
 /** @noSelf */
 export interface TestState {
   config: Config
-  rootBlock: DescribeBlock
+  suite: TestSuite
 
   // definition phase
   currentBlock?: DescribeBlock | undefined
   currentTags?: TestTags | undefined
-  hasFocusedTests: boolean
 
   currentTestRun?: TestRun | undefined
 
@@ -77,9 +76,8 @@ export function resetTestState(config: Config): void {
   const rootBlock = createRootDescribeBlock(config)
   const state: TestState = {
     config,
-    rootBlock,
+    suite: { rootBlock, hasFocusedTests: false },
     currentBlock: rootBlock,
-    hasFocusedTests: false,
     env: {
       getTestStage: getGlobalTestStage,
       setTestStage: setGlobalTestStage,
@@ -91,10 +89,11 @@ export function resetTestState(config: Config): void {
 
 export function setToLoadErrorState(state: TestState, error: string): void {
   state.env.setTestStage(TestStage.LoadError)
-  state.rootBlock = createRootDescribeBlock(state.config)
+  const rootBlock = createRootDescribeBlock(state.config)
+  rootBlock.errors = [error]
+  state.suite = { rootBlock, hasFocusedTests: false }
   state.currentBlock = undefined
   state.currentTestRun = undefined
-  state.rootBlock.errors = [error]
   game.speed = 1
 }
 

@@ -50,7 +50,7 @@ const resultListener: TestEventListener = (event, state) => {
   switch (event.type) {
     case "testRunFinished": {
       const bailedPrefix = state.report!.bailedOut ? "bailed:" : ""
-      const focusedSuffix = state.hasFocusedTests ? ":focused" : ""
+      const focusedSuffix = state.suite.hasFocusedTests ? ":focused" : ""
       endRun(state, bailedPrefix + state.report!.results.status! + focusedSuffix)
       break
     }

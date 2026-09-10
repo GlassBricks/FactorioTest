@@ -260,7 +260,7 @@ export const logListener: TestEventListener = (event, state) => {
     }
     case "loadError": {
       output(m`${red("ERROR")} There was an load error:`)
-      output(formatError(state.rootBlock.errors[0]!))
+      output(formatError(state.suite.rootBlock.errors[0]!))
       break
     }
   }

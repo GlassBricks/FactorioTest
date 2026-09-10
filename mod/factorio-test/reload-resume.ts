@@ -184,13 +184,13 @@ export interface ResumeData {
 export function prepareReload(testState: TestState): void {
   const currentRun = testState.currentTestRun!
   testStorage().resume = {
-    rootBlock: snapshotAndDetachDescribeBlock(testState.rootBlock),
+    rootBlock: snapshotAndDetachDescribeBlock(testState.suite.rootBlock),
     results: testState.report!.results,
     resumeTestPath: currentRun.test.path,
     resumePartIndex: currentRun.partIndex + 1,
     profiler: testState.report!.profiler!,
   }
-  testState.rootBlock = undefined!
+  testState.suite.rootBlock = undefined!
   testState.currentTestRun = undefined
   testState.env.setTestStage(TestStage.ReloadingMods)
 }
@@ -208,13 +208,13 @@ export function resumeAfterReload(state: TestState): { test: Test; partIndex: nu
 
   const saved = testResume.rootBlock
 
-  if (!describeBlockStructuresMatch(saved, state.rootBlock)) {
+  if (!describeBlockStructuresMatch(saved, state.suite.rootBlock)) {
     return undefined
   }
 
-  restoreDescribeBlockState(saved, state.rootBlock)
+  restoreDescribeBlockState(saved, state.suite.rootBlock)
 
-  const test = findTestByPath(state.rootBlock, testResume.resumeTestPath)
+  const test = findTestByPath(state.suite.rootBlock, testResume.resumeTestPath)
   if (!test) {
     return undefined
   }

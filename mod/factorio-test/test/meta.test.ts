@@ -50,17 +50,17 @@ before_each(() => {
 after_each(() => {
   _setTestState(originalTestState)
   const testStage = mockTestState.env.getTestStage()
-  if (mockTestState.rootBlock.children.length > 0 && testStage === TestStage.NotRun) {
+  if (mockTestState.suite.rootBlock.children.length > 0 && testStage === TestStage.NotRun) {
     error("Simulated test defined but not run")
   }
 })
 
 function getFirst<T extends Test | DescribeBlock = Test>(): T {
-  return mockTestState.rootBlock.children[0] as T
+  return mockTestState.suite.rootBlock.children[0] as T
 }
 
 function runTestSync<T extends Test | DescribeBlock = Test>(): T {
-  propagateTestMode(mockTestState, mockTestState.rootBlock, undefined)
+  propagateTestMode(mockTestState.suite, mockTestState.suite.rootBlock, undefined)
   const runner = createTestRunner(mockTestState)
   runner.tick()
   if (!runner.isDone()) {
@@ -73,7 +73,7 @@ function runTestAsyncWithRunner<T extends Test | DescribeBlock = Test>(
   beforeTick: (runner: TestRunner, tickNumber: number) => void,
   callback: (item: T) => void,
 ): void {
-  propagateTestMode(mockTestState, mockTestState.rootBlock, undefined)
+  propagateTestMode(mockTestState.suite, mockTestState.suite.rootBlock, undefined)
   if (mockTestState.env.getTestStage() !== TestStage.NotRun) {
     error("duplicate call to runTestAsync/cannot re-run mock test async")
   }
@@ -110,7 +110,7 @@ describe("setup", () => {
     assertNotNil(result)
     assertEqual("Hello", result.name)
     assertMatches(result.path, "Hello")
-    assertDeepEquals(mockTestState.rootBlock, result.parent)
+    assertDeepEquals(mockTestState.suite.rootBlock, result.parent)
     assertEqual(0, result.indexInParent)
     assertDeepEquals([], result.errors)
   })
@@ -125,7 +125,7 @@ describe("setup", () => {
     assertNotNil(result)
     assertEqual("Block", result.name)
     assertMatches(result.path, "Block")
-    assertDeepEquals(mockTestState.rootBlock, result.parent)
+    assertDeepEquals(mockTestState.suite.rootBlock, result.parent)
     assertEqual(0, result.indexInParent)
 
     assertEqual(1, result.children.length)
@@ -299,7 +299,7 @@ describe("failing tests", () => {
     })
     const theTest = runTestSync()
     assertDeepEquals([], theTest.errors)
-    assertMatches(mockTestState.rootBlock.errors[0]!, failMessage)
+    assertMatches(mockTestState.suite.rootBlock.errors[0]!, failMessage)
   })
 
   test("afterEach", () => {
@@ -319,7 +319,7 @@ describe("failing tests", () => {
     })
     const theTest = runTestSync()
     assertEqual(1, theTest.errors.length)
-    assertMatches(mockTestState.rootBlock.errors[0]!, failMessage)
+    assertMatches(mockTestState.suite.rootBlock.errors[0]!, failMessage)
   })
 
   test("failure in describe definition", () => {
@@ -407,7 +407,7 @@ describe("focused tests", () => {
       actions.push("no")
     })
     runTestSync()
-    assertTrue(mockTestState.hasFocusedTests)
+    assertTrue(mockTestState.suite.hasFocusedTests)
     assertDeepEquals(["yes"], actions)
   })
 
@@ -423,7 +423,7 @@ describe("focused tests", () => {
       })
     })
     runTestSync()
-    assertTrue(mockTestState.hasFocusedTests)
+    assertTrue(mockTestState.suite.hasFocusedTests)
     assertDeepEquals(["yes"], actions)
   })
 
@@ -442,7 +442,7 @@ describe("focused tests", () => {
       })
     })
     runTestSync()
-    assertTrue(mockTestState.hasFocusedTests)
+    assertTrue(mockTestState.suite.hasFocusedTests)
     assertDeepEquals(["yes"], actions)
   })
 
@@ -474,7 +474,7 @@ describe("focused tests", () => {
       actions.push("yes")
     })
     runTestSync()
-    assertFalse(mockTestState.hasFocusedTests, "should not have focused tests if skipped")
+    assertFalse(mockTestState.suite.hasFocusedTests, "should not have focused tests if skipped")
     assertDeepEquals(["yes"], actions)
   })
 })
@@ -867,7 +867,7 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
     })
     runTestSync()
     assertDeepEquals(values, actions)
-    const titles = mockTestState.rootBlock.children.map((x) => x.name)
+    const titles = mockTestState.suite.rootBlock.children.map((x) => x.name)
     assertDeepEquals(
       values.map((v) => string.format(title, ...v)),
       titles,
@@ -888,7 +888,7 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
       { id: 2, name: "second" },
     ])("test $id: $name", () => {})
     runTestSync()
-    const names = mockTestState.rootBlock.children.map((x) => x.name)
+    const names = mockTestState.suite.rootBlock.children.map((x) => x.name)
     assertDeepEquals(["test 1: first", "test 2: second"], names)
   })
 
@@ -901,14 +901,14 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
   test("%# index specifier", () => {
     creator.each([1, 2, 3])("test %#", () => {})
     runTestSync()
-    const names = mockTestState.rootBlock.children.map((x) => x.name)
+    const names = mockTestState.suite.rootBlock.children.map((x) => x.name)
     assertDeepEquals(["test 0", "test 1", "test 2"], names)
   })
 
   test("%$ 1-indexed specifier", () => {
     creator.each([1, 2])("test %$", () => {})
     runTestSync()
-    const names = mockTestState.rootBlock.children.map((x) => x.name)
+    const names = mockTestState.suite.rootBlock.children.map((x) => x.name)
     assertDeepEquals(["test 1", "test 2"], names)
   })
 
@@ -946,9 +946,9 @@ describe("reload state", () => {
       async()
     })
     reloadAndTick()
-    assertDeepEquals([], mockTestState.rootBlock.errors)
+    assertDeepEquals([], mockTestState.suite.rootBlock.errors)
     reloadAndTick()
-    assertNotDeepEquals([], mockTestState.rootBlock.errors)
+    assertNotDeepEquals([], mockTestState.suite.rootBlock.errors)
     assertEqual(TestStage.LoadError, mockTestState.env.getTestStage())
   })
 
@@ -958,7 +958,7 @@ describe("reload state", () => {
     })
     mockTestState.env.setTestStage(TestStage.LoadError)
     reloadAndTick()
-    assertDeepEquals([], mockTestState.rootBlock.errors)
+    assertDeepEquals([], mockTestState.suite.rootBlock.errors)
     assertEqual(TestStage.Finished, mockTestState.env.getTestStage())
     assertDeepEquals(["test 1"], actions)
   })
@@ -1160,7 +1160,7 @@ describe("tags", () => {
     test("Some other test", () => 0)
     const result = runTestSync()
     assertDeepEquals(util.list_to_map(["foo", "bar"]), result.tags)
-    assertDeepEquals([], mockTestState.rootBlock.children[1]!.tags)
+    assertDeepEquals([], mockTestState.suite.rootBlock.children[1]!.tags)
   })
 
   test("Lonely tag call is error", () => {
@@ -1176,7 +1176,7 @@ describe("tags", () => {
     tags("foo", "bar")
     test("some test", () => 0)
     runTestSync()
-    assertNotDeepEquals([], mockTestState.rootBlock.errors)
+    assertNotDeepEquals([], mockTestState.suite.rootBlock.errors)
   })
 
   test("automatic after_reload_mods tag", () => {

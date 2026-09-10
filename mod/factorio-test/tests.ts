@@ -194,28 +194,38 @@ function testMatchesTagList(test: Test, config: Config): boolean {
   return true
 }
 
+/** The definition phase's output: the test tree, and whether any test in it is focused. */
+export interface TestSuite {
+  rootBlock: DescribeBlock
+  hasFocusedTests: boolean
+}
+
 /** The subset of TestState that decides whether a test runs. */
 export interface TestSelection {
-  readonly hasFocusedTests: boolean
   readonly config: Config
+  readonly suite: TestSuite
 }
 
 export function isSkippedTest(test: Test, state: TestSelection): boolean {
   return (
     test.mode === "skip" ||
     test.mode === "todo" ||
-    (state.hasFocusedTests && test.mode !== "only") ||
+    (state.suite.hasFocusedTests && test.mode !== "only") ||
     (state.config.test_pattern !== undefined && !string.match(test.path, state.config.test_pattern)[0]) ||
     !testMatchesTagList(test, state.config)
   )
 }
 
-export function countActiveTests(block: DescribeBlock, state: TestSelection): number {
+export function countActiveTests(state: TestSelection): number {
+  return countActiveTestsIn(state.suite.rootBlock, state)
+}
+
+function countActiveTestsIn(block: DescribeBlock, state: TestSelection): number {
   if (block.mode === "skip") return 0
   let result = 0
   for (const child of block.children) {
     if (child.type === "describeBlock") {
-      result += countActiveTests(child, state)
+      result += countActiveTestsIn(child, state)
     } else if (child.type === "test") {
       if (!isSkippedTest(child, state)) result++
     } else {

@@ -155,12 +155,12 @@ class TestRunnerImpl implements TestRunner {
     state.report.profiler = helpers.create_profiler()
     state.env.setTestStage(TestStage.Running)
     if (shouldReorderFailedFirst(state)) {
-      reorderFailedFirst(state.rootBlock)
+      reorderFailedFirst(state.suite.rootBlock)
     }
     state.env.emit({ type: "testRunStarted" })
 
-    this.enterBlock(state.rootBlock)
-    this.cursor = { block: state.rootBlock, index: 0 }
+    this.enterBlock(state.suite.rootBlock)
+    this.cursor = { block: state.suite.rootBlock, index: 0 }
     this.advance()
   }
 
@@ -396,7 +396,7 @@ class TestRunnerImpl implements TestRunner {
       block = this.cursor?.block
     }
 
-    block ??= state.rootBlock
+    block ??= state.suite.rootBlock
     while (block) {
       // beforeAll only runs for blocks with active tests, so afterAll must match
       if (this.hasAnyTest(block)) {
