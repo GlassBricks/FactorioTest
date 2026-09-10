@@ -33,16 +33,22 @@ export interface TestState {
   env: TestEnvironment
 }
 
+/** One test in flight. Survives the transition from one part to the next. */
 export interface TestRun {
-  test: Test
-  partIndex: number
+  readonly test: Test
+  afterTestFuncs: HookFn[]
+  part: PartRun
+}
+
+/** One part of a test in flight; recreated per part. What async/done/on_tick mutate. */
+export interface PartRun {
+  readonly partIndex: number
   async: boolean
-  explicitAsync?: boolean
+  explicitAsync?: boolean | undefined
   timeout: number
   asyncDone: boolean
   tickStarted: number
   onTickFuncs: LuaSet<OnTickFn>
-  afterTestFuncs: HookFn[]
 }
 
 let TheTestState: TestState | undefined

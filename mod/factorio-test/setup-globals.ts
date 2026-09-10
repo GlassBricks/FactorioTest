@@ -5,7 +5,7 @@ import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
 import { createEachItems } from "./each-format"
 import { prepareReload } from "./reload-resume"
 import { consumeTags, getDefinitionState } from "./definition"
-import { getTestState, TestRun } from "./state"
+import { getTestState, PartRun, TestRun } from "./state"
 import { propagateTestMode } from "./test-mode"
 import { addDescribeBlock, addTest, createSource, DescribeBlock, HookType, Source, Test, TestMode } from "./tests"
 import DescribeCreator = FactorioTest.DescribeCreator
@@ -180,25 +180,29 @@ type SetupGlobals =
   | "describe"
   | "tags"
 
+function getCurrentPart(): PartRun {
+  return getCurrentTestRun().part
+}
+
 function implicitAsync() {
-  const testRun = getCurrentTestRun()
-  testRun.async = true
-  if (!testRun.explicitAsync) {
-    testRun.timeout = getTestState().config.default_timeout
+  const part = getCurrentPart()
+  part.async = true
+  if (!part.explicitAsync) {
+    part.timeout = getTestState().config.default_timeout
   }
 }
 
 function async(timeout?: number) {
-  const testRun = getCurrentTestRun()
-  testRun.async = true
-  testRun.explicitAsync = true
+  const part = getCurrentPart()
+  part.async = true
+  part.explicitAsync = true
 
   if (!timeout) {
     timeout = getTestState().config.default_timeout
   }
   if (timeout < 1) error("test timeout must be greater than 0")
 
-  testRun.timeout = timeout
+  part.timeout = timeout
 }
 
 export const globals: Pick<typeof globalThis, SetupGlobals> = {
@@ -225,20 +229,18 @@ export const globals: Pick<typeof globalThis, SetupGlobals> = {
 
   async,
   done() {
-    const testRun = getCurrentTestRun()
+    const part = getCurrentPart()
 
-    if (!testRun.async) error(`"done" can only be used when test is async`)
-    testRun.asyncDone = true
+    if (!part.async) error(`"done" can only be used when test is async`)
+    part.asyncDone = true
   },
   on_tick(func) {
     implicitAsync()
-    const testRun = getCurrentTestRun()
-    testRun.onTickFuncs.add(func)
+    getCurrentPart().onTickFuncs.add(func)
   },
   after_ticks(ticks, func) {
     implicitAsync()
-    const testRun = getCurrentTestRun()
-    const finishTick = game.tick - testRun.tickStarted + ticks
+    const finishTick = game.tick - getCurrentPart().tickStarted + ticks
     if (ticks < 1) error("after_ticks amount must be positive")
     on_tick((tick) => {
       if (tick >= finishTick) {

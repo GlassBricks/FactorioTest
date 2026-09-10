@@ -187,7 +187,7 @@ export function prepareReload(testState: TestState): void {
     rootBlock: snapshotAndDetachDescribeBlock(testState.suite.rootBlock),
     results: testState.report!.results,
     resumeTestPath: currentRun.test.path,
-    resumePartIndex: currentRun.partIndex + 1,
+    resumePartIndex: currentRun.part.partIndex + 1,
     profiler: testState.report!.profiler!,
   }
   testState.suite.rootBlock = undefined!

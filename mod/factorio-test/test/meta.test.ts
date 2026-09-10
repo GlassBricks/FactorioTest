@@ -1472,6 +1472,20 @@ describe("after_test", () => {
     assertDeepEquals(["foo", "after_foo"], actions)
   })
 
+  test("registered in an earlier part still runs", () => {
+    // the error skips the remaining parts, so no reload actually happens
+    test("foo", () => {
+      after_test(() => {
+        actions.push("after_foo")
+      })
+      error("oh no")
+    }).after_reload_mods(() => {
+      actions.push("continuation")
+    })
+    runTestSync()
+    assertDeepEquals(["after_foo"], actions)
+  })
+
   test("called even if test failed", () => {
     test("foo", () => {
       after_test(() => {

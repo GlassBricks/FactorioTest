@@ -4,7 +4,7 @@ import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
 import { assertNever } from "./shared/util"
 import { resumeAfterReload } from "./reload-resume"
 import { createRunReport } from "./results"
-import { TestRun, TestState, setToLoadErrorState } from "./state"
+import { PartRun, TestRun, TestState, setToLoadErrorState } from "./state"
 import { reorderFailedFirst, shouldReorderFailedFirst } from "./test-reordering"
 import {
   DescribeBlock,
@@ -39,16 +39,22 @@ interface Cursor {
   index: number
 }
 
-function newTestRun(test: Test, partIndex: number): TestRun {
+function newPartRun(partIndex: number): PartRun {
   return {
-    test,
+    partIndex,
     async: false,
     timeout: 0,
     asyncDone: false,
     tickStarted: game.tick,
     onTickFuncs: new LuaSet(),
+  }
+}
+
+function newTestRun(test: Test, partIndex: number): TestRun {
+  return {
+    test,
     afterTestFuncs: [],
-    partIndex,
+    part: newPartRun(partIndex),
   }
 }
 
@@ -74,11 +80,12 @@ function runAfterEachHooks(testRun: TestRun, recordErrors: boolean): void {
 }
 
 function isPartComplete(testRun: TestRun): boolean {
+  const { part } = testRun
   return (
     testRun.test.errors.length !== 0 ||
-    !testRun.async ||
-    testRun.asyncDone ||
-    (!testRun.explicitAsync && next(testRun.onTickFuncs)[0] === undefined)
+    !part.async ||
+    part.asyncDone ||
+    (!part.explicitAsync && next(part.onTickFuncs)[0] === undefined)
   )
 }
 
@@ -299,22 +306,22 @@ class TestRunnerImpl implements TestRunner {
 
   /** Returns true if the runner is still suspended on the part. */
   private pollAsyncPart(testRun: TestRun): boolean {
-    const { test, partIndex } = testRun
-    const tickNumber = game.tick - testRun.tickStarted
-    const timeout = testRun.timeout
+    const { test, part } = testRun
+    const tickNumber = game.tick - part.tickStarted
+    const timeout = part.timeout
     if (tickNumber > timeout) {
-      test.errors.push(`Test timed out after ${timeout} ticks:\n${formatSource(test.parts[partIndex]!.source)}`)
+      test.errors.push(`Test timed out after ${timeout} ticks:\n${formatSource(test.parts[part.partIndex]!.source)}`)
     }
 
     if (test.errors.length === 0) {
       // snapshot: a handler registered during this tick must not run until the next
-      for (const func of Object.keys(testRun.onTickFuncs)) {
+      for (const func of Object.keys(part.onTickFuncs)) {
         const [success, result] = __factorio_test__pcallWithStacktrace(func, tickNumber)
         if (!success) {
           test.errors.push(result as string)
           break
         } else if (result === false) {
-          testRun.onTickFuncs.delete(func)
+          part.onTickFuncs.delete(func)
         }
       }
     }
@@ -322,10 +329,10 @@ class TestRunnerImpl implements TestRunner {
   }
 
   private runPart(testRun: TestRun): void {
-    const { test, partIndex } = testRun
+    const { test, part } = testRun
     this.state.currentTestRun = testRun
     if (test.errors.length === 0) {
-      const [success, message] = __factorio_test__pcallWithStacktrace(test.parts[partIndex]!.func)
+      const [success, message] = __factorio_test__pcallWithStacktrace(test.parts[part.partIndex]!.func)
       if (!success) {
         test.errors.push(message as string)
       }
@@ -337,20 +344,20 @@ class TestRunnerImpl implements TestRunner {
    * suspends on an unfinished part or leaves the test. Returns true if suspended.
    */
   private advanceParts(testRun: TestRun): boolean {
-    let current = testRun
-    while (isPartComplete(current)) {
-      const { test, partIndex } = current
+    const { test } = testRun
+    while (isPartComplete(testRun)) {
+      const { partIndex } = testRun.part
       if (partIndex + 1 >= test.parts.length) {
         // A cancel raised from the test body must not emit testPassed/testFailed.
         // Leave currentTestRun set, so the next tick's cancelRun runs afterEach.
         if (this.cancelRequested) return true
-        this.leaveTest(current)
+        this.leaveTest(testRun)
         return false
       }
-      current = newTestRun(test, partIndex + 1)
-      this.runPart(current)
+      testRun.part = newPartRun(partIndex + 1)
+      this.runPart(testRun)
     }
-    this.resumePoint = { kind: "asyncPart", testRun: current }
+    this.resumePoint = { kind: "asyncPart", testRun }
     return true
   }
 
