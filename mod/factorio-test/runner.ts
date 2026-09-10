@@ -28,7 +28,7 @@ export function createTestRunner(state: TestState): TestRunner {
 type Resumption = { kind: "beforeTest"; test: Test; ticksLeft: number } | { kind: "asyncPart"; testRun: TestRun }
 
 /**
- * Position in the test tree: `block` has already been entered (its
+ * Position in the test tree. `block` has already been entered (its
  * describeBlockEntered raised and its beforeAll run), and `block.children[index]`
  * is the next thing to consider. Ancestor cursors are not materialized; the
  * return position is recomputed as `child.indexInParent + 1` on the way up.
@@ -90,10 +90,12 @@ class TestRunnerImpl implements TestRunner {
   private status: "notStarted" | "running" | "done" = "notStarted"
   private cursor: Cursor | undefined
   private resumePoint: Resumption | undefined
+  private cancelRequested = false
+  private failureCount = 0
 
   tick(): void {
     if (this.status === "done") return
-    if (this.state.run.cancelRequested) {
+    if (this.cancelRequested) {
       this.cancelRun()
       return
     }
@@ -122,7 +124,7 @@ class TestRunnerImpl implements TestRunner {
   }
 
   requestCancel(): void {
-    this.state.run.cancelRequested = true
+    this.cancelRequested = true
   }
 
   private begin(): void {
@@ -194,10 +196,10 @@ class TestRunnerImpl implements TestRunner {
 
   /** The flat driver: pull the next test out of the walk and run it, until suspended or done. */
   private advance(): void {
-    while (!this.state.run.cancelRequested) {
+    while (!this.cancelRequested) {
       const test = this.nextTest()
       // a cancel during the final ascent must not be mistaken for "suite finished"
-      if (this.state.run.cancelRequested) return
+      if (this.cancelRequested) return
       if (!test) {
         this.finishRun()
         return
@@ -221,7 +223,7 @@ class TestRunnerImpl implements TestRunner {
   private nextTest(): Test | undefined {
     while (true) {
       // a cancel from a before_all/after_all hook must stop the walk here
-      if (this.state.run.cancelRequested) return undefined
+      if (this.cancelRequested) return undefined
 
       const cursor = this.cursor!
       const { block } = cursor
@@ -339,7 +341,7 @@ class TestRunnerImpl implements TestRunner {
       if (partIndex + 1 >= test.parts.length) {
         // A cancel raised from the test body must not emit testPassed/testFailed.
         // Leave currentTestRun set, so the next tick's cancelRun runs afterEach.
-        if (this.state.run.cancelRequested) return true
+        if (this.cancelRequested) return true
         this.leaveTest(current)
         return false
       }
@@ -363,8 +365,8 @@ class TestRunnerImpl implements TestRunner {
     this.state.env.emit({ type: "testFailed", test })
     const { bail } = this.state.config
     if (bail !== undefined) {
-      this.state.run.failureCount++
-      if (this.state.run.failureCount >= bail) {
+      this.failureCount++
+      if (this.failureCount >= bail) {
         this.state.run.bailedOut = true
         this.requestCancel()
       }

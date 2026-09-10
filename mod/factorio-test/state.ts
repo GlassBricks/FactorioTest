@@ -24,8 +24,6 @@ export interface TestEnvironment {
 /** State belonging to a single test run; recreated for each run. */
 export interface RunState {
   currentTestRun?: TestRun | undefined
-  cancelRequested: boolean
-  failureCount: number
   bailedOut: boolean
   profiler?: LuaProfiler
 }
@@ -86,8 +84,6 @@ function setGlobalTestStage(stage: TestStage): void {
 
 export function createRunState(): RunState {
   return {
-    cancelRequested: false,
-    failureCount: 0,
     bailedOut: false,
   }
 }
