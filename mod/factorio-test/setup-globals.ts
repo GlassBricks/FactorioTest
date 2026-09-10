@@ -31,13 +31,13 @@ function getCallerSource(upStack: number = 1): Source {
 }
 
 export function getCurrentTestRun(): TestRun {
-  return getTestState().run.currentTestRun ?? error("This can only be called within a test")
+  return getTestState().currentTestRun ?? error("This can only be called within a test")
 }
 
 function addHook(type: HookType, func: HookFn): void {
   const state = getTestState()
-  if (state.run.currentTestRun) {
-    error(`Hook (${type}) cannot be nested inside test "${state.run.currentTestRun.test.path}"`)
+  if (state.currentTestRun) {
+    error(`Hook (${type}) cannot be nested inside test "${state.currentTestRun.test.path}"`)
   }
   getCurrentBlock().hooks.push({
     type,
@@ -58,8 +58,8 @@ function consumeTags(): TestTags {
 
 function createTest(name: string, func: TestFn, mode: TestMode, upStack: number = 1): Test {
   const state = getTestState()
-  if (state.run.currentTestRun) {
-    error(`Test "${name}" cannot be nested inside test "${state.run.currentTestRun.test.path}"`)
+  if (state.currentTestRun) {
+    error(`Test "${name}" cannot be nested inside test "${state.currentTestRun.test.path}"`)
   }
   const parent = getCurrentBlock()
   return addTest(parent, name, getCallerSource(upStack + 1), func, mode, util.merge([consumeTags(), parent.tags]))
@@ -95,8 +95,8 @@ function createTestBuilder<F extends () => void>(addPart: (func: F) => void, add
 
 function createDescribe(name: string, block: TestFn, mode: TestMode, upStack: number = 1): DescribeBlock {
   const state = getTestState()
-  if (state.run.currentTestRun) {
-    error(`Describe block "${name}" cannot be nested inside test "${state.run.currentTestRun.test.path}"`)
+  if (state.currentTestRun) {
+    error(`Describe block "${name}" cannot be nested inside test "${state.currentTestRun.test.path}"`)
   }
 
   const source = getCallerSource(upStack + 1)

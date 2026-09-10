@@ -3,7 +3,8 @@ import { TestStage } from "../constants"
 import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
 import { assertNever } from "./shared/util"
 import { resumeAfterReload } from "./reload-resume"
-import { TestRun, TestState, createRunState, setToLoadErrorState } from "./state"
+import { createRunReport } from "./results"
+import { TestRun, TestState, setToLoadErrorState } from "./state"
 import { reorderFailedFirst, shouldReorderFailedFirst } from "./test-reordering"
 import {
   DescribeBlock,
@@ -83,8 +84,8 @@ function isPartComplete(testRun: TestRun): boolean {
 
 class TestRunnerImpl implements TestRunner {
   constructor(private state: TestState) {
-    // A runner owns exactly one run. Reset state between runs.
-    state.run = createRunState()
+    // A runner owns exactly one run; a previous one may have been abandoned mid-test.
+    state.currentTestRun = undefined
   }
 
   private status: "notStarted" | "running" | "done" = "notStarted"
@@ -150,7 +151,8 @@ class TestRunnerImpl implements TestRunner {
 
   private startTestRun(): void {
     const { state } = this
-    state.run.profiler = helpers.create_profiler()
+    state.report = createRunReport()
+    state.report.profiler = helpers.create_profiler()
     state.env.setTestStage(TestStage.Running)
     if (shouldReorderFailedFirst(state)) {
       reorderFailedFirst(state.rootBlock)
@@ -279,7 +281,7 @@ class TestRunnerImpl implements TestRunner {
   private startAndRunTest(test: Test): boolean {
     test.profiler = helpers.create_profiler()
     const testRun = newTestRun(test, 0)
-    this.state.run.currentTestRun = testRun
+    this.state.currentTestRun = testRun
     this.state.env.emit({ type: "testStarted", test })
 
     const beforeEach = collectBeforeEachHooks(test.parent)
@@ -321,7 +323,7 @@ class TestRunnerImpl implements TestRunner {
 
   private runPart(testRun: TestRun): void {
     const { test, partIndex } = testRun
-    this.state.run.currentTestRun = testRun
+    this.state.currentTestRun = testRun
     if (test.errors.length === 0) {
       const [success, message] = __factorio_test__pcallWithStacktrace(test.parts[partIndex]!.func)
       if (!success) {
@@ -355,7 +357,7 @@ class TestRunnerImpl implements TestRunner {
   private leaveTest(testRun: TestRun): void {
     const { test } = testRun
     runAfterEachHooks(testRun, true)
-    this.state.run.currentTestRun = undefined
+    this.state.currentTestRun = undefined
     test.profiler!.stop()
 
     if (test.errors.length === 0) {
@@ -367,7 +369,7 @@ class TestRunnerImpl implements TestRunner {
     if (bail !== undefined) {
       this.failureCount++
       if (this.failureCount >= bail) {
-        this.state.run.bailedOut = true
+        this.state.report!.bailedOut = true
         this.requestCancel()
       }
     }
@@ -376,7 +378,7 @@ class TestRunnerImpl implements TestRunner {
   private finishRun(): void {
     this.status = "done"
     const { state } = this
-    state.run.profiler?.stop()
+    state.report!.profiler?.stop()
     state.env.setTestStage(TestStage.Finished)
     state.env.emit({ type: "testRunFinished" })
   }
@@ -384,12 +386,12 @@ class TestRunnerImpl implements TestRunner {
   private cancelRun(): void {
     const { state } = this
     let block: DescribeBlock | undefined
-    if (state.run.currentTestRun) {
-      const { test } = state.run.currentTestRun
+    if (state.currentTestRun) {
+      const { test } = state.currentTestRun
       block = test.parent
-      runAfterEachHooks(state.run.currentTestRun, false)
+      runAfterEachHooks(state.currentTestRun, false)
       test.profiler?.stop()
-      state.run.currentTestRun = undefined
+      state.currentTestRun = undefined
     } else {
       block = this.cursor?.block
     }
@@ -405,9 +407,9 @@ class TestRunnerImpl implements TestRunner {
     }
 
     this.status = "done"
-    state.run.profiler?.stop()
+    state.report!.profiler?.stop()
     state.env.setTestStage(TestStage.Finished)
-    state.env.emit(state.run.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
+    state.env.emit(state.report!.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
   }
 
   private hasAnyTest(block: DescribeBlock): boolean {

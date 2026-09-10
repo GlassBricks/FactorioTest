@@ -239,8 +239,8 @@ export const logListener: TestEventListener = (event, state) => {
       break
     }
     case "testRunFinished": {
-      const results = state.results
-      const status = results.status
+      const report = state.report!
+      const status = report.results.status
 
       output(
         m`${{
@@ -255,7 +255,7 @@ export const logListener: TestEventListener = (event, state) => {
                   : MessageColor.White,
         }}`,
       )
-      output(m`${state.run.profiler!}${state.reloaded ? " since last reload" : ""}`)
+      output(m`${report.profiler!}${report.reloaded ? " since last reload" : ""}`)
       break
     }
     case "loadError": {

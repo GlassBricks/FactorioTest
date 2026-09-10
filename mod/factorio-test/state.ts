@@ -1,13 +1,12 @@
 /** @noSelfInFile */
 import { TestStage } from "../constants"
-import { createEmptyRunResults, TestRunResults } from "./results"
+import { RunReport } from "./results"
 import { notifyListeners, TestEvent } from "./test-events"
 import { testStorage } from "./storage"
 import { createRootDescribeBlock, DescribeBlock, Test, TestTags } from "./tests"
 import Config = FactorioTest.Config
 import OnTickFn = FactorioTest.OnTickFn
 import HookFn = FactorioTest.HookFn
-import { LuaProfiler } from "factorio:runtime"
 
 /**
  * Interface between the test framework, and the world around it.
@@ -21,13 +20,6 @@ export interface TestEnvironment {
   emit(event: TestEvent): void
 }
 
-/** State belonging to a single test run; recreated for each run. */
-export interface RunState {
-  currentTestRun?: TestRun | undefined
-  bailedOut: boolean
-  profiler?: LuaProfiler
-}
-
 /** @noSelf */
 export interface TestState {
   config: Config
@@ -38,11 +30,10 @@ export interface TestState {
   currentTags?: TestTags | undefined
   hasFocusedTests: boolean
 
-  run: RunState
+  currentTestRun?: TestRun | undefined
 
-  // outlives the run: read by the getResults remote after it finishes
-  results: TestRunResults
-  reloaded?: boolean
+  /** Created when a run starts, and outlives it: read by the getResults remote afterwards. */
+  report?: RunReport | undefined
 
   env: TestEnvironment
 }
@@ -82,12 +73,6 @@ function setGlobalTestStage(stage: TestStage): void {
   script.raise_event(onTestStageChanged, { stage })
 }
 
-export function createRunState(): RunState {
-  return {
-    bailedOut: false,
-  }
-}
-
 export function resetTestState(config: Config): void {
   const rootBlock = createRootDescribeBlock(config)
   const state: TestState = {
@@ -95,8 +80,6 @@ export function resetTestState(config: Config): void {
     rootBlock,
     currentBlock: rootBlock,
     hasFocusedTests: false,
-    run: createRunState(),
-    results: createEmptyRunResults(),
     env: {
       getTestStage: getGlobalTestStage,
       setTestStage: setGlobalTestStage,
@@ -106,19 +89,11 @@ export function resetTestState(config: Config): void {
   _setTestState(state)
 }
 
-/** Frees the test tree once a run is over. */
-export function cleanupTestState(): void {
-  const state = getTestState()
-  state.run = createRunState()
-  state.rootBlock = createRootDescribeBlock(state.config)
-  state.currentBlock = undefined
-}
-
 export function setToLoadErrorState(state: TestState, error: string): void {
   state.env.setTestStage(TestStage.LoadError)
   state.rootBlock = createRootDescribeBlock(state.config)
   state.currentBlock = undefined
-  state.run.currentTestRun = undefined
+  state.currentTestRun = undefined
   state.rootBlock.errors = [error]
   game.speed = 1
 }

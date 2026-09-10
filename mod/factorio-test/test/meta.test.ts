@@ -1113,6 +1113,18 @@ describe("test events", () => {
   })
 })
 
+test("the run report outlives the run", () => {
+  test("foo", () => {
+    // noop
+  })
+  runTestSync()
+  const report = mockTestState.report
+  assertNotNil(report)
+  assertEqual("passed", report.results.status)
+  // the getResults remote and the finished-run duration output both read this after the run ends
+  assertNotNil(report.profiler)
+})
+
 test("Test pattern", () => {
   mockTestState.config = fillConfig({
     test_pattern: "foo",
@@ -1272,9 +1284,9 @@ describe("rerun", () => {
       // noop
     })
     runTestSync()
-    assertEqual(1, mockTestState.results?.passed)
+    assertEqual(1, mockTestState.report!.results.passed)
     runTestSync()
-    assertEqual(1, mockTestState.results?.passed)
+    assertEqual(1, mockTestState.report!.results.passed)
   })
 
   test("rerun after a cancelled run resets the run state", () => {
@@ -1370,7 +1382,7 @@ describe("cancellation", () => {
           actions,
         )
         assertLastEvents(["describeBlockFinished", "describeBlockFinished", "testRunCancelled"])
-        assertEqual("cancelled", mockTestState.results.status)
+        assertEqual("cancelled", mockTestState.report!.results.status)
       },
     )
   })
@@ -1387,7 +1399,7 @@ describe("cancellation", () => {
       () => {
         assertDeepEquals(["root beforeAll", "root beforeEach", "1", "root afterEach", "root afterAll"], actions)
         assertLastEvents(["describeBlockFinished", "testRunCancelled"])
-        assertEqual("cancelled", mockTestState.results.status)
+        assertEqual("cancelled", mockTestState.report!.results.status)
       },
     )
   })
@@ -1402,9 +1414,9 @@ describe("cancellation", () => {
     test("not run", () => actions.push("not run"))
     runTestAsync(() => {
       assertDeepEquals(["fail", "afterAll"], actions)
-      assertTrue(mockTestState.run.bailedOut)
+      assertTrue(mockTestState.report!.bailedOut)
       assertLastEvents(["describeBlockFinished", "testRunFinished"])
-      assertEqual("failed", mockTestState.results.status)
+      assertEqual("failed", mockTestState.report!.results.status)
     })
   })
 

@@ -182,16 +182,16 @@ export interface ResumeData {
 }
 
 export function prepareReload(testState: TestState): void {
-  const currentRun = testState.run.currentTestRun!
+  const currentRun = testState.currentTestRun!
   testStorage().resume = {
     rootBlock: snapshotAndDetachDescribeBlock(testState.rootBlock),
-    results: testState.results,
+    results: testState.report!.results,
     resumeTestPath: currentRun.test.path,
     resumePartIndex: currentRun.partIndex + 1,
-    profiler: testState.run.profiler!,
+    profiler: testState.report!.profiler!,
   }
   testState.rootBlock = undefined!
-  testState.run.currentTestRun = undefined
+  testState.currentTestRun = undefined
   testState.env.setTestStage(TestStage.ReloadingMods)
 }
 
@@ -199,9 +199,12 @@ export function resumeAfterReload(state: TestState): { test: Test; partIndex: nu
   const testResume = testStorage().resume ?? error("attempting to resume after reload without resume data saved")
   testStorage().resume = undefined
 
-  state.results = testResume.results
-  state.run.profiler = testResume.profiler
-  state.reloaded = true
+  state.report = {
+    results: testResume.results,
+    profiler: testResume.profiler,
+    reloaded: true,
+    bailedOut: false,
+  }
 
   const saved = testResume.rootBlock
 

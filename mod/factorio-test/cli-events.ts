@@ -66,7 +66,7 @@ export const cliEventEmitter: TestEventListener = (event, state) => {
       })
       break
     case "testRunFinished":
-      emitEvent({ type: "testRunFinished", results: state.results as TestRunSummary })
+      emitEvent({ type: "testRunFinished", results: state.report!.results as TestRunSummary })
       break
     case "testRunCancelled":
       emitEvent({ type: "testRunCancelled" })

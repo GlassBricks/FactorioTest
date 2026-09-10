@@ -198,7 +198,7 @@ function createTestProgressGui(state: TestState): TestGui {
     ...bottomButtonsBar(contentFlow),
   }
 
-  updateTestCounts(gui, state.results)
+  updateTestCounts(gui, state.report!.results)
   return gui
 }
 
@@ -255,7 +255,7 @@ export const progressGuiListener: TestEventListener = (event, state) => {
     case "testPassed":
     case "testSkipped":
     case "testTodo": {
-      updateTestCounts(gui, state.results)
+      updateTestCounts(gui, state.report!.results)
       gui.statusText.caption = [ProgressGui.RunningTest, event.test.parent.path]
       break
     }
@@ -265,16 +265,16 @@ export const progressGuiListener: TestEventListener = (event, state) => {
       break
     }
     case "describeBlockFailed": {
-      updateTestCounts(gui, state.results)
+      updateTestCounts(gui, state.report!.results)
       const { block } = event
       if (block.parent) gui.statusText.caption = [ProgressGui.RunningTest, block.parent.path]
       break
     }
     case "testRunFinished": {
       const statusLocale =
-        state.results.status == "passed"
+        state.report!.results.status == "passed"
           ? ProgressGui.TestsPassed
-          : state.results.status == "todo"
+          : state.report!.results.status == "todo"
             ? ProgressGui.TestsPassedWithTodo
             : ProgressGui.TestsFailed
 

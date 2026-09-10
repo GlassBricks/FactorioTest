@@ -1,7 +1,7 @@
 import { Protocol } from "../constants"
 import { logListener } from "./output"
 import { TestEventListener } from "./test-events"
-import { cleanupTestState, TestState } from "./state"
+import { TestState } from "./state"
 import { isHeadlessMode } from "./shared/auto-start-config"
 import { failedTestCollector } from "./failed-test-storage"
 
@@ -22,7 +22,7 @@ const gameEnvironmentListener: TestEventListener = (event, state) => {
     case "testRunFinished": {
       game.speed = 1
       if (state.config.sound_effects) {
-        const passed = state.results.status === "passed" || state.results.status === "todo"
+        const passed = state.report!.results.status === "passed" || state.report!.results.status === "todo"
         game.play_sound({ path: passed ? "utility/game_won" : "utility/game_lost" })
       }
       break
@@ -42,7 +42,6 @@ const gameEnvironmentListener: TestEventListener = (event, state) => {
 
 function endRun(state: TestState, status: string): void {
   state.config.after_test_run?.()
-  cleanupTestState()
   emitResult(status)
 }
 
@@ -50,13 +49,13 @@ function endRun(state: TestState, status: string): void {
 const resultListener: TestEventListener = (event, state) => {
   switch (event.type) {
     case "testRunFinished": {
-      const bailedPrefix = state.run.bailedOut ? "bailed:" : ""
+      const bailedPrefix = state.report!.bailedOut ? "bailed:" : ""
       const focusedSuffix = state.hasFocusedTests ? ":focused" : ""
-      endRun(state, bailedPrefix + state.results.status! + focusedSuffix)
+      endRun(state, bailedPrefix + state.report!.results.status! + focusedSuffix)
       break
     }
     case "testRunCancelled":
-      endRun(state, state.run.bailedOut ? "bailed" : "cancelled")
+      endRun(state, state.report!.bailedOut ? "bailed" : "cancelled")
       break
     case "loadError":
       emitResult("loadError")

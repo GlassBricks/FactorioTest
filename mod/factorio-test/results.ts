@@ -1,3 +1,4 @@
+import { LuaProfiler } from "factorio:runtime"
 import { TestRunSummary } from "../../types/events"
 import { TestEventListener } from "./test-events"
 
@@ -6,24 +7,33 @@ export interface TestRunResults extends Omit<TestRunSummary, "status"> {
   status?: TestRunSummary["status"] | undefined
 }
 
-export function createEmptyRunResults(): TestRunResults {
+/** What a run produced. Created by the runner, and outlives the run. */
+export interface RunReport {
+  results: TestRunResults
+  profiler?: LuaProfiler | undefined
+  reloaded: boolean
+  bailedOut: boolean
+}
+
+export function createRunReport(): RunReport {
   return {
-    failed: 0,
-    passed: 0,
-    ran: 0,
-    skipped: 0,
-    todo: 0,
-    cancelled: 0,
-    describeBlockErrors: 0,
+    results: {
+      failed: 0,
+      passed: 0,
+      ran: 0,
+      skipped: 0,
+      todo: 0,
+      cancelled: 0,
+      describeBlockErrors: 0,
+    },
+    reloaded: false,
+    bailedOut: false,
   }
 }
 
 export const resultCollector: TestEventListener = (event, state) => {
-  if (event.type === "testRunStarted") {
-    state.results = createEmptyRunResults()
-    return
-  }
-  const results = state.results
+  const results = state.report?.results
+  if (!results) return
   switch (event.type) {
     case "testPassed":
       results.ran++
