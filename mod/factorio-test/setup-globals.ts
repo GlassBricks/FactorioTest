@@ -80,7 +80,7 @@ function createDescribe(name: string, block: TestFn, mode: TestMode, upStack: nu
   if (!success) {
     describeBlock.errors.push(`Error in definition: ${msg}`)
   }
-  propagateTestMode(definition.suite, describeBlock, mode)
+  propagateTestMode(definition, describeBlock, mode)
 
   definition.currentBlock = parent
   if (definition.currentTags) {

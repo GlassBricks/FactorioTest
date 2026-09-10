@@ -1,6 +1,6 @@
 /** @noSelfInFile */
 import { peekTestState, initTestState, TestState } from "./state"
-import { createRootDescribeBlock, DescribeBlock, TestSuite, TestTags } from "./tests"
+import { createRootDescribeBlock, DescribeBlock, TestTags } from "./tests"
 import Config = FactorioTest.Config
 
 /**
@@ -11,9 +11,10 @@ import Config = FactorioTest.Config
  */
 export interface DefinitionState {
   config: Config
-  readonly suite: TestSuite
+  readonly rootBlock: DescribeBlock
   currentBlock: DescribeBlock
   currentTags?: TestTags | undefined
+  hasFocusedTests: boolean
 }
 
 let theDefinition: DefinitionState | undefined
@@ -22,17 +23,18 @@ export function beginDefinition(config: Config): DefinitionState {
   const rootBlock = createRootDescribeBlock(config)
   theDefinition = {
     config,
-    suite: { rootBlock, hasFocusedTests: false },
+    rootBlock,
     currentBlock: rootBlock,
+    hasFocusedTests: false,
   }
   return theDefinition
 }
 
 /** Seals the definition phase, and installs the state the resulting suite is run with. */
 export function endDefinition(): TestState {
-  const definition = getDefinitionState()
+  const { config, rootBlock, hasFocusedTests } = getDefinitionState()
   _clearDefinition()
-  return initTestState(definition.config, definition.suite)
+  return initTestState(config, { rootBlock, hasFocusedTests })
 }
 
 // internal, export for meta-test only

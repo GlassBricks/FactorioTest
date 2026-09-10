@@ -196,8 +196,9 @@ function testMatchesTagList(test: Test, config: Config): boolean {
 
 /** The definition phase's output: the test tree, and whether any test in it is focused. */
 export interface TestSuite {
+  /** Replaced wholesale on a load error, and detached before a reload; never rebound otherwise. */
   rootBlock: DescribeBlock
-  hasFocusedTests: boolean
+  readonly hasFocusedTests: boolean
 }
 
 /** The subset of TestState that decides whether a test runs. */

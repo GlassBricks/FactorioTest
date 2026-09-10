@@ -42,7 +42,7 @@ before_each(() => {
 after_each(() => {
   _setTestState(originalTestState)
   const unfinished = _clearDefinition()
-  if (unfinished && unfinished.suite.rootBlock.children.length > 0) {
+  if (unfinished && unfinished.rootBlock.children.length > 0) {
     error("Simulated test defined but not run")
   }
 })
@@ -54,7 +54,7 @@ function setMockConfig(config: Config): void {
 /** Ends the simulated definition phase, and installs the state its suite is run with. */
 function finishDefining(): TestState {
   const definition = getDefinitionState()
-  propagateTestMode(definition.suite, definition.suite.rootBlock, undefined)
+  propagateTestMode(definition, definition.rootBlock, undefined)
   mockTestState = endDefinition()
   mockTestState.env = {
     getTestStage: () => mockTestStage,

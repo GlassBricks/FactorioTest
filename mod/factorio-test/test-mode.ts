@@ -1,6 +1,7 @@
-import { DescribeBlock, TestMode, TestSuite } from "./tests"
+import type { DefinitionState } from "./definition"
+import { DescribeBlock, TestMode } from "./tests"
 
-type FocusTracker = Pick<TestSuite, "hasFocusedTests">
+type FocusTracker = Pick<DefinitionState, "hasFocusedTests">
 
 export function propagateTestMode(state: FocusTracker, block: DescribeBlock, parentMode: TestMode): void {
   if (parentMode === "skip") {
