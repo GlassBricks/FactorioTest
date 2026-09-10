@@ -3,7 +3,9 @@ import { TestStage } from "../../constants"
 import { fillConfig } from "../config"
 import { resultCollector } from "../results"
 import { createTestRunner, TestRunner } from "../runner"
-import { _setTestState, getTestState, resetTestState, TestState } from "../state"
+import { _clearDefinition, beginDefinition, endDefinition, getDefinitionState } from "../definition"
+import { _setTestState, getTestState, TestState } from "../state"
+import Config = FactorioTest.Config
 import { TestEvent } from "../test-events"
 import { DescribeBlock, Test } from "../tests"
 import { propagateTestMode } from "../test-mode"
@@ -22,46 +24,62 @@ let actions: unknown[] = []
 let events: TestEvent[] = []
 let mockTestState: TestState
 let originalTestState: TestState
+let mockTestStage: TestStage
 
 before_each(() => {
   actions = []
   events = []
+  mockTestStage = TestStage.NotRun
   originalTestState = getTestState()
-  resetTestState(
+  mockTestState = undefined!
+  beginDefinition(
     fillConfig({
       default_ticks_between_tests: 0,
     }),
   )
-  mockTestState = getTestState()
+})
 
-  let testStage = TestStage.NotRun
+after_each(() => {
+  _setTestState(originalTestState)
+  const unfinished = _clearDefinition()
+  if (unfinished && unfinished.suite.rootBlock.children.length > 0) {
+    error("Simulated test defined but not run")
+  }
+})
+
+function setMockConfig(config: Config): void {
+  getDefinitionState().config = config
+}
+
+/** Ends the simulated definition phase, and installs the state its suite is run with. */
+function finishDefining(): TestState {
+  const definition = getDefinitionState()
+  propagateTestMode(definition.suite, definition.suite.rootBlock, undefined)
+  mockTestState = endDefinition()
   mockTestState.env = {
-    getTestStage: () => testStage,
+    getTestStage: () => mockTestStage,
     setTestStage: (stage) => {
-      testStage = stage
+      mockTestStage = stage
     },
     emit: (event) => {
       events.push(event)
       resultCollector(event, mockTestState)
     },
   }
-})
+  return mockTestState
+}
 
-after_each(() => {
-  _setTestState(originalTestState)
-  const testStage = mockTestState.env.getTestStage()
-  if (mockTestState.suite.rootBlock.children.length > 0 && testStage === TestStage.NotRun) {
-    error("Simulated test defined but not run")
-  }
-})
+/** Ends the simulated definition phase on first use; a rerun reuses the installed state. */
+function stateToRun(): TestState {
+  return mockTestState ?? finishDefining()
+}
 
 function getFirst<T extends Test | DescribeBlock = Test>(): T {
   return mockTestState.suite.rootBlock.children[0] as T
 }
 
 function runTestSync<T extends Test | DescribeBlock = Test>(): T {
-  propagateTestMode(mockTestState.suite, mockTestState.suite.rootBlock, undefined)
-  const runner = createTestRunner(mockTestState)
+  const runner = createTestRunner(stateToRun())
   runner.tick()
   if (!runner.isDone()) {
     error("Tests not completed in one tick")
@@ -73,11 +91,8 @@ function runTestAsyncWithRunner<T extends Test | DescribeBlock = Test>(
   beforeTick: (runner: TestRunner, tickNumber: number) => void,
   callback: (item: T) => void,
 ): void {
-  propagateTestMode(mockTestState.suite, mockTestState.suite.rootBlock, undefined)
-  if (mockTestState.env.getTestStage() !== TestStage.NotRun) {
-    error("duplicate call to runTestAsync/cannot re-run mock test async")
-  }
-  const runner = createTestRunner(mockTestState)
+  if (mockTestState) error("duplicate call to runTestAsync/cannot re-run mock test async")
+  const runner = createTestRunner(finishDefining())
   _setTestState(originalTestState)
   async()
   let tickNumber = 0
@@ -98,7 +113,8 @@ function runTestAsync<T extends Test | DescribeBlock = Test>(callback: (item: T)
 }
 
 function skipRun() {
-  mockTestState.env.setTestStage(TestStage.Finished)
+  finishDefining()
+  mockTestStage = TestStage.Finished
 }
 
 describe("setup", () => {
@@ -523,8 +539,11 @@ describe("async tests", () => {
   })
 
   test("async and done can only used during test", () => {
+    // a state that is not running a test: the mock, rather than the real run around it
+    _setTestState(finishDefining())
     assertThrows(async)
     assertThrows(done)
+    _setTestState(originalTestState)
   })
 
   test("done when not async fails", () => {
@@ -933,8 +952,9 @@ describe("reload state", () => {
     test("", () => {
       // empty
     })
-    assertEqual(TestStage.NotRun, mockTestState.env.getTestStage())
-    const runner = createTestRunner(mockTestState)
+    const state = finishDefining()
+    assertEqual(TestStage.NotRun, state.env.getTestStage())
+    const runner = createTestRunner(state)
     runner.tick()
     assertEqual(TestStage.Running, mockTestState.env.getTestStage())
     runner.tick()
@@ -945,6 +965,7 @@ describe("reload state", () => {
     test("Test 1", () => {
       async()
     })
+    finishDefining()
     reloadAndTick()
     assertDeepEquals([], mockTestState.suite.rootBlock.errors)
     reloadAndTick()
@@ -956,6 +977,7 @@ describe("reload state", () => {
     test("Test 1", () => {
       actions.push("test 1")
     })
+    finishDefining()
     mockTestState.env.setTestStage(TestStage.LoadError)
     reloadAndTick()
     assertDeepEquals([], mockTestState.suite.rootBlock.errors)
@@ -1126,9 +1148,11 @@ test("the run report outlives the run", () => {
 })
 
 test("Test pattern", () => {
-  mockTestState.config = fillConfig({
-    test_pattern: "foo",
-  })
+  setMockConfig(
+    fillConfig({
+      test_pattern: "foo",
+    }),
+  )
   test("bar", () => {
     actions.push("no")
   })
@@ -1210,7 +1234,7 @@ describe("tags", () => {
     test("", () => {
       actions.push("no")
     })
-    mockTestState.config = fillConfig({ tag_whitelist: ["yes"] })
+    setMockConfig(fillConfig({ tag_whitelist: ["yes"] }))
     runTestSync()
     assertDeepEquals(["yes1", "yes2"], actions)
   })
@@ -1233,7 +1257,7 @@ describe("tags", () => {
       actions.push("no")
     })
 
-    mockTestState.config = fillConfig({ tag_blacklist: ["no"] })
+    setMockConfig(fillConfig({ tag_blacklist: ["no"] }))
     runTestSync()
     assertDeepEquals(["yes"], actions)
   })
@@ -1262,7 +1286,7 @@ describe("tags", () => {
       })
     })
 
-    mockTestState.config = fillConfig({ tag_whitelist: ["yes"], tag_blacklist: ["no"] })
+    setMockConfig(fillConfig({ tag_whitelist: ["yes"], tag_blacklist: ["no"] }))
     runTestSync()
     assertDeepEquals(["yes"], actions)
   })
@@ -1326,7 +1350,7 @@ describe("rerun", () => {
       actions.push("run never")
     })
 
-    mockTestState.config = fillConfig({ tag_blacklist: ["no"] })
+    setMockConfig(fillConfig({ tag_blacklist: ["no"] }))
 
     runTestSync()
     assertDeepEquals(["run both", "run one"], actions)
@@ -1405,7 +1429,7 @@ describe("cancellation", () => {
   })
 
   test("bail finishes the run instead of cancelling it", () => {
-    mockTestState.config = fillConfig({ bail: 1 })
+    setMockConfig(fillConfig({ bail: 1 }))
     after_all(() => actions.push("afterAll"))
     test("fail", () => {
       actions.push("fail")
@@ -1421,7 +1445,7 @@ describe("cancellation", () => {
   })
 
   test("cancel does not run after_all for a block whose before_all never ran", () => {
-    mockTestState.config = fillConfig({ bail: 1 })
+    setMockConfig(fillConfig({ bail: 1 }))
     test("fail", () => {
       error("oh no")
     })

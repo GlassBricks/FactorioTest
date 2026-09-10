@@ -10,7 +10,8 @@ import { addMessageHandler, debugAdapterLogger, logLogger } from "./output"
 import { progressGuiListener, progressGuiLogger } from "./test-gui"
 import { createTestRunner, TestRunner } from "./runner"
 import { globals } from "./setup-globals"
-import { getTestState, onTestStageChanged, resetTestState } from "./state"
+import { beginDefinition, endDefinition } from "./definition"
+import { getTestState, onTestStageChanged } from "./state"
 import { addTestListener, clearTestListeners } from "./test-events"
 import { LuaBootstrap } from "factorio:runtime"
 import Config = FactorioTest.Config
@@ -62,8 +63,7 @@ function loadTests(files: string[], partialConfig: Partial<Config>): void {
     ;(globalThis as any)[key] = value
   }
 
-  resetTestState(config)
-  const state = getTestState()
+  beginDefinition(config)
 
   const autoStartMod = getAutoStartMod()
   const manualMod = settings.global[Settings.ModToTest]!.value
@@ -72,7 +72,7 @@ function loadTests(files: string[], partialConfig: Partial<Config>): void {
   for (const file of files) {
     describe(file, () => _require(file))
   }
-  state.currentBlock = undefined
+  endDefinition()
 }
 
 function tryContinueTests() {

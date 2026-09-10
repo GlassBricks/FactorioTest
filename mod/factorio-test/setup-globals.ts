@@ -4,19 +4,10 @@ import * as util from "util"
 import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
 import { createEachItems } from "./each-format"
 import { prepareReload } from "./reload-resume"
-import { getCurrentBlock, getTestState, TestRun } from "./state"
+import { consumeTags, getDefinitionState } from "./definition"
+import { getTestState, TestRun } from "./state"
 import { propagateTestMode } from "./test-mode"
-import {
-  addDescribeBlock,
-  addTest,
-  createSource,
-  DescribeBlock,
-  HookType,
-  Source,
-  Test,
-  TestMode,
-  TestTags,
-} from "./tests"
+import { addDescribeBlock, addTest, createSource, DescribeBlock, HookType, Source, Test, TestMode } from "./tests"
 import DescribeCreator = FactorioTest.DescribeCreator
 import DescribeCreatorBase = FactorioTest.DescribeBlockCreatorBase
 import HookFn = FactorioTest.HookFn
@@ -35,11 +26,7 @@ export function getCurrentTestRun(): TestRun {
 }
 
 function addHook(type: HookType, func: HookFn): void {
-  const state = getTestState()
-  if (state.currentTestRun) {
-    error(`Hook (${type}) cannot be nested inside test "${state.currentTestRun.test.path}"`)
-  }
-  getCurrentBlock().hooks.push({
+  getDefinitionState(`Hook (${type})`).currentBlock.hooks.push({
     type,
     func,
   })
@@ -49,19 +36,8 @@ function afterTest(func: TestFn): void {
   getCurrentTestRun().afterTestFuncs.push(func)
 }
 
-function consumeTags(): TestTags {
-  const state = getTestState()
-  const result = state.currentTags
-  state.currentTags = undefined
-  return result ?? new LuaSet()
-}
-
 function createTest(name: string, func: TestFn, mode: TestMode, upStack: number = 1): Test {
-  const state = getTestState()
-  if (state.currentTestRun) {
-    error(`Test "${name}" cannot be nested inside test "${state.currentTestRun.test.path}"`)
-  }
-  const parent = getCurrentBlock()
+  const parent = getDefinitionState(`Test "${name}"`).currentBlock
   return addTest(parent, name, getCallerSource(upStack + 1), func, mode, util.merge([consumeTags(), parent.tags]))
 }
 
@@ -94,26 +70,22 @@ function createTestBuilder<F extends () => void>(addPart: (func: F) => void, add
 }
 
 function createDescribe(name: string, block: TestFn, mode: TestMode, upStack: number = 1): DescribeBlock {
-  const state = getTestState()
-  if (state.currentTestRun) {
-    error(`Describe block "${name}" cannot be nested inside test "${state.currentTestRun.test.path}"`)
-  }
-
+  const definition = getDefinitionState(`Describe block "${name}"`)
   const source = getCallerSource(upStack + 1)
 
-  const parent = getCurrentBlock()
+  const parent = definition.currentBlock
   const describeBlock = addDescribeBlock(parent, name, source, mode, util.merge([parent.tags, consumeTags()]))
-  state.currentBlock = describeBlock
+  definition.currentBlock = describeBlock
   const [success, msg] = __factorio_test__pcallWithStacktrace(block)
   if (!success) {
     describeBlock.errors.push(`Error in definition: ${msg}`)
   }
-  propagateTestMode(state.suite, describeBlock, mode)
+  propagateTestMode(definition.suite, describeBlock, mode)
 
-  state.currentBlock = parent
-  if (state.currentTags) {
-    describeBlock.errors.push(`Tags not added to any test or describe block: ${serpent.line(state.currentTags)}`)
-    state.currentTags = undefined
+  definition.currentBlock = parent
+  if (definition.currentTags) {
+    describeBlock.errors.push(`Tags not added to any test or describe block: ${serpent.line(definition.currentTags)}`)
+    definition.currentTags = undefined
   }
   return describeBlock
 }
@@ -188,12 +160,11 @@ describe.skip = createDescribeEach("skip")
 describe.only = createDescribeEach("only")
 
 function tags(...tags: string[]) {
-  const block = getCurrentBlock()
-  const state = getTestState()
-  if (state.currentTags) {
-    block.errors.push(`Double call to tags()`)
+  const definition = getDefinitionState("Tags")
+  if (definition.currentTags) {
+    definition.currentBlock.errors.push(`Double call to tags()`)
   }
-  state.currentTags = util.list_to_map(tags)
+  definition.currentTags = util.list_to_map(tags)
 }
 
 type SetupGlobals =
@@ -278,6 +249,6 @@ export const globals: Pick<typeof globalThis, SetupGlobals> = {
   },
   ticks_between_tests(ticks) {
     if (ticks < 0) error("ticks between tests must be 0 or greater")
-    getCurrentBlock().ticksBetweenTests = ticks
+    getDefinitionState().currentBlock.ticksBetweenTests = ticks
   },
 }

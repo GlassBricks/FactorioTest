@@ -3,7 +3,7 @@ import { TestStage } from "../constants"
 import { RunReport } from "./results"
 import { notifyListeners, TestEvent } from "./test-events"
 import { testStorage } from "./storage"
-import { createRootDescribeBlock, DescribeBlock, Test, TestSuite, TestTags } from "./tests"
+import { createRootDescribeBlock, Test, TestSuite } from "./tests"
 import Config = FactorioTest.Config
 import OnTickFn = FactorioTest.OnTickFn
 import HookFn = FactorioTest.HookFn
@@ -24,10 +24,6 @@ export interface TestEnvironment {
 export interface TestState {
   config: Config
   suite: TestSuite
-
-  // definition phase
-  currentBlock?: DescribeBlock | undefined
-  currentTags?: TestTags | undefined
 
   currentTestRun?: TestRun | undefined
 
@@ -60,6 +56,11 @@ export function _setTestState(state: TestState): void {
   TheTestState = state
 }
 
+/** Unlike `getTestState`, does not error before the definition phase has finished. */
+export function peekTestState(): TestState | undefined {
+  return TheTestState
+}
+
 export function getGlobalTestStage(): TestStage {
   return testStorage().testStage ?? TestStage.NotRun
 }
@@ -72,12 +73,10 @@ function setGlobalTestStage(stage: TestStage): void {
   script.raise_event(onTestStageChanged, { stage })
 }
 
-export function resetTestState(config: Config): void {
-  const rootBlock = createRootDescribeBlock(config)
+export function initTestState(config: Config, suite: TestSuite): TestState {
   const state: TestState = {
     config,
-    suite: { rootBlock, hasFocusedTests: false },
-    currentBlock: rootBlock,
+    suite,
     env: {
       getTestStage: getGlobalTestStage,
       setTestStage: setGlobalTestStage,
@@ -85,6 +84,7 @@ export function resetTestState(config: Config): void {
     },
   }
   _setTestState(state)
+  return state
 }
 
 export function setToLoadErrorState(state: TestState, error: string): void {
@@ -92,11 +92,6 @@ export function setToLoadErrorState(state: TestState, error: string): void {
   const rootBlock = createRootDescribeBlock(state.config)
   rootBlock.errors = [error]
   state.suite = { rootBlock, hasFocusedTests: false }
-  state.currentBlock = undefined
   state.currentTestRun = undefined
   game.speed = 1
-}
-
-export function getCurrentBlock(): DescribeBlock {
-  return getTestState().currentBlock ?? error("Tests and hooks cannot be added/configured at this time")
 }
