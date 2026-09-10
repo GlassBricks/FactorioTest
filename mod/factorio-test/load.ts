@@ -40,7 +40,7 @@ export = function (files: string[], config: Partial<Config>): void {
       })
     },
     onTestStageChanged: () => onTestStageChanged,
-    getResults: () => getTestState().report?.results,
+    getResults: () => getTestState().report.results,
     getConfig: () => getTestState().config,
   })
   tapEvent(defines.events.on_tick, tryContinueTests)

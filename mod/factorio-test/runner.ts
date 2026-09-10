@@ -376,7 +376,7 @@ class TestRunnerImpl implements TestRunner {
     if (bail !== undefined) {
       this.failureCount++
       if (this.failureCount >= bail) {
-        this.state.report!.bailedOut = true
+        this.state.report.bailedOut = true
         this.requestCancel()
       }
     }
@@ -385,7 +385,7 @@ class TestRunnerImpl implements TestRunner {
   private finishRun(): void {
     this.status = "done"
     const { state } = this
-    state.report!.profiler?.stop()
+    state.report.profiler?.stop()
     state.env.setTestStage(TestStage.Finished)
     state.env.emit({ type: "testRunFinished" })
   }
@@ -414,9 +414,9 @@ class TestRunnerImpl implements TestRunner {
     }
 
     this.status = "done"
-    state.report!.profiler?.stop()
+    state.report.profiler?.stop()
     state.env.setTestStage(TestStage.Finished)
-    state.env.emit(state.report!.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
+    state.env.emit(state.report.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
   }
 
   private hasAnyTest(block: DescribeBlock): boolean {

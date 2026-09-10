@@ -76,10 +76,10 @@ export type TestEvent =
 
 /**
  * What a listener may see: the suite being run and what the run has produced so far.
- * Deliberately excludes execution state; `report` is unset until the first run starts.
+ * Deliberately excludes execution state.
  */
 export interface TestEventContext extends TestSelection {
-  readonly report?: RunReport | undefined
+  readonly report: RunReport
 }
 
 export type TestEventListener = (event: TestEvent, context: TestEventContext) => void

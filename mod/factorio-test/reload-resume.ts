@@ -185,10 +185,10 @@ export function prepareReload(testState: TestState): void {
   const currentRun = testState.currentTestRun!
   testStorage().resume = {
     rootBlock: snapshotAndDetachDescribeBlock(testState.suite.rootBlock),
-    results: testState.report!.results,
+    results: testState.report.results,
     resumeTestPath: currentRun.test.path,
     resumePartIndex: currentRun.part.partIndex + 1,
-    profiler: testState.report!.profiler!,
+    profiler: testState.report.profiler!,
   }
   testState.suite.rootBlock = undefined!
   testState.currentTestRun = undefined

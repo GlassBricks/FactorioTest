@@ -1,6 +1,6 @@
 /** @noSelfInFile */
 import { TestStage } from "../constants"
-import { RunReport } from "./results"
+import { createRunReport, RunReport } from "./results"
 import { notifyListeners, TestEvent } from "./test-events"
 import { testStorage } from "./storage"
 import { createRootDescribeBlock, Test, TestSuite } from "./tests"
@@ -27,8 +27,8 @@ export interface TestState {
 
   currentTestRun?: TestRun | undefined
 
-  /** Created when a run starts, and outlives it: read by the getResults remote afterwards. */
-  report?: RunReport | undefined
+  /** Replaced when a run starts, and outlives it: read by the getResults remote afterwards. */
+  report: RunReport
 
   env: TestEnvironment
 }
@@ -82,6 +82,7 @@ export function initTestState(config: Config, suite: TestSuite): TestState {
   const state: TestState = {
     config,
     suite,
+    report: createRunReport(),
     env: {
       getTestStage: getGlobalTestStage,
       setTestStage: setGlobalTestStage,

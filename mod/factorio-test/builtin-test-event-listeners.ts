@@ -21,7 +21,7 @@ const gameEnvironmentListener: TestEventListener = (event, state) => {
     case "testRunFinished": {
       game.speed = 1
       if (state.config.sound_effects) {
-        const passed = state.report!.results.status === "passed" || state.report!.results.status === "todo"
+        const passed = state.report.results.status === "passed" || state.report.results.status === "todo"
         game.play_sound({ path: passed ? "utility/game_won" : "utility/game_lost" })
       }
       break
@@ -48,13 +48,13 @@ function endRun(state: TestEventContext, status: string): void {
 const resultListener: TestEventListener = (event, state) => {
   switch (event.type) {
     case "testRunFinished": {
-      const bailedPrefix = state.report!.bailedOut ? "bailed:" : ""
+      const bailedPrefix = state.report.bailedOut ? "bailed:" : ""
       const focusedSuffix = state.suite.hasFocusedTests ? ":focused" : ""
-      endRun(state, bailedPrefix + state.report!.results.status! + focusedSuffix)
+      endRun(state, bailedPrefix + state.report.results.status! + focusedSuffix)
       break
     }
     case "testRunCancelled":
-      endRun(state, state.report!.bailedOut ? "bailed" : "cancelled")
+      endRun(state, state.report.bailedOut ? "bailed" : "cancelled")
       break
     case "loadError":
       emitResult("loadError")

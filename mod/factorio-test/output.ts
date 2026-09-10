@@ -239,7 +239,7 @@ export const logListener: TestEventListener = (event, state) => {
       break
     }
     case "testRunFinished": {
-      const report = state.report!
+      const report = state.report
       const status = report.results.status
 
       output(

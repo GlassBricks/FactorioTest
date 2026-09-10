@@ -32,8 +32,7 @@ export function createRunReport(): RunReport {
 }
 
 export const resultCollector: TestEventListener = (event, state) => {
-  const results = state.report?.results
-  if (!results) return
+  const { results } = state.report
   switch (event.type) {
     case "testPassed":
       results.ran++
