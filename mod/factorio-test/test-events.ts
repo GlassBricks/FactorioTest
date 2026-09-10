@@ -1,5 +1,5 @@
-import type { TestState } from "./state"
-import { DescribeBlock, Test } from "./tests"
+import type { RunReport } from "./results"
+import { DescribeBlock, Test, TestSelection } from "./tests"
 
 interface BaseTestEvent {
   type: string
@@ -74,7 +74,15 @@ export type TestEvent =
   | LoadError
   | CustomEvent
 
-export type TestEventListener = (event: TestEvent, state: TestState) => void
+/**
+ * What a listener may see: the suite being run and what the run has produced so far.
+ * Deliberately excludes execution state; `report` is unset until the first run starts.
+ */
+export interface TestEventContext extends TestSelection {
+  readonly report?: RunReport | undefined
+}
+
+export type TestEventListener = (event: TestEvent, context: TestEventContext) => void
 
 let testListeners: TestEventListener[] = []
 export function clearTestListeners() {
@@ -85,8 +93,8 @@ export function addTestListener(this: unknown, listener: TestEventListener): voi
   testListeners.push(listener)
 }
 
-export function notifyListeners(state: TestState, event: TestEvent): void {
+export function notifyListeners(context: TestEventContext, event: TestEvent): void {
   for (const handler of testListeners) {
-    handler(event, state)
+    handler(event, context)
   }
 }

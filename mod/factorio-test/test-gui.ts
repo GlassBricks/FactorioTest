@@ -12,7 +12,7 @@ import { Locale, Misc, Prototypes } from "../constants"
 import { getPlayer } from "./shared/util"
 import { MessageHandler } from "./output"
 import { TestRunResults } from "./results"
-import { TestState } from "./state"
+import { TestEventContext } from "./test-events"
 import { testStorage } from "./storage"
 import { TestEventListener } from "./test-events"
 import { countActiveTests } from "./tests"
@@ -120,7 +120,7 @@ function closeTestProgressGui(): void {
   testStorage().gui = undefined
 }
 
-function createTestProgressGui(state: TestState): TestGui {
+function createTestProgressGui(state: TestEventContext): TestGui {
   const player = getPlayer()
 
   const screen = player.gui.screen

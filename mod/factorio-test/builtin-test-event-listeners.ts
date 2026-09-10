@@ -1,7 +1,6 @@
 import { Protocol } from "../constants"
 import { logListener } from "./output"
-import { TestEventListener } from "./test-events"
-import { TestState } from "./state"
+import { TestEventContext, TestEventListener } from "./test-events"
 import { isHeadlessMode } from "./shared/auto-start-config"
 import { failedTestCollector } from "./failed-test-storage"
 
@@ -40,7 +39,7 @@ const gameEnvironmentListener: TestEventListener = (event, state) => {
   }
 }
 
-function endRun(state: TestState, status: string): void {
+function endRun(state: TestEventContext, status: string): void {
   state.config.after_test_run?.()
   emitResult(status)
 }
