@@ -6,10 +6,9 @@ import { LocalisedString } from "factorio:runtime"
 const lsId = "factorio-test.fake-translation"
 function fireFakeTranslation(data: string) {
   const ls: LocalisedString = [lsId, data]
-  for (const player of game.connected_players) {
-    if (player.request_translation(ls)) return
-  }
-  error("No connected players found to raise fake translation event. Please report this to the mod author")
+  const player = game.connected_players[0]
+  assert(player, "No connected players found to raise fake translation event. Please report this to the mod author")
+  player!.request_translation(ls)
 }
 
 const loadEvents: Record<string, () => void> = {}
