@@ -1,7 +1,7 @@
 import * as child_process from "child_process"
 import * as fs from "fs"
 import * as path from "path"
-import { root, runTests, sleep, TestContext, TestDefinition, waitForOutput } from "../test-utils.js"
+import { root, runTests, sleep, spawnCli, TestContext, TestDefinition, waitForOutput } from "../test-utils.js"
 
 const modFiles = ["info.json", "control.lua", "test1.lua", "lualib_bundle.lua"]
 
@@ -22,23 +22,11 @@ function spawnWatchCli(
   child: child_process.ChildProcess
   output: { value: string }
 } {
-  const args = [
-    "run",
-    "cli",
-    "--workspace=cli",
-    "--",
-    "run",
-    `--mod-path=${modDir}`,
-    `--data-directory=${dataDir}`,
-    "--watch",
-    "--test-pattern",
-    "Pass",
-  ]
-
   const output = { value: "" }
-  const child = child_process.spawn("npm", args, {
-    stdio: ["inherit", "pipe", "pipe"],
-    cwd: root,
+  const child = spawnCli({
+    modPath: modDir,
+    dataDir,
+    extraArgs: ["--watch", "--test-pattern", "Pass"],
   })
 
   child.stdout?.on("data", (data) => {

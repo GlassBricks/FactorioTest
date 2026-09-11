@@ -130,5 +130,6 @@ mod/say-LICENSE
 
 factorio-test-data-dir/
 factorio-test-data-dir-mod/
+factorio-test-data-dir-fixtures/
 
 cli/**/*.js
