@@ -2,11 +2,24 @@
 import { TestStage } from "../constants"
 import { createRunReport, RunReport } from "./results"
 import { notifyListeners, TestEvent } from "./test-events"
-import { testStorage } from "./storage"
-import { createRootDescribeBlock, Test, TestSuite } from "./tests"
+import { getGlobalTestStage, setGlobalTestStage } from "./test-stage"
+import { createRootDescribeBlock, DescribeBlock, Test, TestSuite, TestTags } from "./tests"
 import Config = FactorioTest.Config
 import OnTickFn = FactorioTest.OnTickFn
 import HookFn = FactorioTest.HookFn
+
+/**
+ * State needed to collect tests.
+ *
+ * Live only while tests are being defined.
+ */
+export interface DefinitionState {
+  config: Config
+  readonly rootBlock: DescribeBlock
+  currentBlock: DescribeBlock
+  currentTags?: TestTags
+  hasFocusedTests: boolean
+}
 
 /**
  * Interface between the test framework, and the world around it.
@@ -51,34 +64,42 @@ export interface PartRun {
   onTickFuncs: LuaSet<OnTickFn>
 }
 
-let TheTestState: TestState | undefined
+let theDefinition: DefinitionState | undefined
+let theTestState: TestState | undefined
 
-export function getTestState(): TestState {
-  return TheTestState ?? error("Tests are not configured to be run")
+export function beginDefinition(config: Config): DefinitionState {
+  const rootBlock = createRootDescribeBlock(config)
+  theDefinition = {
+    config,
+    rootBlock,
+    currentBlock: rootBlock,
+    hasFocusedTests: false,
+  }
+  return theDefinition
 }
 
-// internal, export for meta-test only
-export function _setTestState(state: TestState): void {
-  TheTestState = state
+export function getDefinitionState(): DefinitionState {
+  if (theDefinition) return theDefinition
+  const testRun = theTestState?.currentTestRun
+  if (testRun) error(`Tests and hooks cannot be nested inside test "${testRun.test.path}"`)
+  error(`Tests and hooks cannot be added/configured at this time`)
 }
 
-export function peekTestState(): TestState | undefined {
-  return TheTestState
+export function consumeTags(): TestTags {
+  const definition = getDefinitionState()
+  const result = definition.currentTags
+  definition.currentTags = undefined
+  return result ?? new LuaSet()
 }
 
-export function getGlobalTestStage(): TestStage {
-  return testStorage().testStage ?? TestStage.NotRun
+/** Seals the definition phase, and installs the state the resulting suite is run with. */
+export function endDefinition(): TestState {
+  const { config, rootBlock, hasFocusedTests } = getDefinitionState()
+  _clearDefinition()
+  return initTestState(config, { rootBlock, hasFocusedTests })
 }
 
-const onTestStageChanged = script.generate_event_name<{ stage: TestStage }>()
-export { onTestStageChanged }
-
-function setGlobalTestStage(stage: TestStage): void {
-  testStorage().testStage = stage
-  script.raise_event(onTestStageChanged, { stage })
-}
-
-export function initTestState(config: Config, suite: TestSuite): TestState {
+function initTestState(config: Config, suite: TestSuite): TestState {
   const state: TestState = {
     config,
     suite,
@@ -89,8 +110,12 @@ export function initTestState(config: Config, suite: TestSuite): TestState {
       emit: (event) => notifyListeners(state, event),
     },
   }
-  _setTestState(state)
+  theTestState = state
   return state
+}
+
+export function getTestState(): TestState {
+  return theTestState ?? error("Tests are not configured to be run")
 }
 
 export function setToLoadErrorState(state: TestState, error: string): void {
@@ -100,4 +125,16 @@ export function setToLoadErrorState(state: TestState, error: string): void {
   state.suite = { rootBlock, hasFocusedTests: false }
   state.currentTestRun = undefined
   game.speed = 1
+}
+
+// internal, export for meta-test only
+export function _clearDefinition(): DefinitionState | undefined {
+  const definition = theDefinition
+  theDefinition = undefined
+  return definition
+}
+
+// internal, export for meta-test only
+export function _setTestState(state: TestState): void {
+  theTestState = state
 }

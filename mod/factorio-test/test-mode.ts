@@ -1,4 +1,4 @@
-import type { DefinitionState } from "./definition"
+import type { DefinitionState } from "./state"
 import { DescribeBlock, TestMode } from "./tests"
 
 type FocusTracker = Pick<DefinitionState, "hasFocusedTests">

@@ -1,10 +1,17 @@
 import * as util from "util"
 import { TestStage } from "../../constants"
 import { fillConfig } from "../config"
-import { _clearDefinition, beginDefinition, endDefinition, getDefinitionState } from "../definition"
 import { resultCollector } from "../results"
 import { TestRunner } from "../runner"
-import { _setTestState, getTestState, TestState } from "../state"
+import {
+  _clearDefinition,
+  _setTestState,
+  beginDefinition,
+  endDefinition,
+  getDefinitionState,
+  getTestState,
+  TestState,
+} from "../state"
 import { TestEvent } from "../test-events"
 import { propagateTestMode } from "../test-mode"
 import { DescribeBlock, Test } from "../tests"

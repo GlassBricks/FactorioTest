@@ -1,11 +1,10 @@
 // noinspection JSUnusedGlobalSymbols
 
 import * as util from "util"
-import { consumeTags, getDefinitionState } from "./definition"
 import { createEachItems } from "./each-format"
 import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
 import { prepareReload } from "./reload-resume"
-import { getTestState, PartRun, TestRun } from "./state"
+import { consumeTags, getDefinitionState, getTestState, PartRun, TestRun } from "./state"
 import { propagateTestMode } from "./test-mode"
 import { addDescribeBlock, addTest, createSource, DescribeBlock, HookType, Source, Test, TestMode } from "./tests"
 import DescribeCreator = FactorioTest.DescribeCreator
