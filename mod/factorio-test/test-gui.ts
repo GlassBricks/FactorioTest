@@ -112,14 +112,6 @@ function bottomButtonsBar(parent: LuaGuiElement) {
   }
 }
 
-function closeTestProgressGui(): void {
-  const player = getPlayer()
-
-  const screen = player.gui.screen
-  screen[Misc.TestGui]?.destroy()
-  testStorage().gui = undefined
-}
-
 function createTestProgressGui(state: TestEventContext): TestGui {
   const player = getPlayer()
 
@@ -287,12 +279,6 @@ export const progressGuiListener: TestEventListener = (event, state) => {
     case "loadError":
       showRunEnded(gui, ProgressGui.LoadError)
       break
-    case "customEvent": {
-      if (event.name === "closeProgressGui") {
-        closeTestProgressGui()
-      }
-      break
-    }
   }
 }
 

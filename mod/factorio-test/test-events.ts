@@ -52,11 +52,6 @@ export interface TestRunCancelled extends BaseTestEvent {
 export interface LoadError extends BaseTestEvent {
   type: "loadError"
 }
-export interface CustomEvent extends BaseTestEvent {
-  type: "customEvent"
-  name: string
-  data?: unknown
-}
 
 export type TestEvent =
   | TestRunStarted
@@ -72,7 +67,6 @@ export type TestEvent =
   | TestRunFinished
   | TestRunCancelled
   | LoadError
-  | CustomEvent
 
 /**
  * What a listener may see: the suite being run and what the run has produced so far.

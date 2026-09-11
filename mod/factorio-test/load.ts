@@ -32,13 +32,6 @@ export = function (files: string[], config: Partial<Config>): void {
     modName: () => script.mod_name,
     getTestStage: () => getTestState().env.getTestStage(),
     isRunning,
-    fireCustomEvent: (name, data) => {
-      getTestState().env.emit({
-        type: "customEvent",
-        name,
-        data,
-      })
-    },
     onTestStageChanged: () => onTestStageChanged,
     getResults: () => getTestState().report.results,
     getConfig: () => getTestState().config,
