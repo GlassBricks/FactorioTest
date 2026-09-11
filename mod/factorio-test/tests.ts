@@ -105,7 +105,7 @@ export function addTest(
   return test
 }
 
-export type HookType = `${"before" | "after"}${"Each" | "All"}` | "afterTest"
+export type HookType = `${"before" | "after"}${"Each" | "All"}`
 
 export interface Hook {
   func: HookFn

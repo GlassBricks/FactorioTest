@@ -6,17 +6,16 @@ export interface AutoStartConfig {
   last_failed_tests?: string[]
 }
 
+function parseAutoStartConfig(): AutoStartConfig {
+  const json = settings.startup[Settings.AutoStartConfig]?.value as string | undefined
+  if (!json || json === "{}") return {}
+  return helpers.json_to_table(json) as AutoStartConfig
+}
+
 let cachedConfig: AutoStartConfig | undefined
 
 export function getAutoStartConfig(): AutoStartConfig {
-  if (cachedConfig) return cachedConfig
-  const json = settings.startup[Settings.AutoStartConfig]?.value as string | undefined
-  if (!json || json === "{}") {
-    cachedConfig = {}
-    return cachedConfig
-  }
-  cachedConfig = helpers.json_to_table(json) as AutoStartConfig
-  return cachedConfig
+  return (cachedConfig ??= parseAutoStartConfig())
 }
 
 export function isHeadlessMode(): boolean {
