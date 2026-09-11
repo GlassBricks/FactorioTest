@@ -1,9 +1,9 @@
 /** @noSelfInFile */
 import { TestStage } from "../constants"
 import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
-import { assertNever } from "./shared/util"
 import { resumeAfterReload } from "./reload-resume"
 import { createRunReport } from "./results"
+import { assertNever } from "./shared/util"
 import { PartRun, TestRun, TestState, setToLoadErrorState } from "./state"
 import { reorderFailedFirst, shouldReorderFailedFirst } from "./test-reordering"
 import {
@@ -14,16 +14,6 @@ import {
   formatSource,
   isSkippedTest,
 } from "./tests"
-
-export interface TestRunner {
-  tick(): void
-  isDone(): boolean
-  requestCancel(): void
-}
-
-export function createTestRunner(state: TestState): TestRunner {
-  return new TestRunnerImpl(state)
-}
 
 /** The points at which the test runner can suspend/resume across a tick. */
 type Resumption = { kind: "beforeTest"; test: Test; ticksLeft: number } | { kind: "asyncPart"; testRun: TestRun }
@@ -89,7 +79,7 @@ function isPartComplete(testRun: TestRun): boolean {
   )
 }
 
-class TestRunnerImpl implements TestRunner {
+export class TestRunner {
   constructor(private state: TestState) {
     // A runner owns exactly one run; a previous one may have been abandoned mid-test.
     state.currentTestRun = undefined

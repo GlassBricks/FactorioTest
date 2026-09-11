@@ -1,24 +1,24 @@
 import * as util from "util"
 import { TestStage } from "../../constants"
 import { fillConfig } from "../config"
-import { resultCollector } from "../results"
-import { createTestRunner, TestRunner } from "../runner"
 import { _clearDefinition, beginDefinition, endDefinition, getDefinitionState } from "../definition"
+import { resultCollector } from "../results"
+import { TestRunner } from "../runner"
 import { _setTestState, getTestState, TestState } from "../state"
-import Config = FactorioTest.Config
 import { TestEvent } from "../test-events"
-import { DescribeBlock, Test } from "../tests"
 import { propagateTestMode } from "../test-mode"
+import { DescribeBlock, Test } from "../tests"
 import {
-  assertEqual,
-  assertNotNil,
   assertDeepEquals,
-  assertNotDeepEquals,
-  assertMatches,
-  assertTrue,
+  assertEqual,
   assertFalse,
+  assertMatches,
+  assertNotDeepEquals,
+  assertNotNil,
   assertThrows,
+  assertTrue,
 } from "./test-util"
+import Config = FactorioTest.Config
 
 let actions: unknown[] = []
 let events: TestEvent[] = []
@@ -79,7 +79,7 @@ function getFirst<T extends Test | DescribeBlock = Test>(): T {
 }
 
 function runTestSync<T extends Test | DescribeBlock = Test>(): T {
-  const runner = createTestRunner(stateToRun())
+  const runner = new TestRunner(stateToRun())
   runner.tick()
   if (!runner.isDone()) {
     error("Tests not completed in one tick")
@@ -92,7 +92,7 @@ function runTestAsyncWithRunner<T extends Test | DescribeBlock = Test>(
   callback: (item: T) => void,
 ): void {
   if (mockTestState) error("duplicate call to runTestAsync/cannot re-run mock test async")
-  const runner = createTestRunner(finishDefining())
+  const runner = new TestRunner(finishDefining())
   _setTestState(originalTestState)
   async()
   let tickNumber = 0
@@ -940,7 +940,7 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
 
 describe("reload state", () => {
   function reloadAndTick(): void {
-    const runner = createTestRunner(mockTestState)
+    const runner = new TestRunner(mockTestState)
     runner.tick()
   }
 
@@ -954,7 +954,7 @@ describe("reload state", () => {
     })
     const state = finishDefining()
     assertEqual(TestStage.NotRun, state.env.getTestStage())
-    const runner = createTestRunner(state)
+    const runner = new TestRunner(state)
     runner.tick()
     assertEqual(TestStage.Running, mockTestState.env.getTestStage())
     runner.tick()
@@ -1328,7 +1328,7 @@ describe("rerun", () => {
         assertDeepEquals(["1"], actions, "cancelled before test 2 ran")
         actions = []
 
-        const runner = createTestRunner(mockTestState)
+        const runner = new TestRunner(mockTestState)
         for (let i = 0; i < 10 && !runner.isDone(); i++) runner.tick()
         assertTrue(runner.isDone(), "rerun must not inherit the cancel request")
         assertDeepEquals(["1", "2"], actions)

@@ -1,19 +1,19 @@
+import { LuaBootstrap } from "factorio:runtime"
 import { Remote, Settings, TestStage } from "../constants"
-import { getAutoStartMod, isHeadlessMode } from "./shared/auto-start-config"
-import { debugAdapterEnabled } from "./shared/util"
 import { builtinTestEventListeners } from "./builtin-test-event-listeners"
 import { cliEventEmitter } from "./cli-events"
-import { initializeFailedTestsFromConfig } from "./failed-test-storage"
-import { resultCollector } from "./results"
 import { fillConfig } from "./config"
-import { addMessageHandler, debugAdapterLogger, logLogger } from "./output"
-import { progressGuiListener, progressGuiLogger } from "./test-gui"
-import { createTestRunner, TestRunner } from "./runner"
-import { globals } from "./setup-globals"
 import { beginDefinition, endDefinition } from "./definition"
+import { initializeFailedTestsFromConfig } from "./failed-test-storage"
+import { addMessageHandler, debugAdapterLogger, logLogger } from "./output"
+import { resultCollector } from "./results"
+import { TestRunner } from "./runner"
+import { globals } from "./setup-globals"
+import { getAutoStartMod, isHeadlessMode } from "./shared/auto-start-config"
+import { debugAdapterEnabled } from "./shared/util"
 import { getTestState, onTestStageChanged } from "./state"
 import { addTestListener, clearTestListeners } from "./test-events"
-import { LuaBootstrap } from "factorio:runtime"
+import { progressGuiListener, progressGuiLogger } from "./test-gui"
 import Config = FactorioTest.Config
 
 declare const ____originalRequire: typeof require
@@ -129,7 +129,7 @@ function doRunTests() {
 
   tapEvent(defines.events.on_tick, () => {
     if (!currentRunner) {
-      currentRunner = createTestRunner(state)
+      currentRunner = new TestRunner(state)
     }
     currentRunner.tick()
     if (currentRunner.isDone()) {
