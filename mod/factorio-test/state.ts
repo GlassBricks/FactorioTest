@@ -25,7 +25,7 @@ export interface TestState {
   config: Config
   suite: TestSuite
 
-  currentTestRun?: TestRun | undefined
+  currentTestRun?: TestRun
 
   /** Replaced when a run starts, and outlives it: read by the getResults remote afterwards. */
   report: RunReport
@@ -44,7 +44,7 @@ export interface TestRun {
 export interface PartRun {
   readonly partIndex: number
   async: boolean
-  explicitAsync?: boolean | undefined
+  explicitAsync?: boolean
   timeout: number
   asyncDone: boolean
   tickStarted: number

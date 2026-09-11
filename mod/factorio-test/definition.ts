@@ -12,7 +12,7 @@ export interface DefinitionState {
   config: Config
   readonly rootBlock: DescribeBlock
   currentBlock: DescribeBlock
-  currentTags?: TestTags | undefined
+  currentTags?: TestTags
   hasFocusedTests: boolean
 }
 

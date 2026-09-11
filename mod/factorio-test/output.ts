@@ -60,7 +60,7 @@ function purple(text: string): MessagePart {
 interface RichAndPlainText {
   richText: LocalisedString
   plainText: string
-  firstColor?: MessageColor | undefined
+  firstColor?: MessageColor
 }
 
 function formatError(text: string): RichAndPlainText {

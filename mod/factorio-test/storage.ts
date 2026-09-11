@@ -8,10 +8,10 @@ import type { TestGui } from "./test-gui"
  * keep everything under one namespaced key.
  */
 export interface FactorioTestStorage {
-  testStage?: TestStage | undefined
-  resume?: ResumeData | undefined
-  lastFailedTests?: LuaSet<string> | undefined
-  gui?: TestGui | undefined
+  testStage?: TestStage
+  resume?: ResumeData
+  lastFailedTests?: LuaSet<string>
+  gui?: TestGui
 }
 
 declare const storage: {

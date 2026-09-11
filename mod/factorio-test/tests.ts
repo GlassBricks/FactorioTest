@@ -5,8 +5,8 @@ import HookFn = FactorioTest.HookFn
 import TestFn = FactorioTest.TestFn
 
 export interface Source {
-  readonly file?: string | undefined
-  readonly line?: number | undefined
+  readonly file?: string
+  readonly line?: number
 }
 
 export function formatSource(source: Source): string {
@@ -55,7 +55,7 @@ export interface Test {
   readonly ticksBefore: number
 
   readonly errors: string[]
-  profiler?: LuaProfiler | undefined
+  profiler?: LuaProfiler
 }
 
 function childPath(parent: DescribeBlock, name: string): string {

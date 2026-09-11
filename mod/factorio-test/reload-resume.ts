@@ -18,7 +18,7 @@ interface SavedTestData {
   readonly ticksBefore: number
 
   readonly errors: string[]
-  readonly profiler?: LuaProfiler | undefined
+  readonly profiler?: LuaProfiler
 }
 
 interface SavedDescribeBlockData {

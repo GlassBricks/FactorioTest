@@ -4,13 +4,13 @@ import { TestEventListener } from "./test-events"
 
 /** The wire summary, with `status` unset until the run finishes. */
 export interface TestRunResults extends Omit<TestRunSummary, "status"> {
-  status?: TestRunSummary["status"] | undefined
+  status?: TestRunSummary["status"]
 }
 
 /** What a run produced. Created by the runner, and outlives the run. */
 export interface RunReport {
   results: TestRunResults
-  profiler?: LuaProfiler | undefined
+  profiler?: LuaProfiler
   reloaded: boolean
   bailedOut: boolean
 }
