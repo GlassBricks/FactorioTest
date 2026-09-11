@@ -1,8 +1,6 @@
 import { Protocol } from "../constants"
-import { logListener } from "./output"
 import { TestEventContext, TestEventListener } from "./test-events"
 import { isHeadlessMode } from "./shared/auto-start-config"
-import { failedTestCollector } from "./failed-test-storage"
 
 function emitResult(status: string) {
   print(Protocol.Result + status)
@@ -11,7 +9,7 @@ function emitResult(status: string) {
   }
 }
 
-const gameEnvironmentListener: TestEventListener = (event, state) => {
+export const gameEnvironmentListener: TestEventListener = (event, state) => {
   switch (event.type) {
     case "testRunStarted":
       game.speed = state.config.game_speed
@@ -44,8 +42,8 @@ function endRun(state: TestEventContext, status: string): void {
   emitResult(status)
 }
 
-/** emitResult aborts the process in headless mode, so this must be the last thing a run does. */
-const resultListener: TestEventListener = (event, state) => {
+/** emitResult aborts the process in headless mode, so nothing after this runs there. */
+export const resultListener: TestEventListener = (event, state) => {
   switch (event.type) {
     case "testRunFinished": {
       const bailedPrefix = state.report.bailedOut ? "bailed:" : ""
@@ -61,10 +59,3 @@ const resultListener: TestEventListener = (event, state) => {
       break
   }
 }
-
-export const builtinTestEventListeners: TestEventListener[] = [
-  gameEnvironmentListener,
-  resultListener,
-  logListener,
-  failedTestCollector,
-]

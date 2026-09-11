@@ -5,6 +5,7 @@ import { resumeAfterReload } from "./reload-resume"
 import { createRunReport } from "./results"
 import { assertNever } from "./shared/util"
 import { PartRun, TestRun, TestState, setToLoadErrorState } from "./state"
+import { TestEvent, TestEventListener } from "./test-events"
 import { reorderFailedFirst, shouldReorderFailedFirst } from "./test-reordering"
 import {
   DescribeBlock,
@@ -80,7 +81,10 @@ function isPartComplete(testRun: TestRun): boolean {
 }
 
 export class TestRunner {
-  constructor(private state: TestState) {
+  constructor(
+    private state: TestState,
+    private listeners: readonly TestEventListener[],
+  ) {
     // A runner owns exactly one run; a previous one may have been abandoned mid-test.
     state.currentTestRun = undefined
   }
@@ -90,6 +94,12 @@ export class TestRunner {
   private resumePoint: Resumption | undefined
   private cancelRequested = false
   private failureCount = 0
+
+  private emit(event: TestEvent): void {
+    for (const listener of this.listeners) {
+      listener(event, this.state)
+    }
+  }
 
   tick(): void {
     if (this.status === "done") return
@@ -130,7 +140,7 @@ export class TestRunner {
       error("Tests cannot be in run in multiplayer")
     }
     this.status = "running"
-    const stage = this.state.env.getTestStage()
+    const stage = this.state.stage.get()
     if (stage === TestStage.NotRun || stage === TestStage.Ready) {
       this.startTestRun()
     } else if (stage === TestStage.ReloadingMods) {
@@ -150,11 +160,11 @@ export class TestRunner {
     const { state } = this
     state.report = createRunReport()
     state.report.profiler = helpers.create_profiler()
-    state.env.setTestStage(TestStage.Running)
+    state.stage.set(TestStage.Running)
     if (shouldReorderFailedFirst(state)) {
       reorderFailedFirst(state.suite.rootBlock)
     }
-    state.env.emit({ type: "testRunStarted" })
+    this.emit({ type: "testRunStarted" })
 
     this.enterBlock(state.suite.rootBlock)
     this.cursor = { block: state.suite.rootBlock, index: 0 }
@@ -176,7 +186,7 @@ export class TestRunner {
       return
     }
     const { test, partIndex } = resumePoint
-    this.state.env.setTestStage(TestStage.Running)
+    this.state.stage.set(TestStage.Running)
     // the cursor must point *past* the resumed test, or it would be re-run forever
     this.cursor = { block: test.parent, index: test.indexInParent + 1 }
 
@@ -190,7 +200,7 @@ export class TestRunner {
   private setLoadError(message: string): void {
     this.status = "done"
     setToLoadErrorState(this.state, message)
-    this.state.env.emit({ type: "loadError" })
+    this.emit({ type: "loadError" })
   }
 
   /** The flat driver: pull the next test out of the walk and run it, until suspended or done. */
@@ -245,16 +255,14 @@ export class TestRunner {
       }
 
       cursor.index++
-      this.state.env.emit({ type: "testEntered", test: child })
+      this.emit({ type: "testEntered", test: child })
       if (!isSkippedTest(child, this.state)) return child
-      this.state.env.emit(
-        child.mode === "todo" ? { type: "testTodo", test: child } : { type: "testSkipped", test: child },
-      )
+      this.emit(child.mode === "todo" ? { type: "testTodo", test: child } : { type: "testSkipped", test: child })
     }
   }
 
   private enterBlock(block: DescribeBlock): void {
-    this.state.env.emit({ type: "describeBlockEntered", block })
+    this.emit({ type: "describeBlockEntered", block })
     if (block.errors.length !== 0) return
 
     if (block.children.length === 0) {
@@ -269,7 +277,7 @@ export class TestRunner {
     if (this.hasAnyTest(block)) {
       runBlockHooks(block, "afterAll", true)
     }
-    this.state.env.emit(
+    this.emit(
       block.errors.length > 0 ? { type: "describeBlockFailed", block } : { type: "describeBlockFinished", block },
     )
   }
@@ -279,7 +287,7 @@ export class TestRunner {
     test.profiler = helpers.create_profiler()
     const testRun = newTestRun(test, 0)
     this.state.currentTestRun = testRun
-    this.state.env.emit({ type: "testStarted", test })
+    this.emit({ type: "testStarted", test })
 
     const beforeEach = collectBeforeEachHooks(test.parent)
     for (const hook of beforeEach) {
@@ -358,10 +366,10 @@ export class TestRunner {
     test.profiler!.stop()
 
     if (test.errors.length === 0) {
-      this.state.env.emit({ type: "testPassed", test })
+      this.emit({ type: "testPassed", test })
       return
     }
-    this.state.env.emit({ type: "testFailed", test })
+    this.emit({ type: "testFailed", test })
     const { bail } = this.state.config
     if (bail !== undefined) {
       this.failureCount++
@@ -376,8 +384,8 @@ export class TestRunner {
     this.status = "done"
     const { state } = this
     state.report.profiler?.stop()
-    state.env.setTestStage(TestStage.Finished)
-    state.env.emit({ type: "testRunFinished" })
+    state.stage.set(TestStage.Finished)
+    this.emit({ type: "testRunFinished" })
   }
 
   private cancelRun(): void {
@@ -399,14 +407,14 @@ export class TestRunner {
       if (this.hasAnyTest(block)) {
         runBlockHooks(block, "afterAll", false)
       }
-      state.env.emit({ type: "describeBlockFinished", block })
+      this.emit({ type: "describeBlockFinished", block })
       block = block.parent
     }
 
     this.status = "done"
     state.report.profiler?.stop()
-    state.env.setTestStage(TestStage.Finished)
-    state.env.emit(state.report.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
+    state.stage.set(TestStage.Finished)
+    this.emit(state.report.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
   }
 
   private hasAnyTest(block: DescribeBlock): boolean {

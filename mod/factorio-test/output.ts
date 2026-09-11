@@ -12,7 +12,7 @@ export const enum MessageColor {
   Purple,
 }
 
-export const Colors: Record<MessageColor, ColorArray> = {
+const Colors: Record<MessageColor, ColorArray> = {
   [MessageColor.White]: [1, 1, 1],
   [MessageColor.Green]: [71, 221, 37],
   [MessageColor.Yellow]: [252, 237, 50],
@@ -120,26 +120,15 @@ function m(strings: TemplateStringsArray, ...substitutions: (string | LuaProfile
 
 export type MessageHandler = (message: RichAndPlainText, source: Source | undefined) => void
 
-const messageHandlers: MessageHandler[] = []
-
-export function addMessageHandler(handler: MessageHandler): void {
-  messageHandlers.push(handler)
-}
-
-function output(message: RichAndPlainText, source?: Source): void {
-  for (const logHandler of messageHandlers) {
-    logHandler(message, source)
-  }
-}
-
-let daOutputEvent: typeof import("__debugadapter__/print").outputEvent | undefined
-if (debugAdapterEnabled) {
+function initDebugAdapterOutput(): typeof import("__debugadapter__/print").outputEvent {
   __DebugAdapter ??= {
     stepIgnore: (f: any) => f,
     stepIgnoreAll: (f: any) => f,
   } as any
-  daOutputEvent = require("@NoResolution:__debugadapter__/print").outputEvent
+  return require("@NoResolution:__debugadapter__/print").outputEvent
 }
+
+const daOutputEvent = debugAdapterEnabled ? initDebugAdapterOutput() : undefined
 
 type MessageCategory = "console" | "important" | "stdout" | "stderr"
 const DebugAdapterCategories: Record<MessageColor, MessageCategory> = {
@@ -192,76 +181,84 @@ export const logLogger: MessageHandler = (message) => {
   print(Protocol.MessageEnd)
 }
 
-export const logListener: TestEventListener = (event, state) => {
-  switch (event.type) {
-    case "testRunStarted": {
-      output(m`Starting test run...`)
-      break
+export function createLogListener(handlers: readonly MessageHandler[]): TestEventListener {
+  function output(message: RichAndPlainText, source?: Source): void {
+    for (const handler of handlers) {
+      handler(message, source)
     }
-    case "testPassed": {
-      if (state.config.log_passed_tests) {
-        const { test } = event
-        output(
-          m`${green("PASS")} ${test.path} (${test.profiler!}${
-            test.tags.has("after_reload_mods") || test.tags.has("after_reload_script") ? " after reload" : ""
-          })`,
-          test.source,
-        )
-      }
-      break
-    }
-    case "testFailed": {
-      const { test } = event
-      output(m`${red("FAIL")} ${test.path}`, test.source)
-      for (const error of test.errors) {
-        output(formatError(error))
-      }
-      break
-    }
-    case "testTodo": {
-      const { test } = event
-      output(m`${purple("TODO")} ${test.path}`, test.source)
-      break
-    }
-    case "testSkipped": {
-      if (state.config.log_skipped_tests) {
-        const { test } = event
-        output(m`${yellow("SKIP")} ${test.path}`, test.source)
-      }
-      break
-    }
-    case "describeBlockFailed": {
-      const { block } = event
-      output(m`${red("ERROR")} ${block.path}`, block.source)
-      for (const error of block.errors) {
-        output(formatError(error))
-      }
-      break
-    }
-    case "testRunFinished": {
-      const report = state.report
-      const status = report.results.status
+  }
 
-      output(
-        m`${{
-          text: `Test run finished: ${status === "todo" ? "passed with todo tests" : status}`,
-          color:
-            status === "passed"
-              ? MessageColor.Green
-              : status === "failed"
-                ? MessageColor.Red
-                : status === "todo"
-                  ? MessageColor.Purple
-                  : MessageColor.White,
-        }}`,
-      )
-      output(m`${report.profiler!}${report.reloaded ? " since last reload" : ""}`)
-      break
-    }
-    case "loadError": {
-      output(m`${red("ERROR")} There was an load error:`)
-      output(formatError(state.suite.rootBlock.errors[0]!))
-      break
+  return (event, state) => {
+    switch (event.type) {
+      case "testRunStarted": {
+        output(m`Starting test run...`)
+        break
+      }
+      case "testPassed": {
+        if (state.config.log_passed_tests) {
+          const { test } = event
+          output(
+            m`${green("PASS")} ${test.path} (${test.profiler!}${
+              test.tags.has("after_reload_mods") || test.tags.has("after_reload_script") ? " after reload" : ""
+            })`,
+            test.source,
+          )
+        }
+        break
+      }
+      case "testFailed": {
+        const { test } = event
+        output(m`${red("FAIL")} ${test.path}`, test.source)
+        for (const error of test.errors) {
+          output(formatError(error))
+        }
+        break
+      }
+      case "testTodo": {
+        const { test } = event
+        output(m`${purple("TODO")} ${test.path}`, test.source)
+        break
+      }
+      case "testSkipped": {
+        if (state.config.log_skipped_tests) {
+          const { test } = event
+          output(m`${yellow("SKIP")} ${test.path}`, test.source)
+        }
+        break
+      }
+      case "describeBlockFailed": {
+        const { block } = event
+        output(m`${red("ERROR")} ${block.path}`, block.source)
+        for (const error of block.errors) {
+          output(formatError(error))
+        }
+        break
+      }
+      case "testRunFinished": {
+        const report = state.report
+        const status = report.results.status
+
+        output(
+          m`${{
+            text: `Test run finished: ${status === "todo" ? "passed with todo tests" : status}`,
+            color:
+              status === "passed"
+                ? MessageColor.Green
+                : status === "failed"
+                  ? MessageColor.Red
+                  : status === "todo"
+                    ? MessageColor.Purple
+                    : MessageColor.White,
+          }}`,
+        )
+        output(m`${report.profiler!}${report.reloaded ? " since last reload" : ""}`)
+        break
+      }
+      case "loadError": {
+        output(m`${red("ERROR")} There was an load error:`)
+        output(formatError(state.suite.rootBlock.errors[0]!))
+        break
+      }
     }
   }
 }

@@ -194,7 +194,7 @@ export function prepareReload(testState: TestState): void {
   }
   testState.suite.rootBlock = undefined!
   testState.currentTestRun = undefined
-  testState.env.setTestStage(TestStage.ReloadingMods)
+  testState.stage.set(TestStage.ReloadingMods)
 }
 
 export function resumeAfterReload(state: TestState): { test: Test; partIndex: number } | undefined {

@@ -77,18 +77,3 @@ export interface TestEventContext extends TestSelection {
 }
 
 export type TestEventListener = (event: TestEvent, context: TestEventContext) => void
-
-let testListeners: TestEventListener[] = []
-export function clearTestListeners() {
-  testListeners = []
-}
-
-export function addTestListener(this: unknown, listener: TestEventListener): void {
-  testListeners.push(listener)
-}
-
-export function notifyListeners(context: TestEventContext, event: TestEvent): void {
-  for (const handler of testListeners) {
-    handler(event, context)
-  }
-}

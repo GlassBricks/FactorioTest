@@ -1,25 +1,24 @@
 import { LuaBootstrap } from "factorio:runtime"
 import { Remote, Settings, TestStage } from "../constants"
-import { builtinTestEventListeners } from "./builtin-test-event-listeners"
+import { gameEnvironmentListener, resultListener } from "./builtin-test-event-listeners"
 import { cliEventEmitter } from "./cli-events"
 import { fillConfig } from "./config"
-import { initializeFailedTestsFromConfig } from "./failed-test-storage"
-import { addMessageHandler, debugAdapterLogger, logLogger } from "./output"
+import { failedTestCollector, initializeFailedTestsFromConfig } from "./failed-test-storage"
+import { createLogListener, debugAdapterLogger, logLogger, MessageHandler } from "./output"
 import { resultCollector } from "./results"
 import { TestRunner } from "./runner"
 import { globals } from "./setup-globals"
 import { getAutoStartMod, isHeadlessMode } from "./shared/auto-start-config"
 import { debugAdapterEnabled } from "./shared/util"
-import { beginDefinition, endDefinition, getTestState } from "./state"
-import { addTestListener, clearTestListeners } from "./test-events"
+import { beginDefinition, endDefinition, getTestState, globalTestStage, onTestStageChanged } from "./state"
+import { TestEventListener } from "./test-events"
 import { progressGuiListener, progressGuiLogger } from "./test-gui"
-import { onTestStageChanged } from "./test-stage"
 import Config = FactorioTest.Config
 
 declare const ____originalRequire: typeof require
 
 function isRunning() {
-  const stage = getTestState().env.getTestStage()
+  const stage = getTestState().stage.get()
   return !(stage === TestStage.NotRun || stage === TestStage.LoadError || stage === TestStage.Finished)
 }
 
@@ -30,7 +29,7 @@ export = function (files: string[], config: Partial<Config>): void {
     runTests,
     cancelTestRun,
     modName: () => script.mod_name,
-    getTestStage: () => getTestState().env.getTestStage(),
+    getTestStage: () => getTestState().stage.get(),
     isRunning,
     onTestStageChanged: () => onTestStageChanged,
     getResults: () => getTestState().report.results,
@@ -65,11 +64,35 @@ function loadTests(files: string[], partialConfig: Partial<Config>): void {
   for (const file of files) {
     describe(file, () => _require(file))
   }
-  endDefinition()
+  endDefinition(globalTestStage)
 }
 
+function createMessageHandlers(headless: boolean): MessageHandler[] {
+  const handlers: MessageHandler[] = []
+  if (!headless) handlers.push(progressGuiLogger)
+  if (debugAdapterEnabled) {
+    handlers.push(debugAdapterLogger)
+  } else if (!headless) {
+    handlers.push(logLogger)
+  }
+  return handlers
+}
+
+function createTestListeners(headless: boolean): TestEventListener[] {
+  // resultCollector must run first; every other listener reads report.results.
+  const listeners: TestEventListener[] = [resultCollector]
+  if (headless) listeners.push(cliEventEmitter)
+  // resultListener ends the headless process, so what follows it only runs in-game.
+  listeners.push(gameEnvironmentListener, resultListener)
+  listeners.push(createLogListener(createMessageHandlers(headless)), failedTestCollector)
+  if (!headless) listeners.push(progressGuiListener)
+  return listeners
+}
+
+const testListeners = createTestListeners(isHeadlessMode())
+
 function tryContinueTests() {
-  const testStage = getTestState().env.getTestStage()
+  const testStage = getTestState().stage.get()
   if (testStage === TestStage.Running || testStage === TestStage.ReloadingMods) {
     doRunTests()
   } else {
@@ -83,7 +106,7 @@ function runTests() {
   if (isRunning()) return
 
   log(`Running tests for ${script.mod_name}`)
-  getTestState().env.setTestStage(TestStage.Ready)
+  getTestState().stage.set(TestStage.Ready)
   doRunTests()
 }
 
@@ -91,41 +114,15 @@ function cancelTestRun() {
   currentRunner?.requestCancel()
 }
 
-function wireListeners(headless: boolean) {
-  clearTestListeners()
-  // resultCollector must run first; every other listener reads state.results.
-  addTestListener(resultCollector)
-  if (headless) {
-    // cliEventEmitter must run before builtins, since setupListener ends the
-    // headless process.
-    addTestListener(cliEventEmitter)
-  }
-  builtinTestEventListeners.forEach(addTestListener)
-
-  if (!headless) {
-    addTestListener(progressGuiListener)
-    addMessageHandler(progressGuiLogger)
-  }
-
-  if (debugAdapterEnabled) {
-    addMessageHandler(debugAdapterLogger)
-  } else if (!headless) {
-    addMessageHandler(logLogger)
-  }
-}
-
 function doRunTests() {
-  const state = getTestState()
   initializeFailedTestsFromConfig()
-  wireListeners(isHeadlessMode())
   if (game !== undefined) game.tick_paused = false
 
+  const runner = new TestRunner(getTestState(), testListeners)
+  currentRunner = runner
   tapEvent(defines.events.on_tick, () => {
-    if (!currentRunner) {
-      currentRunner = new TestRunner(state)
-    }
-    currentRunner.tick()
-    if (currentRunner.isDone()) {
+    runner.tick()
+    if (runner.isDone()) {
       currentRunner = undefined
       revertTappedEvents()
     } else if (game !== undefined) {
@@ -143,7 +140,7 @@ interface TappedHandler {
   ours: (this: void) => void
 }
 
-const tappedHandlers: Record<defines.events, TappedHandler> = {}
+const tappedHandlers: Partial<Record<defines.events, TappedHandler>> = {}
 const oldScript: LuaBootstrap = script
 
 function tapEvent(event: defines.events, func: () => void) {
@@ -181,7 +178,7 @@ function tapEvent(event: defines.events, func: () => void) {
 function revertTappedEvents() {
   ;(_G as any).script = oldScript
   for (const [event, handler] of pairs(tappedHandlers)) {
-    tappedHandlers[event] = undefined!
+    tappedHandlers[event] = undefined
     script.on_event(event, handler.original)
   }
 }

@@ -12,7 +12,7 @@ import {
   getTestState,
   TestState,
 } from "../state"
-import { TestEvent } from "../test-events"
+import { TestEvent, TestEventListener } from "../test-events"
 import { propagateTestMode } from "../test-mode"
 import { DescribeBlock, Test } from "../tests"
 import {
@@ -58,21 +58,27 @@ function setMockConfig(config: Config): void {
   getDefinitionState().config = config
 }
 
+const mockListeners: TestEventListener[] = [
+  (event) => {
+    events.push(event)
+  },
+  resultCollector,
+]
+
+function newRunner(state: TestState): TestRunner {
+  return new TestRunner(state, mockListeners)
+}
+
 /** Ends the simulated definition phase, and installs the state its suite is run with. */
 function finishDefining(): TestState {
   const definition = getDefinitionState()
   propagateTestMode(definition, definition.rootBlock, undefined)
-  mockTestState = endDefinition()
-  mockTestState.env = {
-    getTestStage: () => mockTestStage,
-    setTestStage: (stage) => {
+  mockTestState = endDefinition({
+    get: () => mockTestStage,
+    set: (stage) => {
       mockTestStage = stage
     },
-    emit: (event) => {
-      events.push(event)
-      resultCollector(event, mockTestState)
-    },
-  }
+  })
   return mockTestState
 }
 
@@ -86,7 +92,7 @@ function getFirst<T extends Test | DescribeBlock = Test>(): T {
 }
 
 function runTestSync<T extends Test | DescribeBlock = Test>(): T {
-  const runner = new TestRunner(stateToRun())
+  const runner = newRunner(stateToRun())
   runner.tick()
   if (!runner.isDone()) {
     error("Tests not completed in one tick")
@@ -99,7 +105,7 @@ function runTestAsyncWithRunner<T extends Test | DescribeBlock = Test>(
   callback: (item: T) => void,
 ): void {
   if (mockTestState) error("duplicate call to runTestAsync/cannot re-run mock test async")
-  const runner = new TestRunner(finishDefining())
+  const runner = newRunner(finishDefining())
   _setTestState(originalTestState)
   async()
   let tickNumber = 0
@@ -947,7 +953,7 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
 
 describe("reload state", () => {
   function reloadAndTick(): void {
-    const runner = new TestRunner(mockTestState)
+    const runner = newRunner(mockTestState)
     runner.tick()
   }
 
@@ -960,12 +966,12 @@ describe("reload state", () => {
       // empty
     })
     const state = finishDefining()
-    assertEqual(TestStage.NotRun, state.env.getTestStage())
-    const runner = new TestRunner(state)
+    assertEqual(TestStage.NotRun, state.stage.get())
+    const runner = newRunner(state)
     runner.tick()
-    assertEqual(TestStage.Running, mockTestState.env.getTestStage())
+    assertEqual(TestStage.Running, mockTestState.stage.get())
     runner.tick()
-    assertEqual(TestStage.Finished, mockTestState.env.getTestStage())
+    assertEqual(TestStage.Finished, mockTestState.stage.get())
   })
 
   test("Cannot reload while testing", () => {
@@ -977,7 +983,7 @@ describe("reload state", () => {
     assertDeepEquals([], mockTestState.suite.rootBlock.errors)
     reloadAndTick()
     assertNotDeepEquals([], mockTestState.suite.rootBlock.errors)
-    assertEqual(TestStage.LoadError, mockTestState.env.getTestStage())
+    assertEqual(TestStage.LoadError, mockTestState.stage.get())
   })
 
   test("can reload after load error", () => {
@@ -985,10 +991,10 @@ describe("reload state", () => {
       actions.push("test 1")
     })
     finishDefining()
-    mockTestState.env.setTestStage(TestStage.LoadError)
+    mockTestState.stage.set(TestStage.LoadError)
     reloadAndTick()
     assertDeepEquals([], mockTestState.suite.rootBlock.errors)
-    assertEqual(TestStage.Finished, mockTestState.env.getTestStage())
+    assertEqual(TestStage.Finished, mockTestState.stage.get())
     assertDeepEquals(["test 1"], actions)
   })
 })
@@ -1335,7 +1341,7 @@ describe("rerun", () => {
         assertDeepEquals(["1"], actions, "cancelled before test 2 ran")
         actions = []
 
-        const runner = new TestRunner(mockTestState)
+        const runner = newRunner(mockTestState)
         for (let i = 0; i < 10 && !runner.isDone(); i++) runner.tick()
         assertTrue(runner.isDone(), "rerun must not inherit the cancel request")
         assertDeepEquals(["1", "2"], actions)

@@ -1,12 +1,26 @@
 /** @noSelfInFile */
 import { TestStage } from "../constants"
 import { createRunReport, RunReport } from "./results"
-import { notifyListeners, TestEvent } from "./test-events"
-import { getGlobalTestStage, setGlobalTestStage } from "./test-stage"
+import { testStorage } from "./storage"
 import { createRootDescribeBlock, DescribeBlock, Test, TestSuite, TestTags } from "./tests"
 import Config = FactorioTest.Config
 import OnTickFn = FactorioTest.OnTickFn
 import HookFn = FactorioTest.HookFn
+
+export const onTestStageChanged = script.generate_event_name<{ stage: TestStage }>()
+
+export interface TestStageStore {
+  get(): TestStage
+  set(stage: TestStage): void
+}
+
+export const globalTestStage: TestStageStore = {
+  get: () => testStorage().testStage ?? TestStage.NotRun,
+  set: (stage) => {
+    testStorage().testStage = stage
+    script.raise_event(onTestStageChanged, { stage })
+  },
+}
 
 /**
  * State needed to collect tests.
@@ -21,18 +35,6 @@ export interface DefinitionState {
   hasFocusedTests: boolean
 }
 
-/**
- * Interface between the test framework, and the world around it.
- *
- * Mocked in tests.
- * @noSelf
- */
-export interface TestEnvironment {
-  getTestStage(): TestStage
-  setTestStage(stage: TestStage): void
-  emit(event: TestEvent): void
-}
-
 /** @noSelf */
 export interface TestState {
   config: Config
@@ -43,7 +45,7 @@ export interface TestState {
   /** Replaced when a run starts, and outlives it: read by the getResults remote afterwards. */
   report: RunReport
 
-  env: TestEnvironment
+  stage: TestStageStore
 }
 
 /** One test in flight. Survives the transition from one part to the next. */
@@ -93,25 +95,16 @@ export function consumeTags(): TestTags {
 }
 
 /** Seals the definition phase, and installs the state the resulting suite is run with. */
-export function endDefinition(): TestState {
+export function endDefinition(stage: TestStageStore): TestState {
   const { config, rootBlock, hasFocusedTests } = getDefinitionState()
   _clearDefinition()
-  return initTestState(config, { rootBlock, hasFocusedTests })
-}
-
-function initTestState(config: Config, suite: TestSuite): TestState {
-  const state: TestState = {
+  theTestState = {
     config,
-    suite,
+    suite: { rootBlock, hasFocusedTests },
     report: createRunReport(),
-    env: {
-      getTestStage: getGlobalTestStage,
-      setTestStage: setGlobalTestStage,
-      emit: (event) => notifyListeners(state, event),
-    },
+    stage,
   }
-  theTestState = state
-  return state
+  return theTestState
 }
 
 export function getTestState(): TestState {
@@ -119,12 +112,11 @@ export function getTestState(): TestState {
 }
 
 export function setToLoadErrorState(state: TestState, error: string): void {
-  state.env.setTestStage(TestStage.LoadError)
+  state.stage.set(TestStage.LoadError)
   const rootBlock = createRootDescribeBlock(state.config)
   rootBlock.errors = [error]
   state.suite = { rootBlock, hasFocusedTests: false }
   state.currentTestRun = undefined
-  game.speed = 1
 }
 
 // internal, export for meta-test only
