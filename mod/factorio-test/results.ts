@@ -11,6 +11,7 @@ export interface TestRunResults extends Omit<TestRunSummary, "status"> {
 export interface RunReport {
   results: TestRunResults
   profiler?: LuaProfiler
+  failedTestPaths: LuaSet<string>
   reloaded: boolean
   bailedOut: boolean
 }
@@ -26,6 +27,7 @@ export function createRunReport(): RunReport {
       cancelled: 0,
       describeBlockErrors: 0,
     },
+    failedTestPaths: new LuaSet(),
     reloaded: false,
     bailedOut: false,
   }

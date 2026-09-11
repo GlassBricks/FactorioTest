@@ -24,22 +24,15 @@ export function hasFailedTests(): boolean {
   return set !== undefined && next(set)[0] !== undefined
 }
 
-let currentRunFailedPaths: LuaSet<string> | undefined
-
-export const failedTestCollector: TestEventListener = (event) => {
+/** Collects into the run's report, so that the set survives a mid-run reload. */
+export const failedTestCollector: TestEventListener = (event, state) => {
   switch (event.type) {
-    case "testRunStarted":
-      currentRunFailedPaths = new LuaSet<string>()
-      break
     case "testFailed":
-      currentRunFailedPaths?.add(event.test.path)
+      state.report.failedTestPaths.add(event.test.path)
       break
     case "testRunFinished":
     case "testRunCancelled":
-      if (currentRunFailedPaths) {
-        testStorage().lastFailedTests = currentRunFailedPaths
-        currentRunFailedPaths = undefined
-      }
+      testStorage().lastFailedTests = state.report.failedTestPaths
       break
   }
 }

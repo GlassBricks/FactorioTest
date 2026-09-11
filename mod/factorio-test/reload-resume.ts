@@ -176,6 +176,7 @@ function findTestByPath(block: DescribeBlock, path: string): Test | undefined {
 export interface ResumeData {
   rootBlock: SavedDescribeBlockData
   results: TestRunResults
+  failedTestPaths: LuaSet<string>
   profiler: LuaProfiler
   resumeTestPath: string
   resumePartIndex: number
@@ -186,6 +187,7 @@ export function prepareReload(testState: TestState): void {
   testStorage().resume = {
     rootBlock: snapshotAndDetachDescribeBlock(testState.suite.rootBlock),
     results: testState.report.results,
+    failedTestPaths: testState.report.failedTestPaths,
     resumeTestPath: currentRun.test.path,
     resumePartIndex: currentRun.part.partIndex + 1,
     profiler: testState.report.profiler!,
@@ -202,6 +204,7 @@ export function resumeAfterReload(state: TestState): { test: Test; partIndex: nu
   state.report = {
     results: testResume.results,
     profiler: testResume.profiler,
+    failedTestPaths: testResume.failedTestPaths,
     reloaded: true,
     bailedOut: false,
   }
