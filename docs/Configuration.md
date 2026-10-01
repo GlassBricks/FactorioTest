@@ -1,3 +1,5 @@
+# Configuration
+
 This page covers in-mod Lua configuration. For CLI and config file options, see [CLI Reference](CLI-Reference.md).
 
 ## Lua Configuration
@@ -36,7 +38,7 @@ require("__factorio-test__/init")(
 
 ## CLI Override
 
-When using the CLI, some options from the command line or config file override the corresponding Lua options. The priority order is:
+When using the CLI, options set on the command line or in the config file override the corresponding Lua options. Priority:
 
 1. In-mod Lua config (lowest priority)
 2. Config file (`test` key)

@@ -1,3 +1,5 @@
+# Getting Started
+
 ## Setup
 
 1. Add one or more test files to your mod:
@@ -19,7 +21,7 @@ end
 
 See [Configuration](Configuration.md) for config options.
 
-## Running Tests with CLI (Recommended)
+## Running Tests with the CLI (Recommended)
 
 Install the CLI with npm:
 
@@ -37,11 +39,9 @@ npx factorio-test run -p ./path/to/your/mod
 
 For more details, see `factorio-test run --help` or [CLI Reference](CLI-Reference.md).
 
-## Running Tests in-game
+## Running Tests In-Game
 
-This will require some manual setup.
-
-See [Running Tests](Running-Tests.md#running-in-game).
+This requires some manual setup; see [Running Tests](Running-Tests.md#running-in-game).
 
 ## Next Steps
 

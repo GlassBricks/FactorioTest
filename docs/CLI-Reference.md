@@ -1,3 +1,5 @@
+# CLI Reference
+
 The Factorio Test CLI runs tests from the command line, suitable for CI/CD pipelines and local development.
 
 Run `npx factorio-test run --help` for usage info and examples.
@@ -12,7 +14,8 @@ npm install -D factorio-test-cli
 
 ## Config File
 
-Options can be specified in a config file instead of on the command line. The CLI looks for configuration in:
+Options can be set in a config file instead of on the command line. The CLI looks for configuration in, in order:
+
 1. Path specified via `-c, --config <path>`
 2. `factorio-test.json` in the current directory
 3. `"factorio-test"` key in `package.json`
@@ -42,7 +45,7 @@ These use camelCase in the config file:
 
 ### Test Execution Options
 
-Test execution options are nested under a `test` key using snake_case. These override in-mod Lua config:
+Test execution options are nested under a `test` key and use snake_case. These override the in-mod [Lua config](Configuration.md):
 
 | Config Key | CLI Flag | Description |
 |------------|----------|-------------|

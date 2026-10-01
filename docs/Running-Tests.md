@@ -1,3 +1,5 @@
+# Running Tests
+
 ## Registering Tests
 
 To register your mod with Factorio Test, add this to the end of your `control.lua`:
@@ -14,9 +16,9 @@ end
 You do _not_ have to add Factorio Test as a dependency of your mod.
 
 Tests are only loaded if both the Factorio Test mod is active _and_ your mod is selected for testing.
-It's suggested to not import test files in regular code, as Factorio Test may not always be active.
+Avoid requiring test files from regular code, as Factorio Test may not be active.
 
-## Running from CLI (recommended)
+## Running from the CLI (Recommended)
 
 For CI/CD and command-line testing, use the CLI:
 
@@ -24,18 +26,18 @@ For CI/CD and command-line testing, use the CLI:
 npx factorio-test run -p ./my-mod
 ```
 
-The CLI will try to auto-detect your Factorio installation, set up an isolated data directory for mods, saves, and config; download mods if needed; then run tests in headless mode.
-By default it uses a bundled save file, that has an empty world, is filled with lab tiles, and has one player with the name "" (empty string).
-Exits with code 0 only if all tests pass.
+The CLI auto-detects your Factorio installation, sets up an isolated data directory (mods, saves, config), downloads mods if needed, then runs tests in headless mode.
+By default it uses a bundled save: an empty lab-tile world with one player named `""` (empty string).
+The CLI exits with code 0 only if all tests pass.
 Messages logged via `print` or `localised_print` are captured and shown with failing tests.
 
-You can also run with `--graphics`, which instead launches the game in graphical mode with the same settings and setup.
+Use `--graphics` to launch the game in graphical mode instead, with the same setup.
 
 See [CLI Reference](CLI-Reference.md) for all available options.
 
-## Running in-game
+## Running In-Game
 
-You'll need to manually set up the environment:
+This requires manually setting up the environment:
 
 1. Open Factorio
 2. Make sure both Factorio Test and your mod are enabled
@@ -44,13 +46,13 @@ You'll need to manually set up the environment:
 5. Select your mod from the list (if not listed, verify your `control.lua` setup)
 6. Click "Reload mods and run tests"
 
-An in-game GUI will display test progress and info.
+An in-game GUI displays test progress and results.
 
 Test output is also printed to the Factorio log file.
 If [Factorio DebugAdapter](https://github.com/justarandomgeek/vscode-factoriomod-debug) is detected,
 output goes to the debug console with clickable links instead.
 
-## CLI options
+## CLI Options
 
 ### Watch Mode
 
@@ -68,7 +70,7 @@ Configure watched patterns with `--watch-patterns` (default: `info.json`, `**/*.
 
 ### Test Results File
 
-By default, test results are written to `test-results.json` in the data directory. With `--reorder-failed-first`, this file is used to run previously failed tests first.
+By default, test results are written to `test-results.json` in the data directory. With `--reorder-failed-first`, the CLI uses this file to run previously failed tests first.
 
 Control output with:
 

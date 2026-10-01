@@ -1,6 +1,6 @@
-## Remote Interface
+# Remote Interface
 
-If a mod is registered with Factorio Test _and_ is selected to run, the `"factorio-test"` remote interface is available. This is useful for controlling test running from your own scripting.
+If a mod is registered with Factorio Test _and_ is selected to run, the `"factorio-test"` remote interface is available. Use it to control test runs from your own scripts.
 
 Example:
 
@@ -10,7 +10,7 @@ if remote.interfaces["factorio-test"] then
 end
 ```
 
----
+## Functions
 
 The following functions are available. Other functions are considered internal and may change without notice.
 
@@ -34,7 +34,7 @@ Returns `true` if tests are currently running, `false` otherwise.
 
 Returns a table with the following fields:
 
-- `ran: number` - how many tests were run (so far)
+- `ran: number` - how many tests have run so far
 - `passed: number` - how many tests passed
 - `failed: number` - how many tests failed
 - `skipped: number` - how many tests were skipped

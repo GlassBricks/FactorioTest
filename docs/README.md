@@ -1,6 +1,6 @@
 # Factorio Test documentation
 
-See [Getting Started](Getting-Started.md) for a quickstart guide.
+New here? Start with [Getting Started](Getting-Started.md).
 
 - [Getting Started](Getting-Started.md)
 - [Configuration](Configuration.md)
@@ -10,7 +10,7 @@ See [Getting Started](Getting-Started.md) for a quickstart guide.
 - [Development Tools](Development-Tools.md)
 - [Remote Interface](Remote-Interface.md)
 
-## What's New in v3.0 highlights
+## What's New in v3.0
 
 - **Watch Mode**: Auto-reload and rerun tests on file changes with `-w/--watch`
 - **CLI Improvements**: Progress bar, quiet mode, and test results file output

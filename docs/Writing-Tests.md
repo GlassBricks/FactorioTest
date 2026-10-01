@@ -1,3 +1,5 @@
+# Writing Tests
+
 Factorio Test takes inspiration from [Jest](https://jestjs.io/) and [Busted](https://olivinelabs.com/busted/).
 
 ## Defining Tests
@@ -22,8 +24,8 @@ describe("a block", function()
 end)
 ```
 
-Code that interacts with the game or needs to be run in an event should be put in `test` or a lifecycle hook (see below), instead of a describe block.
 Code in describe blocks runs when the file is loaded.
+Code that interacts with the game or must run in an event belongs in a `test` or a lifecycle hook (see below), not directly in a describe block.
 
 ## Setup and Teardown
 
@@ -32,7 +34,7 @@ Use `before_all` and `after_all` for code that runs once before/after _all_ test
 
 Use `after_test` _inside_ a test to run code after that specific test completes.
 
-`after_xxx` hooks always run regardless of test pass/fail status.
+`after_*` hooks always run, whether the test passed or failed.
 
 ```lua
 before_all(function()
@@ -61,7 +63,7 @@ end)
 
 ## Optional luassert
 
-**luassert is opt-in**: To use the [luassert](https://github.com/Olivine-Labs/luassert) library, enable it in your config:
+luassert is opt-in. To use the [luassert](https://github.com/Olivine-Labs/luassert) library, enable it in your config:
 
 ```lua
 require("__factorio-test__/init")({ "my-test" }, { load_luassert = true })
@@ -90,7 +92,7 @@ end)
 
 ## Focused Tests
 
-Use `test.only`, `it.only`, or `describe.only` to run only those tests.
+Use `test.only`, `it.only`, or `describe.only` to run only the marked tests.
 
 ```lua
 test.only("this one", function()
@@ -114,12 +116,12 @@ describe.only("a block", function()
 end)
 ```
 
-By default, the CLI will fail if `.only` tests are present (to prevent accidentally committing focused tests). Allow with `--no-forbid-only`.
+By default, the CLI fails if `.only` tests are present, to prevent accidentally committing focused tests. Allow them with `--no-forbid-only`.
 
 ## Todo Tests
 
-Use `test.todo(description)` to create a placeholder for tests you plan to implement later.
-These show up as TODO items in the test output.
+Use `test.todo(description)` as a placeholder for a test you plan to implement later.
+Todo tests show up as TODO items in the test output.
 
 ```lua
 test.todo("find more iron")
@@ -127,7 +129,7 @@ test.todo("find more iron")
 
 ## Parameterized Tests
 
-To run a test on multiple pieces of data, use `test.each` or `describe.each`.
+To run the same test on multiple inputs, use `test.each` or `describe.each`.
 
 ### Basic Usage
 
@@ -187,15 +189,19 @@ end)
 
 Asynchronous tests run across multiple game ticks.
 
-Call `async()` within a test to mark it async, and `done()` when complete.
-Pass a timeout in ticks to `async` to override the default timeout (60×60 ticks = 1 minute).
+There are three ways to make a test async:
 
-Alternatively, use `after_ticks(ticks, fn)` to run a function after a number of ticks.
-The test finishes when all `after_ticks` functions complete.
+1. Call `async()` within a test to mark it async. Call `done()` (possibly in a later tick) to mark it complete.
+   The test will fail if `done()` is not called within the timeout period. Pass a timeout in ticks to `async` to override the default timeout (3600 ticks = 1 minute).
+2. Use `after_ticks(ticks, fn)` to run a function after the given number of ticks. The test finishes when all `after_ticks` functions complete.
+3. Use `on_tick(fn)` to add a function that runs every tick during the test. Return `false` from the function to remove it.
 
-Use `on_tick(fn)` to add a function that runs every tick during the test.
-Return `false` from the function to remove it.
-Without `async()`, the test finishes once all `on_tick` functions are removed.
+These methods may be combined. Without `async()`, the test finishes only after:
+
+- all `on_tick` functions have been removed
+- all `after_ticks` functions have run
+
+With `async()`, the test always finishes when `done()` is called.
 
 ```lua
 test("Items appear after waiting", function()
@@ -215,13 +221,24 @@ test("custom async test", function()
     end)
     -- fails if condition not met within 1000 ticks
 end)
+
+test("multiple conditions", function()
+    setup_world()
+    on_tick(function()
+        if cond1() then return false end
+    end)
+    on_tick(function()
+        if cond2() then return false end
+    end)
+    -- fails if both conditions are not met within 3600 ticks
+end)
 ```
 
-The default timeout can be changed via [Configuration](Configuration.md).
+The default async timeout can be changed via [Configuration](Configuration.md).
 
 ## Tags
 
-Add tags to a test or describe block by calling `tags` right before the definition:
+Tag a test or describe block by calling `tags` immediately before its definition:
 
 ```lua
 tags("slow", "integration")
@@ -230,14 +247,14 @@ test("a tagged test", function()
 end)
 ```
 
-Adding a tag to a block affects all tests/blocks inside it.
+Tags on a describe block apply to everything inside it.
 
 Tests can be filtered by tag via `--tag-whitelist` and `--tag-blacklist`. See [Configuration](Configuration.md).
 
 ## Ticks Between Tests
 
-By default, tests run 1 tick apart. Use `ticks_between_tests(ticks)` to specify a different wait time
-(including 0 ticks). This affects the rest of the describe block/file only.
+By default, tests run 1 tick apart. Use `ticks_between_tests(ticks)` to set a different wait time
+(including 0). This applies only to the remainder of the current describe block or file.
 
 ```lua
 ticks_between_tests(2)
@@ -259,9 +276,9 @@ The default can be changed via [Configuration](Configuration.md).
 Test save/reload behavior by chaining `after_reload_mods(fn)` or `after_reload_script(fn)` after a test.
 These call `game.reload_mods()` and `game.reload_script()`, respectively.
 
-This also adds the tag `"after_reload_mods"` or `"after_reload_script"` to the test.
+This also tags the test with `"after_reload_mods"` or `"after_reload_script"`.
 
-**WARNING**: A save/reload **reruns** all files, meaning anything not in `storage` or in-game will be reset, including local variables.
+**Warning**: A reload **reruns** all files, so anything not stored in `storage` or in the game itself is reset, including local variables.
 
 ```lua
 test("reload test", function()
