@@ -40,7 +40,6 @@ Uses `fmtk` (from npm package `factorio-debugadapter`) for settings and mod depe
 
 - You can run factorio tests, since they are run in headless mode
 - For vitest, use parameterized tests where applicable
-- Integration tests launch Factorio and are expensive: reserve them for real seams (CLI → mod settings, mod →
-  stdout protocol, process lifecycle). Test CLI logic with vitest at its boundary instead: pure planning in
-  `cli/run-plan.ts`, process supervision via `superviseHeadlessRun()` with a fake process, output via the recorded
-  transcript in `cli/test-fixtures/` (regenerate with `npm run record-transcript`), entry point via `main(argv)`.
+
+- Integration/e2e tests launch Factorio and are expensive: reserve them for real seams (CLI → mod settings, mod →
+  stdout protocol, process lifecycle). Prefer testing with vitest at module boundaries instead.
