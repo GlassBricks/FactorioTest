@@ -1,4 +1,4 @@
-import type { RunReport } from "./results"
+import type { ReadonlyRunReport } from "./results"
 import { DescribeBlock, Test, TestSelection } from "./tests"
 
 interface BaseTestEvent {
@@ -69,11 +69,11 @@ export type TestEvent =
   | LoadError
 
 /**
- * What a listener may see: the suite being run and what the run has produced so far.
- * Deliberately excludes execution state.
+ * What a listener may see: the suite being run and what the run has produced so far,
+ * already updated for the event. Deliberately excludes execution state.
  */
 export interface TestEventContext extends TestSelection {
-  readonly report: RunReport
+  readonly report: ReadonlyRunReport
 }
 
 export type TestEventListener = (event: TestEvent, context: TestEventContext) => void

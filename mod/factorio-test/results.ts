@@ -1,6 +1,6 @@
 import { LuaProfiler } from "factorio:runtime"
 import { TestRunSummary } from "../../types/events"
-import { TestEventListener } from "./test-events"
+import type { TestEvent } from "./test-events"
 
 /** The wire summary, with `status` unset until the run finishes. */
 export interface TestRunResults extends Omit<TestRunSummary, "status"> {
@@ -15,6 +15,8 @@ export interface RunReport {
   reloaded: boolean
   bailedOut: boolean
 }
+
+export type ReadonlyRunReport = Readonly<Omit<RunReport, "results">> & { readonly results: Readonly<TestRunResults> }
 
 export function createRunReport(): RunReport {
   return {
@@ -32,8 +34,8 @@ export function createRunReport(): RunReport {
   }
 }
 
-export const resultCollector: TestEventListener = (event, state) => {
-  const { results } = state.report
+export function recordEvent(report: RunReport, event: TestEvent): void {
+  const { results } = report
   switch (event.type) {
     case "testPassed":
       results.ran++
@@ -42,6 +44,7 @@ export const resultCollector: TestEventListener = (event, state) => {
     case "testFailed":
       results.ran++
       results.failed++
+      report.failedTestPaths.add(event.test.path)
       break
     case "testSkipped":
       results.skipped++

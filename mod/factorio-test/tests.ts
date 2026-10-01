@@ -220,6 +220,7 @@ export interface TestSuite {
 export interface TestSelection {
   readonly config: Config
   readonly suite: TestSuite
+  readonly isRerun: boolean
 }
 
 export function isSkippedTest(test: Test, state: TestSelection): boolean {
@@ -227,6 +228,7 @@ export function isSkippedTest(test: Test, state: TestSelection): boolean {
     test.mode === "skip" ||
     test.mode === "todo" ||
     (state.suite.hasFocusedTests && test.mode !== "only") ||
+    (state.isRerun && test.tags.has("no_rerun")) ||
     !testMatchesPattern(test, state.config) ||
     !testMatchesTagList(test, state.config)
   )

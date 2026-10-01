@@ -3,7 +3,6 @@ import { table } from "util"
 import { TestStage } from "../constants"
 import { TestRunResults } from "./results"
 import { type TestState } from "./state"
-import { testStorage } from "./storage"
 import { DescribeBlock, HookType, Source, Test, TestMode, TestTags } from "./tests"
 import compare = table.compare
 
@@ -177,29 +176,34 @@ export interface ResumeData {
   rootBlock: SavedDescribeBlockData
   results: TestRunResults
   failedTestPaths: LuaSet<string>
+  isRerun: boolean
   profiler: LuaProfiler
   resumeTestPath: string
   resumePartIndex: number
 }
 
 export function prepareReload(testState: TestState, test: Test, resumePartIndex: number): void {
-  testStorage().resume = {
+  const { store } = testState
+  store.persisted().resume = {
     rootBlock: snapshotAndDetachDescribeBlock(testState.suite.rootBlock),
     results: testState.report.results,
     failedTestPaths: testState.report.failedTestPaths,
+    isRerun: testState.isRerun,
     resumeTestPath: test.path,
     resumePartIndex,
     profiler: testState.report.profiler!,
   }
   testState.suite.rootBlock = undefined!
   testState.currentTestRun = undefined
-  testState.stage.set(TestStage.ReloadingMods)
+  store.stage.set(TestStage.ReloadingMods)
 }
 
 export function resumeAfterReload(state: TestState): { test: Test; partIndex: number } | undefined {
-  const testResume = testStorage().resume ?? error("attempting to resume after reload without resume data saved")
-  testStorage().resume = undefined
+  const persisted = state.store.persisted()
+  const testResume = persisted.resume ?? error("attempting to resume after reload without resume data saved")
+  persisted.resume = undefined
 
+  state.isRerun = testResume.isRerun
   state.report = {
     results: testResume.results,
     profiler: testResume.profiler,

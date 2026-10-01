@@ -1,6 +1,8 @@
 /** @noSelfInFile */
 import { TestStage } from "../constants"
+import type { ResumeData } from "./reload-resume"
 import { createRunReport, RunReport } from "./results"
+import { propagateTestMode } from "./test-mode"
 import { createRootDescribeBlock, DescribeBlock, Test, TestSuite, TestTags } from "./tests"
 import Config = FactorioTest.Config
 import OnTickFn = FactorioTest.OnTickFn
@@ -11,6 +13,18 @@ export interface TestStageStore {
   set(stage: TestStage): void
 }
 
+/** Run data that must survive a reload. */
+export interface PersistedRunData {
+  resume?: ResumeData
+  lastFailedTests?: LuaSet<string>
+}
+
+/** Everything a run keeps outside of the Lua state; backed by `storage` in game. */
+export interface RunStore {
+  readonly stage: TestStageStore
+  persisted(): PersistedRunData
+}
+
 /**
  * State needed to collect tests.
  *
@@ -18,6 +32,7 @@ export interface TestStageStore {
  */
 export interface DefinitionState {
   readonly kind: "definition"
+  readonly config: Config
   readonly rootBlock: DescribeBlock
   currentBlock: DescribeBlock
   currentTags?: TestTags
@@ -26,15 +41,16 @@ export interface DefinitionState {
 
 export interface TestState {
   readonly kind: "test"
-  config: Config
+  readonly config: Config
   suite: TestSuite
+  isRerun: boolean
 
   currentTestRun?: TestRun
 
   /** Replaced when a run starts, and outlives it: read by the getResults remote afterwards. */
   report: RunReport
 
-  stage: TestStageStore
+  readonly store: RunStore
 }
 
 /** One test in flight. Survives the transition from one part to the next. */
@@ -60,15 +76,13 @@ export type ContextState = DefinitionState | TestState
 export class TestContext {
   state?: ContextState
 
-  constructor(
-    public config: Config,
-    readonly stage: TestStageStore,
-  ) {}
+  constructor(readonly store: RunStore) {}
 
-  beginDefinition(): void {
-    const rootBlock = createRootDescribeBlock(this.config)
+  beginDefinition(config: Config): void {
+    const rootBlock = createRootDescribeBlock(config)
     this.state = {
       kind: "definition",
+      config,
       rootBlock,
       currentBlock: rootBlock,
       hasFocusedTests: false,
@@ -85,13 +99,16 @@ export class TestContext {
 
   /** Seals the definition phase, and installs the state the resulting suite is run with. */
   endDefinition(): TestState {
-    const { rootBlock, hasFocusedTests } = this.definition()
+    const definition = this.definition()
+    const { config, rootBlock } = definition
+    propagateTestMode(definition, rootBlock, undefined)
     const testState: TestState = {
       kind: "test",
-      config: this.config,
-      suite: { rootBlock, hasFocusedTests },
+      config,
+      suite: { rootBlock, hasFocusedTests: definition.hasFocusedTests },
+      isRerun: false,
       report: createRunReport(),
-      stage: this.stage,
+      store: this.store,
     }
     this.state = testState
     return testState
@@ -111,7 +128,7 @@ export function consumeTags(definition: DefinitionState): TestTags {
 }
 
 export function setToLoadErrorState(state: TestState, error: string): void {
-  state.stage.set(TestStage.LoadError)
+  state.store.stage.set(TestStage.LoadError)
   const rootBlock = createRootDescribeBlock(state.config)
   rootBlock.errors = [error]
   state.suite = { rootBlock, hasFocusedTests: false }

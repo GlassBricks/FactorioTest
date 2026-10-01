@@ -1,16 +1,14 @@
 /** @noSelfInFile */
 import { TestStage } from "../constants"
-import type { ResumeData } from "./reload-resume"
+import type { PersistedRunData } from "./state"
 import type { TestGui } from "./test-gui"
 
 /**
  * This is injected into the mod under test and shares its `storage`;
  * keep everything under one namespaced key.
  */
-export interface FactorioTestStorage {
+export interface FactorioTestStorage extends PersistedRunData {
   testStage?: TestStage
-  resume?: ResumeData
-  lastFailedTests?: LuaSet<string>
   gui?: TestGui
 }
 

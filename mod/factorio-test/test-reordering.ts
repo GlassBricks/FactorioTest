@@ -1,15 +1,18 @@
-import { DescribeBlock, Test, TestSelection } from "./tests"
-import { getFailedTestsSet, hasFailedTests } from "./failed-test-storage"
+import { DescribeBlock, Test } from "./tests"
+import Config = FactorioTest.Config
 
 type TestNode = Test | DescribeBlock
 
-export function shouldReorderFailedFirst(state: TestSelection): boolean {
-  return state.config.reorder_failed_first !== false && hasFailedTests()
+export function shouldReorderFailedFirst(
+  config: Config,
+  failedPaths: LuaSet<string> | undefined,
+): failedPaths is LuaSet<string> {
+  return config.reorder_failed_first !== false && failedPaths !== undefined && next(failedPaths)[0] !== undefined
 }
 
-export function reorderFailedFirst(root: DescribeBlock): void {
+export function reorderFailedFirst(root: DescribeBlock, failedPaths: LuaSet<string>): void {
   const prioritized = new LuaSet<TestNode>()
-  markPrioritized(root, getFailedTestsSet(), prioritized)
+  markPrioritized(root, failedPaths, prioritized)
   sortRecursive(root, prioritized)
 }
 

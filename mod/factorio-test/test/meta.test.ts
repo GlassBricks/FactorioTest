@@ -1,12 +1,10 @@
 import * as util from "util"
 import { TestStage } from "../../constants"
-import { fillConfig } from "../config"
-import { resultCollector } from "../results"
+import { withDefaultConfig } from "../config"
 import { TestRunner } from "../runner"
 import { createTestApi } from "../setup-globals"
-import { TestContext, TestState } from "../state"
+import { PersistedRunData, TestContext, TestState } from "../state"
 import { TestEvent, TestEventListener } from "../test-events"
-import { propagateTestMode } from "../test-mode"
 import { DescribeBlock, Test } from "../tests"
 import {
   assertDeepEquals,
@@ -23,16 +21,20 @@ import Config = FactorioTest.Config
 let actions: unknown[] = []
 let events: TestEvent[] = []
 let mockTestStage: TestStage
+let mockPersisted: PersistedRunData
 
-function defaultMockConfig(): Config {
-  return fillConfig({ default_ticks_between_tests: 0 })
+function mockConfig(config: Partial<Config> = {}): Config {
+  return withDefaultConfig({ default_ticks_between_tests: 0, ...config })
 }
 
-const mockContext = new TestContext(defaultMockConfig(), {
-  get: () => mockTestStage,
-  set: (stage) => {
-    mockTestStage = stage
+const mockContext = new TestContext({
+  stage: {
+    get: () => mockTestStage,
+    set: (stage) => {
+      mockTestStage = stage
+    },
   },
+  persisted: () => mockPersisted,
 })
 const api = createTestApi(mockContext)
 
@@ -40,8 +42,8 @@ before_each(() => {
   actions = []
   events = []
   mockTestStage = TestStage.NotRun
-  mockContext.config = defaultMockConfig()
-  mockContext.beginDefinition()
+  mockPersisted = {}
+  mockContext.beginDefinition(mockConfig())
 })
 
 after_each(() => {
@@ -52,25 +54,22 @@ after_each(() => {
   }
 })
 
-function setMockConfig(config: Config): void {
-  mockContext.config = config
+/** Restarts the simulated definition phase with a config; must come before anything is defined. */
+function useMockConfig(config: Partial<Config>): void {
+  if (mockContext.definition().rootBlock.children.length > 0) error("useMockConfig called after defining tests")
+  mockContext.beginDefinition(mockConfig(config))
 }
 
-const mockListeners: TestEventListener[] = [
-  (event) => {
-    events.push(event)
-  },
-  resultCollector,
-]
+const recordEvent: TestEventListener = (event) => {
+  events.push(event)
+}
 
 function newRunner(state: TestState): TestRunner {
-  return new TestRunner(state, mockListeners)
+  return new TestRunner(state, [recordEvent])
 }
 
 /** Ends the simulated definition phase, and returns the state its suite is run with. */
 function finishDefining(): TestState {
-  const definition = mockContext.definition()
-  propagateTestMode(definition, definition.rootBlock, undefined)
   return mockContext.endDefinition()
 }
 
@@ -116,11 +115,6 @@ function runTestAsyncWithRunner<T extends Test | DescribeBlock = Test>(
 
 function runTestAsync<T extends Test | DescribeBlock = Test>(callback: (item: T) => void): void {
   runTestAsyncWithRunner<T>(() => {}, callback)
-}
-
-function skipRun() {
-  finishDefining()
-  mockTestStage = TestStage.Finished
 }
 
 describe("setup", () => {
@@ -957,12 +951,12 @@ describe("reload state", () => {
       // empty
     })
     const state = finishDefining()
-    assertEqual(TestStage.NotRun, state.stage.get())
+    assertEqual(TestStage.NotRun, mockTestStage)
     const runner = newRunner(state)
     runner.tick()
-    assertEqual(TestStage.Running, mockContext.testState().stage.get())
+    assertEqual(TestStage.Running, mockTestStage)
     runner.tick()
-    assertEqual(TestStage.Finished, mockContext.testState().stage.get())
+    assertEqual(TestStage.Finished, mockTestStage)
   })
 
   test("Cannot reload while testing", () => {
@@ -974,7 +968,7 @@ describe("reload state", () => {
     assertDeepEquals([], mockContext.testState().suite.rootBlock.errors)
     reloadAndTick()
     assertNotDeepEquals([], mockContext.testState().suite.rootBlock.errors)
-    assertEqual(TestStage.LoadError, mockContext.testState().stage.get())
+    assertEqual(TestStage.LoadError, mockTestStage)
   })
 
   test("can reload after load error", () => {
@@ -982,10 +976,10 @@ describe("reload state", () => {
       actions.push("test 1")
     })
     finishDefining()
-    mockContext.testState().stage.set(TestStage.LoadError)
+    mockTestStage = TestStage.LoadError
     reloadAndTick()
     assertDeepEquals([], mockContext.testState().suite.rootBlock.errors)
-    assertEqual(TestStage.Finished, mockContext.testState().stage.get())
+    assertEqual(TestStage.Finished, mockTestStage)
     assertDeepEquals(["test 1"], actions)
   })
 })
@@ -1151,11 +1145,7 @@ test("the run report outlives the run", () => {
 })
 
 test("Test pattern", () => {
-  setMockConfig(
-    fillConfig({
-      test_pattern: "foo",
-    }),
-  )
+  useMockConfig({ test_pattern: "foo" })
   api.test("bar", () => {
     actions.push("no")
   })
@@ -1172,11 +1162,7 @@ test("Test pattern", () => {
 })
 
 test("Test pattern list matches any pattern", () => {
-  setMockConfig(
-    fillConfig({
-      test_pattern: ["foo", "baz"],
-    }),
-  )
+  useMockConfig({ test_pattern: ["foo", "baz"] })
   api.test("bar", () => {
     actions.push("no")
   })
@@ -1228,18 +1214,19 @@ describe("tags", () => {
   test("automatic after_reload_mods tag", () => {
     api.tags("tag1")
     api.test("foo", () => 0).after_reload_mods(() => 0)
-    skipRun()
+    finishDefining()
     assertDeepEquals(util.list_to_map(["tag1", "after_reload_mods"]), getFirst().tags)
   })
 
   test("automatic after_reload_script tag", () => {
     api.tags("tag1")
     api.test("foo", () => 0).after_reload_script(() => 0)
-    skipRun()
+    finishDefining()
     assertDeepEquals(util.list_to_map(["tag1", "after_reload_script"]), getFirst().tags)
   })
 
   test("tag whitelist", () => {
+    useMockConfig({ tag_whitelist: ["yes"] })
     api.tags("yes")
     api.test("", () => {
       actions.push("yes1")
@@ -1256,12 +1243,12 @@ describe("tags", () => {
     api.test("", () => {
       actions.push("no")
     })
-    setMockConfig(fillConfig({ tag_whitelist: ["yes"] }))
     runTestSync()
     assertDeepEquals(["yes1", "yes2"], actions)
   })
 
   test("tag blacklist", () => {
+    useMockConfig({ tag_blacklist: ["no"] })
     api.tags("yes")
     api.test("", () => {
       actions.push("yes")
@@ -1279,12 +1266,12 @@ describe("tags", () => {
       actions.push("no")
     })
 
-    setMockConfig(fillConfig({ tag_blacklist: ["no"] }))
     runTestSync()
     assertDeepEquals(["yes"], actions)
   })
 
   test("tag whitelist and blacklist", () => {
+    useMockConfig({ tag_whitelist: ["yes"], tag_blacklist: ["no"] })
     api.tags("yes")
     api.test("Hello", () => {
       actions.push("yes")
@@ -1308,7 +1295,6 @@ describe("tags", () => {
       })
     })
 
-    setMockConfig(fillConfig({ tag_whitelist: ["yes"], tag_blacklist: ["no"] }))
     runTestSync()
     assertDeepEquals(["yes"], actions)
   })
@@ -1359,7 +1345,8 @@ describe("rerun", () => {
     )
   })
 
-  test("rerun blacklists tests with no_rerun tag", () => {
+  test("rerun skips tests with no_rerun tag", () => {
+    useMockConfig({ tag_blacklist: ["no"] })
     api.test("run both", () => {
       actions.push("run both")
     })
@@ -1372,12 +1359,35 @@ describe("rerun", () => {
       actions.push("run never")
     })
 
-    setMockConfig(fillConfig({ tag_blacklist: ["no"] }))
-
     runTestSync()
     assertDeepEquals(["run both", "run one"], actions)
     runTestSync()
     assertDeepEquals(["run both", "run one", "run both"], actions)
+    assertDeepEquals(["no"], mockContext.testState().config.tag_blacklist, "rerun must not modify the config")
+  })
+})
+
+describe("failed tests", () => {
+  test("are persisted when the run ends", () => {
+    api.test("passes", () => {})
+    api.test("fails", () => {
+      error("oh no")
+    })
+    runTestSync()
+    assertDeepEquals(util.list_to_map(["fails"]), mockPersisted.lastFailedTests)
+  })
+
+  test("run first on the next run", () => {
+    useMockConfig({ reorder_failed_first: true })
+    mockPersisted.lastFailedTests = util.list_to_map(["second"])
+    api.test("first", () => {
+      actions.push("first")
+    })
+    api.test("second", () => {
+      actions.push("second")
+    })
+    runTestSync()
+    assertDeepEquals(["second", "first"], actions)
   })
 })
 
@@ -1451,7 +1461,7 @@ describe("cancellation", () => {
   })
 
   test("bail finishes the run instead of cancelling it", () => {
-    setMockConfig(fillConfig({ bail: 1 }))
+    useMockConfig({ bail: 1 })
     api.after_all(() => actions.push("afterAll"))
     api.test("fail", () => {
       actions.push("fail")
@@ -1467,7 +1477,7 @@ describe("cancellation", () => {
   })
 
   test("cancel does not run after_all for a block whose before_all never ran", () => {
-    setMockConfig(fillConfig({ bail: 1 }))
+    useMockConfig({ bail: 1 })
     api.test("fail", () => {
       error("oh no")
     })

@@ -18,12 +18,11 @@ const defaultConfig: Config = {
   load_luassert: false,
 }
 
-export function fillConfig(modConfig: Partial<Config>): Config {
-  const settingsConfig = getSettingsConfig()
+export function withDefaultConfig(config: Partial<Config>): Config {
+  return { ...defaultConfig, ...config }
+}
 
-  return {
-    ...defaultConfig,
-    ...modConfig,
-    ...settingsConfig,
-  }
+/** Settings (set by the CLI) override the config the mod under test passed in. */
+export function resolveConfig(modConfig: Partial<Config>): Config {
+  return withDefaultConfig({ ...modConfig, ...getSettingsConfig() })
 }

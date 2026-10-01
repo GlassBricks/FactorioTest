@@ -2,10 +2,10 @@
 import { TestStage } from "../constants"
 import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
 import { prepareReload, resumeAfterReload } from "./reload-resume"
-import { createRunReport } from "./results"
+import { createRunReport, recordEvent } from "./results"
 import { assertNever } from "./shared/util"
 import { PartRun, TestRun, TestState, setToLoadErrorState } from "./state"
-import { TestEvent, TestEventListener } from "./test-events"
+import { TestEvent, TestEventListener, TestRunCancelled, TestRunFinished } from "./test-events"
 import { reorderFailedFirst, shouldReorderFailedFirst } from "./test-reordering"
 import {
   DescribeBlock,
@@ -100,6 +100,7 @@ export class TestRunner {
   private failureCount = 0
 
   private emit(event: TestEvent): void {
+    recordEvent(this.state.report, event)
     for (const listener of this.listeners) {
       listener(event, this.state)
     }
@@ -146,9 +147,9 @@ export class TestRunner {
       error("Tests cannot be in run in multiplayer")
     }
     this.status = "running"
-    const stage = this.state.stage.get()
+    const stage = this.state.store.stage.get()
     if (stage === TestStage.NotRun || stage === TestStage.Ready) {
-      this.startTestRun()
+      this.startTestRun(false)
     } else if (stage === TestStage.ReloadingMods) {
       this.resumeAfterReload()
     } else if (stage === TestStage.Running) {
@@ -156,33 +157,27 @@ export class TestRunner {
         `Save was unexpectedly reloaded while tests were running. This will cause tests to break. Aborting test run.`,
       )
     } else if (stage === TestStage.Finished || stage === TestStage.LoadError) {
-      this.rerun()
+      this.startTestRun(true)
     } else {
       assertNever(stage)
     }
   }
 
-  private startTestRun(): void {
+  private startTestRun(isRerun: boolean): void {
     const { state } = this
+    state.isRerun = isRerun
     state.report = createRunReport()
     state.report.profiler = helpers.create_profiler()
-    state.stage.set(TestStage.Running)
-    if (shouldReorderFailedFirst(state)) {
-      reorderFailedFirst(state.suite.rootBlock)
+    state.store.stage.set(TestStage.Running)
+    const { lastFailedTests } = state.store.persisted()
+    if (shouldReorderFailedFirst(state.config, lastFailedTests)) {
+      reorderFailedFirst(state.suite.rootBlock, lastFailedTests)
     }
     this.emit({ type: "testRunStarted" })
 
     this.enterBlock(state.suite.rootBlock)
     this.cursor = { block: state.suite.rootBlock, index: 0 }
     this.advance()
-  }
-
-  private rerun(): void {
-    const tagBlacklist = (this.state.config.tag_blacklist ??= [])
-    if (tagBlacklist.indexOf("no_rerun") === -1) {
-      tagBlacklist.push("no_rerun")
-    }
-    this.startTestRun()
   }
 
   private resumeAfterReload(): void {
@@ -192,7 +187,7 @@ export class TestRunner {
       return
     }
     const { test, partIndex } = resumePoint
-    this.state.stage.set(TestStage.Running)
+    this.state.store.stage.set(TestStage.Running)
     // the cursor must point *past* the resumed test, or it would be re-run forever
     this.cursor = { block: test.parent, index: test.indexInParent + 1 }
 
@@ -216,7 +211,7 @@ export class TestRunner {
       // a cancel during the final ascent must not be mistaken for "suite finished"
       if (this.cancelRequested) return
       if (!test) {
-        this.finishRun()
+        this.endRun({ type: "testRunFinished" })
         return
       }
       if (test.ticksBefore > 0) {
@@ -404,12 +399,13 @@ export class TestRunner {
     }
   }
 
-  private finishRun(): void {
+  private endRun(event: TestRunFinished | TestRunCancelled): void {
     this.status = "done"
     const { state } = this
     state.report.profiler?.stop()
-    state.stage.set(TestStage.Finished)
-    this.emit({ type: "testRunFinished" })
+    state.store.persisted().lastFailedTests = state.report.failedTestPaths
+    state.store.stage.set(TestStage.Finished)
+    this.emit(event)
   }
 
   private cancelRun(): void {
@@ -435,10 +431,7 @@ export class TestRunner {
       block = block.parent
     }
 
-    this.status = "done"
-    state.report.profiler?.stop()
-    state.stage.set(TestStage.Finished)
-    this.emit(state.report.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
+    this.endRun(state.report.bailedOut ? { type: "testRunFinished" } : { type: "testRunCancelled" })
   }
 
   private hasAnyTest(block: DescribeBlock): boolean {

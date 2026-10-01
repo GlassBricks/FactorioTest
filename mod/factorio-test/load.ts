@@ -1,16 +1,15 @@
 import { LuaBootstrap } from "factorio:runtime"
+import * as util from "util"
 import { Remote, Settings, TestStage } from "../constants"
 import { gameEnvironmentListener, resultListener } from "./builtin-test-event-listeners"
 import { cliEventEmitter } from "./cli-events"
-import { fillConfig } from "./config"
-import { failedTestCollector, initializeFailedTestsFromConfig } from "./failed-test-storage"
+import { resolveConfig } from "./config"
 import { createLogListener, debugAdapterLogger, logLogger, MessageHandler } from "./output"
-import { resultCollector } from "./results"
 import { TestRunner } from "./runner"
 import { createTestApi } from "./setup-globals"
-import { getAutoStartMod, isHeadlessMode } from "./shared/auto-start-config"
+import { getAutoStartConfig, getAutoStartMod, isHeadlessMode } from "./shared/auto-start-config"
 import { debugAdapterEnabled } from "./shared/util"
-import { TestContext, TestStageStore } from "./state"
+import { RunStore, TestContext } from "./state"
 import { testStorage } from "./storage"
 import { TestEventListener } from "./test-events"
 import { progressGuiListener, progressGuiLogger } from "./test-gui"
@@ -20,18 +19,21 @@ declare const ____originalRequire: typeof require
 
 const onTestStageChanged = script.generate_event_name<{ stage: TestStage }>()
 
-const globalTestStage: TestStageStore = {
-  get: () => testStorage().testStage ?? TestStage.NotRun,
-  set: (stage) => {
-    testStorage().testStage = stage
-    script.raise_event(onTestStageChanged, { stage })
+const storageRunStore: RunStore = {
+  stage: {
+    get: () => testStorage().testStage ?? TestStage.NotRun,
+    set: (stage) => {
+      testStorage().testStage = stage
+      script.raise_event(onTestStageChanged, { stage })
+    },
   },
+  persisted: () => testStorage(),
 }
 
 let testContext: TestContext
 
 function isRunning() {
-  const stage = testContext.stage.get()
+  const stage = testContext.store.stage.get()
   return !(stage === TestStage.NotRun || stage === TestStage.LoadError || stage === TestStage.Finished)
 }
 
@@ -42,24 +44,24 @@ export = function (files: string[], config: Partial<Config>): void {
     runTests,
     cancelTestRun,
     modName: () => script.mod_name,
-    getTestStage: () => testContext.stage.get(),
+    getTestStage: () => testContext.store.stage.get(),
     isRunning,
     onTestStageChanged: () => onTestStageChanged,
     getResults: () => testContext.testState().report.results,
-    getConfig: () => testContext.config,
+    getConfig: () => testContext.testState().config,
   })
   tapEvent(defines.events.on_tick, tryContinueTests)
 }
 
 function loadTests(files: string[], partialConfig: Partial<Config>): TestContext {
-  const config = fillConfig(partialConfig)
+  const config = resolveConfig(partialConfig)
 
   if (config.load_luassert) {
     debug.getmetatable = getmetatable
     require("@NoResolution:__factorio-test__/luassert/init")
   }
 
-  const context = new TestContext(config, globalTestStage)
+  const context = new TestContext(storageRunStore)
   const globals = createTestApi(context)
   const defineGlobal = __DebugAdapter?.defineGlobal
   if (defineGlobal) {
@@ -72,7 +74,7 @@ function loadTests(files: string[], partialConfig: Partial<Config>): TestContext
   const modToTest = getAutoStartMod() || settings.global[Settings.ModToTest]!.value
   const _require = modToTest === "factorio-test" ? require : ____originalRequire
 
-  context.beginDefinition()
+  context.beginDefinition(config)
   for (const file of files) {
     globals.describe(file, () => _require(file))
   }
@@ -92,18 +94,27 @@ function createMessageHandlers(headless: boolean): MessageHandler[] {
 }
 
 function createTestListeners(headless: boolean): TestEventListener[] {
-  // resultCollector must run first; every other listener reads report.results.
-  const listeners: TestEventListener[] = [resultCollector]
+  const listeners: TestEventListener[] = []
   if (headless) listeners.push(cliEventEmitter)
   // resultListener ends the headless process, so what follows it only runs in-game.
   listeners.push(gameEnvironmentListener, resultListener)
-  listeners.push(createLogListener(createMessageHandlers(headless)), failedTestCollector)
+  listeners.push(createLogListener(createMessageHandlers(headless)))
   if (!headless) listeners.push(progressGuiListener)
   return listeners
 }
 
+function initializeFailedTestsFromConfig(): void {
+  const storage = testStorage()
+  if (storage.lastFailedTests !== undefined) return
+
+  const fromConfig = getAutoStartConfig().last_failed_tests
+  if (fromConfig && fromConfig.length > 0) {
+    storage.lastFailedTests = util.list_to_map(fromConfig)
+  }
+}
+
 function tryContinueTests() {
-  const testStage = testContext.stage.get()
+  const testStage = testContext.store.stage.get()
   if (testStage === TestStage.Running || testStage === TestStage.ReloadingMods) {
     doRunTests()
   } else {
@@ -117,7 +128,7 @@ function runTests() {
   if (isRunning()) return
 
   log(`Running tests for ${script.mod_name}`)
-  testContext.stage.set(TestStage.Ready)
+  testContext.store.stage.set(TestStage.Ready)
   doRunTests()
 }
 

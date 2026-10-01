@@ -1,6 +1,6 @@
 import * as util from "util"
 
-export function assertEqual<T>(actual: T, expected: T, msg?: string): void {
+export function assertEqual<T>(expected: T, actual: T, msg?: string): void {
   if (actual !== expected) error(msg ?? `Expected ${serpent.line(expected)}, got ${serpent.line(actual)}`)
 }
 
@@ -8,14 +8,14 @@ export function assertNotNil<T>(value: T | undefined | null, msg?: string): asse
   if (value === undefined || value === null) error(msg ?? `Expected value to not be nil`)
 }
 
-export function assertDeepEquals(actual: unknown, expected: unknown, msg?: string): void {
+export function assertDeepEquals(expected: unknown, actual: unknown, msg?: string): void {
   if (!util.table.compare(actual as object, expected as object)) {
     error(msg ?? `Expected ${serpent.block(expected)}, got ${serpent.block(actual)}`)
   }
 }
 
-export function assertNotDeepEquals(actual: unknown, expected: unknown, msg?: string): void {
-  if (util.table.compare(actual as object, expected as object)) {
+export function assertNotDeepEquals(unexpected: unknown, actual: unknown, msg?: string): void {
+  if (util.table.compare(actual as object, unexpected as object)) {
     error(msg ?? `Expected values to differ, but both are ${serpent.block(actual)}`)
   }
 }
