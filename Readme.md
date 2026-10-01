@@ -13,7 +13,7 @@ end)
 ```
 
 - Framework inspired by [busted](https://olivinelabs.com/busted/)
-- Bundled [luassert](https://github.com/Olivine-Labs/luassert) for assertions
+- Optional bundled [luassert](https://github.com/Olivine-Labs/luassert) for assertions
 - Integration with [factorio debug adapter](https://github.com/justarandomgeek/vscode-factoriomod-debug)
   and [typed-factorio](https://github.com/GlassBricks/typed-factorio)
 - A [CLI](./cli/README.md) for launching Factorio and running tests from the command line

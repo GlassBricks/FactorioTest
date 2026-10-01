@@ -30,9 +30,15 @@ These use camelCase in the config file:
 | `save` | `--save` | Path to save file |
 | `mods` | `--mods` | Additional mods to enable (array) |
 | `factorioArgs` | `--factorio-args` | Extra Factorio arguments (array) |
+| `verbose` | `-v, --verbose` | Verbose logging; pipe Factorio output to stdout |
+| `quiet` | `-q, --quiet` | Only show the final result |
 | `outputFile` | `--output-file` | Test results JSON path |
+| `forbidOnly` | `--forbid-only` | Fail if `.only` tests are present (default: `true`) |
+| `outputTimeout` | `--output-timeout` | Kill Factorio after this many seconds without output; `0` disables (default: `15`) |
 | `watchPatterns` | `--watch-patterns` | Glob patterns to watch (array) |
-| `udpPort` | `--udp-port` | UDP port for graphics watch mode |
+| `udpPort` | `--udp-port` | UDP port for graphics watch mode (default: `14434`) |
+
+`modPath`, `factorioPath`, `dataDirectory`, and `save` are resolved relative to the config file.
 
 ### Test Execution Options
 
@@ -40,16 +46,15 @@ Test execution options are nested under a `test` key using snake_case. These ove
 
 | Config Key | CLI Flag | Description |
 |------------|----------|-------------|
-| `test_pattern` | `--test-pattern` | Filter tests by name |
+| `test_pattern` | `--test-pattern` | Filter tests by Lua pattern matched against the full test path |
 | `tag_whitelist` | `--tag-whitelist` | Only run tests with these tags |
 | `tag_blacklist` | `--tag-blacklist` | Skip tests with these tags |
 | `default_timeout` | `--default-timeout` | Async test timeout (ticks) |
 | `game_speed` | `--game-speed` | Game speed multiplier |
-| `bail` | `--bail` | Stop after n failures |
+| `bail` | `-b, --bail [count]` | Stop after n failures (flag alone: 1) |
 | `reorder_failed_first` | `--reorder-failed-first` | Run failed tests first |
 | `log_passed_tests` | `--log-passed-tests` | Log passed test names |
 | `log_skipped_tests` | `--log-skipped-tests` | Log skipped test names |
-| `forbid_only` | `--forbid-only` | Fail if .only tests present |
 
 ### Example
 

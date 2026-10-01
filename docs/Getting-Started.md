@@ -45,4 +45,4 @@ See [Running Tests](Running-Tests.md#running-in-game).
 
 ## Next Steps
 
-See the sidebar for more information on particular topics.
+See the [documentation index](README.md) for more information on particular topics.

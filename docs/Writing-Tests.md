@@ -81,7 +81,7 @@ Use `test.skip`/`it.skip` to skip a single test. Use `describe.skip` to skip an 
 
 ```lua
 test.skip("skipped", function()
-    ...
+    -- ...
 end)
 describe.skip("a block", function()
     -- everything in here will be skipped
@@ -90,11 +90,11 @@ end)
 
 ## Focused Tests
 
-Use `test.only`, `it.only`, or `describe.only` to only run those tests in the next test run.
+Use `test.only`, `it.only`, or `describe.only` to run only those tests.
 
 ```lua
 test.only("this one", function()
-    ...
+    -- ...
 end)
 describe("a block", function()
     -- everything in here will be skipped unless it also has .only
@@ -106,10 +106,10 @@ If a describe block with `.only` has nested items with `.only`, only the inner `
 ```lua
 describe.only("a block", function()
     test.only("this one", function()
-        ...
+        -- ...
     end)
     test("this one will be skipped", function()
-        ...
+        -- ...
     end)
 end)
 ```
@@ -195,6 +195,7 @@ The test finishes when all `after_ticks` functions complete.
 
 Use `on_tick(fn)` to add a function that runs every tick during the test.
 Return `false` from the function to remove it.
+Without `async()`, the test finishes once all `on_tick` functions are removed.
 
 ```lua
 test("Items appear after waiting", function()
@@ -225,7 +226,7 @@ Add tags to a test or describe block by calling `tags` right before the definiti
 ```lua
 tags("slow", "integration")
 test("a tagged test", function()
-    ...
+    -- ...
 end)
 ```
 
@@ -258,7 +259,7 @@ The default can be changed via [Configuration](Configuration.md).
 Test save/reload behavior by chaining `after_reload_mods(fn)` or `after_reload_script(fn)` after a test.
 These call `game.reload_mods()` and `game.reload_script()`, respectively.
 
-This also adds the tag `"after_mod_reload"` or `"after_script_reload"` to the test.
+This also adds the tag `"after_reload_mods"` or `"after_reload_script"` to the test.
 
 **WARNING**: A save/reload **reruns** all files, meaning anything not in `storage` or in-game will be reset, including local variables.
 

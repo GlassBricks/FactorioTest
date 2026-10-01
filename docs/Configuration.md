@@ -25,10 +25,10 @@ require("__factorio-test__/init")(
 | `game_speed` | number | `1000` | Game speed during test runs |
 | `log_passed_tests` | boolean | `true` | Show passed tests in output |
 | `log_skipped_tests` | boolean | `false` | Show skipped tests in output |
-| `reorder_failed_first` | boolean | `true` | Run previously failed tests first |
+| `reorder_failed_first` | boolean | `false` | Run previously failed tests first |
 | `bail` | number | - | Stop after n failures |
 | `sound_effects` | boolean | `false` | Play sound effects on test completion |
-| `test_pattern` | string | - | Filter tests by name pattern |
+| `test_pattern` | string | - | Only run tests whose full path (e.g. `block > test`) matches this Lua pattern |
 | `tag_whitelist` | string[] | - | Only run tests with all these tags |
 | `tag_blacklist` | string[] | - | Skip tests with any of these tags |
 | `before_test_run` | function | - | Called before tests start |
@@ -39,7 +39,7 @@ require("__factorio-test__/init")(
 When using the CLI, some options from the command line or config file override the corresponding Lua options. The priority order is:
 
 1. In-mod Lua config (lowest priority)
-2. Config file (`factorio-test.json`)
+2. Config file (`test` key)
 3. CLI options (highest priority)
 
 For more details, see `factorio-test run --help` or [CLI Reference](CLI-Reference.md).

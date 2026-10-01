@@ -39,12 +39,13 @@ Returns a table with the following fields:
 - `failed: number` - how many tests failed
 - `skipped: number` - how many tests were skipped
 - `todo: number` - how many todo tests were encountered
-- `describeBlockErrors: number` - how many describe blocks failed
+- `describeBlockErrors: number` - how many describe block errors occurred
 - `status: string?` - one of the following values:
     - `nil` if tests have not yet finished running
     - `"passed"` if all tests passed and there are no todo tests
-    - `"failed"` if any tests failed
+    - `"failed"` if any tests failed or any describe block had errors
     - `"todo"` if all tests passed but there are todo tests
+    - `"cancelled"` if the run was cancelled
 
 ### `getConfig()`
 

@@ -4,7 +4,7 @@ Type definitions are available for IDE support.
 
 ### Lua (EmmyLua/Sumneko/LuaLS)
 
-Copy `factorio-test.def.lua` from the mod to your project and include it in your workspace.
+Copy [`factorio-test.def.lua`](../factorio-test.def.lua) from this repository to your project and include it in your workspace.
 
 ### TypeScript (TSTL)
 

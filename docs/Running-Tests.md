@@ -24,12 +24,12 @@ For CI/CD and command-line testing, use the CLI:
 npx factorio-test run -p ./my-mod
 ```
 
-The CLI will try to auto-detect your factorio installation, setup a isolated data directory for mods, saves, and config; download mods if needed; then run tests in headless mode.
-By default it use a bundled save file, that has an empty world, is filled with lab tiles, and has one player with the name "" (empty string).
+The CLI will try to auto-detect your Factorio installation, set up an isolated data directory for mods, saves, and config; download mods if needed; then run tests in headless mode.
+By default it uses a bundled save file, that has an empty world, is filled with lab tiles, and has one player with the name "" (empty string).
 Exits with code 0 only if all tests pass.
 Messages logged via `print` or `localised_print` are captured and shown with failing tests.
 
-You can also run with [--graphics], which instead launches the game in graphical mode with the same settings and setup.
+You can also run with `--graphics`, which instead launches the game in graphical mode with the same settings and setup.
 
 See [CLI Reference](CLI-Reference.md) for all available options.
 
@@ -62,13 +62,13 @@ npx factorio-test run --mod-path ./my-mod --watch
 
 In headless mode, this restarts the Factorio process on each change.
 
-With `--graphics --watch`, the CLI sends a UDP signal to trigger in-game reload without restarting:
+With `--graphics --watch`, the CLI sends a UDP signal to trigger in-game reload without restarting (port set by `--udp-port`, default `14434`).
 
 Configure watched patterns with `--watch-patterns` (default: `info.json`, `**/*.lua`).
 
 ### Test Results File
 
-By default, test results are written to a JSON file in the data directory. This enables features like failed test reordering.
+By default, test results are written to `test-results.json` in the data directory. With `--reorder-failed-first`, this file is used to run previously failed tests first.
 
 Control output with:
 
