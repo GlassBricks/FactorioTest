@@ -28,6 +28,7 @@ export const globalTestStage: TestStageStore = {
  * Live only while tests are being defined.
  */
 export interface DefinitionState {
+  readonly kind: "definition"
   config: Config
   readonly rootBlock: DescribeBlock
   currentBlock: DescribeBlock
@@ -35,8 +36,8 @@ export interface DefinitionState {
   hasFocusedTests: boolean
 }
 
-/** @noSelf */
 export interface TestState {
+  readonly kind: "test"
   config: Config
   suite: TestSuite
 
@@ -66,23 +67,26 @@ export interface PartRun {
   onTickFuncs: LuaSet<OnTickFn>
 }
 
-let theDefinition: DefinitionState | undefined
-let theTestState: TestState | undefined
+export type GlobalState = DefinitionState | TestState
+
+let globalState: GlobalState | undefined
 
 export function beginDefinition(config: Config): DefinitionState {
   const rootBlock = createRootDescribeBlock(config)
-  theDefinition = {
+  const definition: DefinitionState = {
+    kind: "definition",
     config,
     rootBlock,
     currentBlock: rootBlock,
     hasFocusedTests: false,
   }
-  return theDefinition
+  globalState = definition
+  return definition
 }
 
 export function getDefinitionState(): DefinitionState {
-  if (theDefinition) return theDefinition
-  const testRun = theTestState?.currentTestRun
+  if (globalState?.kind === "definition") return globalState
+  const testRun = globalState?.currentTestRun
   if (testRun) error(`Tests and hooks cannot be nested inside test "${testRun.test.path}"`)
   error(`Tests and hooks cannot be added/configured at this time`)
 }
@@ -97,18 +101,20 @@ export function consumeTags(): TestTags {
 /** Seals the definition phase, and installs the state the resulting suite is run with. */
 export function endDefinition(stage: TestStageStore): TestState {
   const { config, rootBlock, hasFocusedTests } = getDefinitionState()
-  _clearDefinition()
-  theTestState = {
+  const testState: TestState = {
+    kind: "test",
     config,
     suite: { rootBlock, hasFocusedTests },
     report: createRunReport(),
     stage,
   }
-  return theTestState
+  globalState = testState
+  return testState
 }
 
 export function getTestState(): TestState {
-  return theTestState ?? error("Tests are not configured to be run")
+  if (globalState?.kind === "test") return globalState
+  error("Tests are not configured to be run")
 }
 
 export function setToLoadErrorState(state: TestState, error: string): void {
@@ -120,13 +126,11 @@ export function setToLoadErrorState(state: TestState, error: string): void {
 }
 
 // internal, export for meta-test only
-export function _clearDefinition(): DefinitionState | undefined {
-  const definition = theDefinition
-  theDefinition = undefined
-  return definition
+export function _getGlobalState(): GlobalState | undefined {
+  return globalState
 }
 
 // internal, export for meta-test only
-export function _setTestState(state: TestState): void {
-  theTestState = state
+export function _setGlobalState(state: GlobalState | undefined): void {
+  globalState = state
 }

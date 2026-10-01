@@ -4,8 +4,8 @@ import { fillConfig } from "../config"
 import { resultCollector } from "../results"
 import { TestRunner } from "../runner"
 import {
-  _clearDefinition,
-  _setTestState,
+  _getGlobalState,
+  _setGlobalState,
   beginDefinition,
   endDefinition,
   getDefinitionState,
@@ -47,9 +47,9 @@ before_each(() => {
 })
 
 after_each(() => {
-  _setTestState(originalTestState)
-  const unfinished = _clearDefinition()
-  if (unfinished && unfinished.rootBlock.children.length > 0) {
+  const unfinished = _getGlobalState()
+  _setGlobalState(originalTestState)
+  if (unfinished?.kind === "definition" && unfinished.rootBlock.children.length > 0) {
     error("Simulated test defined but not run")
   }
 })
@@ -106,7 +106,7 @@ function runTestAsyncWithRunner<T extends Test | DescribeBlock = Test>(
 ): void {
   if (mockTestState) error("duplicate call to runTestAsync/cannot re-run mock test async")
   const runner = newRunner(finishDefining())
-  _setTestState(originalTestState)
+  _setGlobalState(originalTestState)
   async()
   let tickNumber = 0
   on_tick(() => {
@@ -114,11 +114,11 @@ function runTestAsyncWithRunner<T extends Test | DescribeBlock = Test>(
     runner.tick()
     if (runner.isDone()) {
       callback(getFirst())
-      _setTestState(originalTestState)
+      _setGlobalState(originalTestState)
       done()
     }
   })
-  _setTestState(mockTestState)
+  _setGlobalState(mockTestState)
 }
 
 function runTestAsync<T extends Test | DescribeBlock = Test>(callback: (item: T) => void): void {
@@ -553,10 +553,10 @@ describe("async tests", () => {
 
   test("async and done can only used during test", () => {
     // a state that is not running a test: the mock, rather than the real run around it
-    _setTestState(finishDefining())
+    _setGlobalState(finishDefining())
     assertThrows(async)
     assertThrows(done)
-    _setTestState(originalTestState)
+    _setGlobalState(originalTestState)
   })
 
   test("done when not async fails", () => {
