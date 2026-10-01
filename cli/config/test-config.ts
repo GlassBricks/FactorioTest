@@ -18,10 +18,10 @@ interface FieldDef {
 
 const testConfigFields = {
   test_pattern: {
-    schema: z.string().optional(),
+    schema: z.union([z.string(), z.array(z.string())]).optional(),
     cli: {
       flags: "--test-pattern <pattern>",
-      description: "Filter tests by Lua pattern (escape - as %-).",
+      description: "Filter tests by Lua pattern (escape - as %-). Combined with filter arguments using OR logic.",
     },
   },
   tag_whitelist: {
@@ -124,8 +124,13 @@ export function parseCliTestOptions(opts: Record<string, unknown>, patterns: str
       result[snake] = value
     }
   }
-  if (patterns.length > 0) {
-    result.test_pattern = patterns.map((p) => `(${p})`).join("|")
-  }
+  const testPattern = combineTestPatterns(opts.testPattern as string | undefined, patterns)
+  if (testPattern !== undefined) result.test_pattern = testPattern
   return result as Partial<TestRunnerConfig>
+}
+
+function combineTestPatterns(optionPattern: string | undefined, positional: string[]): string | string[] | undefined {
+  const all = optionPattern === undefined ? positional : [optionPattern, ...positional]
+  if (all.length <= 1) return all[0]
+  return all
 }

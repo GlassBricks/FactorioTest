@@ -18,7 +18,7 @@ declare function tags(...tags: string[]): void
 /** @noSelf */
 declare namespace FactorioTest {
   interface Config {
-    test_pattern?: string
+    test_pattern?: string | string[]
     tag_whitelist?: string[]
     tag_blacklist?: string[]
     default_timeout: number

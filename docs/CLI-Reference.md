@@ -41,7 +41,7 @@ These use camelCase in the config file:
 | `watchPatterns` | `--watch-patterns` | Glob patterns to watch (array) |
 | `udpPort` | `--udp-port` | UDP port for graphics watch mode (default: `14434`) |
 
-`modPath`, `factorioPath`, `dataDirectory`, and `save` are resolved relative to the config file.
+`modPath`, `factorioPath`, `dataDirectory`, `save`, and `outputFile` are resolved relative to the config file.
 
 ### Test Execution Options
 
@@ -49,7 +49,7 @@ Test execution options are nested under a `test` key and use snake_case. These o
 
 | Config Key | CLI Flag | Description |
 |------------|----------|-------------|
-| `test_pattern` | `--test-pattern` | Filter tests by Lua pattern matched against the full test path |
+| `test_pattern` | `--test-pattern` | Filter tests by Lua pattern (or array of patterns, any must match) matched against the full test path. Combined with positional filter arguments |
 | `tag_whitelist` | `--tag-whitelist` | Only run tests with these tags |
 | `tag_blacklist` | `--tag-blacklist` | Skip tests with these tags |
 | `default_timeout` | `--default-timeout` | Async test timeout (ticks) |

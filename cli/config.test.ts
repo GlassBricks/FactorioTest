@@ -33,6 +33,15 @@ describe("loadConfig", () => {
     })
   })
 
+  it.each(["modPath", "factorioPath", "dataDirectory", "save", "outputFile"])(
+    "resolves %s relative to the config file",
+    (key) => {
+      const configPath = path.join(testDir, "factorio-test.json")
+      fs.writeFileSync(configPath, JSON.stringify({ [key]: "./some/path" }))
+      expect(loadFileConfig(configPath)).toMatchObject({ [key]: path.join(testDir, "some/path") })
+    },
+  )
+
   it("throws on invalid keys", () => {
     const configPath = path.join(testDir, "bad.json")
     fs.writeFileSync(configPath, JSON.stringify({ test: { invalid_key: true } }))
@@ -128,13 +137,13 @@ describe("resolveConfig", () => {
   })
 
   describe("test config merge", () => {
-    it("positional patterns override CLI option and config file", () => {
+    it("positional patterns combine with CLI option, overriding config file", () => {
       const configPath = writeConfig({ test: { test_pattern: "config" } })
       const result = resolveConfig({
         cliOptions: { config: configPath, testPattern: "cli" },
         patterns: ["pos1", "pos2"],
       })
-      expect(result.testConfig.test_pattern).toBe("(pos1)|(pos2)")
+      expect(result.testConfig.test_pattern).toEqual(["cli", "pos1", "pos2"])
     })
 
     it("CLI option overrides config file when no positional patterns", () => {

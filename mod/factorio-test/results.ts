@@ -24,7 +24,6 @@ export function createRunReport(): RunReport {
       ran: 0,
       skipped: 0,
       todo: 0,
-      cancelled: 0,
       describeBlockErrors: 0,
     },
     failedTestPaths: new LuaSet(),

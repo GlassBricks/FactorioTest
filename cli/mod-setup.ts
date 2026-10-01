@@ -5,7 +5,7 @@ import { runScript, runProcess } from "./process-utils.js"
 import { getFactorioPlayerDataPath } from "./factorio-process.js"
 import { CliError } from "./cli-error.js"
 
-const MIN_FACTORIO_TEST_VERSION = "3.0.0"
+const MIN_FACTORIO_TEST_VERSION = "3.1.1"
 
 // Ship with the game rather than the mod portal, so they cannot be downloaded, and Factorio enables
 // any of them missing from mod-list.json

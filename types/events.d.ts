@@ -19,7 +19,6 @@ export interface TestRunSummary {
   failed: number
   skipped: number
   todo: number
-  cancelled: number
   describeBlockErrors: number
   status: "passed" | "failed" | "todo" | "cancelled"
 }

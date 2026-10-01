@@ -2,7 +2,7 @@
  * Test runner configuration passed from CLI to the Factorio mod.
  */
 export interface TestRunnerConfig {
-  test_pattern?: string
+  test_pattern?: string | string[]
   tag_whitelist?: string[]
   tag_blacklist?: string[]
   default_timeout?: number

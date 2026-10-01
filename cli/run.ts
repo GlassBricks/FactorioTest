@@ -58,6 +58,7 @@ Test filter patterns:
   Filter patterns use Lua pattern syntax (not regex). Special characters like -
   must be escaped with %:
     factorio-test run -p ./my-mod "foo > my%-test"
+  Multiple filters (including --test-pattern) run tests matching any of them.
   When using variadic options (--mods, --factorio-args, etc.) with filter
   patterns, use -- to separate them:
     factorio-test run -p ./my-mod --mods quality space-age -- "inventory"

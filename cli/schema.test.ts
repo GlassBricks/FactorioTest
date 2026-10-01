@@ -78,11 +78,13 @@ describe("parseCliTestOptions", () => {
     expect(parseCliTestOptions({ bail: true }, [])).toEqual({ bail: 1 })
   })
 
-  it("joins positional patterns with OR logic", () => {
-    expect(parseCliTestOptions({}, ["foo", "bar"]).test_pattern).toBe("(foo)|(bar)")
-  })
-
-  it("positional patterns override CLI testPattern", () => {
-    expect(parseCliTestOptions({ testPattern: "cli" }, ["pos"]).test_pattern).toBe("(pos)")
+  it.each<[string, Record<string, unknown>, string[], string | string[] | undefined]>([
+    ["no patterns", {}, [], undefined],
+    ["single positional pattern", {}, ["pos"], "pos"],
+    ["only --test-pattern", { testPattern: "cli" }, [], "cli"],
+    ["multiple positional patterns", {}, ["foo", "bar"], ["foo", "bar"]],
+    ["--test-pattern combined with positional patterns", { testPattern: "cli" }, ["pos"], ["cli", "pos"]],
+  ])("test_pattern from %s", (_, opts, patterns, expected) => {
+    expect(parseCliTestOptions(opts, patterns).test_pattern).toEqual(expected)
   })
 })

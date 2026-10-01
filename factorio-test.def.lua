@@ -40,12 +40,15 @@ function tags(...) end
 ---@field game_speed number | nil
 ---@field log_passed_tests boolean | nil
 ---@field log_skipped_tests boolean | nil
----@field test_pattern string | nil
+---@field reorder_failed_first boolean | nil
+---@field bail number | nil
+---@field test_pattern string | string[] | nil
 ---@field tag_whitelist string[] | nil
 ---@field tag_blacklist string[] | nil
 ---@field before_test_run fun() | nil
 ---@field after_test_run fun() | nil
 ---@field sound_effects boolean | nil
+---@field load_luassert boolean | nil
 
 ---@alias TestFn fun(): void
 ---@alias HookFn TestFn
@@ -77,12 +80,12 @@ local TestBuilder = {}
 ---@generic T
 ---@param func T
 ---@return TestBuilder<T>
-function TestBuilder.after_script_reload(func) end
+function TestBuilder.after_reload_script(func) end
 
 ---@generic T
 ---@param func T
 ---@return TestBuilder<T>
-function TestBuilder.after_mod_reload(func) end
+function TestBuilder.after_reload_mods(func) end
 
 ---@class DescribeCreatorBase
 ---@overload fun(name: string, func: TestFn): void

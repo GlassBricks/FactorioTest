@@ -4,13 +4,15 @@
 
 - The Space Age DLC mods (`space-age`, `quality`, `elevated-rails`, `recycler`) are now disabled by
   default, when run from the cli. Enable them with the `mods` config option or `--mods`, or by depending on them from the mod under test. Enabling one also enables the DLC mods it depends on (e.g. `space-age` enables `quality`, `elevated-rails` and `recycler`).
-- The bundled default save used to tests is now Factorio 2.1 save with only the `base` mod. This should remove migration notifications when run in graphics mode.
+- The bundled default save used for tests is now a Factorio 2.1 save with only the `base` mod. This should remove migration notifications when run in graphics mode.
 
 ### Fixes
 
 - Factorio output with CRLF line endings no longer produces spurious empty lines.
 - The last line of Factorio output, if not newline-terminated, is no longer processed twice.
 - In `--watch` mode, a rerun now waits for the cancelled run to finish cleaning up, and rapid file changes no longer leave a stale run uncancellable.
+- Multiple filter arguments now run tests matching any of them (previously matched nothing). They are also combined with `--test-pattern`, instead of replacing it. Requires factorio-test mod v3.1.1.
+- `outputFile` in a config file is now resolved relative to the config file, like other paths.
 
 ## v3.6.0
 

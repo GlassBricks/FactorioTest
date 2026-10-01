@@ -1171,6 +1171,25 @@ test("Test pattern", () => {
   assertDeepEquals(["yes1", "yes2"], actions)
 })
 
+test("Test pattern list matches any pattern", () => {
+  setMockConfig(
+    fillConfig({
+      test_pattern: ["foo", "baz"],
+    }),
+  )
+  api.test("bar", () => {
+    actions.push("no")
+  })
+  api.test("foo", () => {
+    actions.push("yes1")
+  })
+  api.test("baz", () => {
+    actions.push("yes2")
+  })
+  runTestSync()
+  assertDeepEquals(["yes1", "yes2"], actions)
+})
+
 describe("tags", () => {
   test("Can add tag to describe block", () => {
     api.tags("foo", "bar")

@@ -2,6 +2,8 @@
 Version: 3.1.1
 Date: ????
   Changes:
+    - `test_pattern` config can be a list of patterns; tests matching any pattern are run.
+    - Removed the always-zero `cancelled` count from test run results.
 ---------------------------------------------------------------------------------------------------
 Version: 3.1.0
 Date: 2026-06-24

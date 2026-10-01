@@ -6,7 +6,7 @@ Test real setups in-game, no mocking necessary!
 ```lua
 describe("the factory", function()
     it("must grow", function()
-        assert.is_true(get_factory_size() > old_factory_size)
+        assert(get_factory_size() > old_factory_size)
     end)
 end)
 

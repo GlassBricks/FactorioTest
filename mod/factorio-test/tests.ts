@@ -199,6 +199,16 @@ function testMatchesTagList(test: Test, config: Config): boolean {
   return true
 }
 
+function testMatchesPattern(test: Test, config: Config): boolean {
+  const pattern = config.test_pattern
+  if (pattern === undefined) return true
+  const patterns = typeof pattern === "string" ? [pattern] : pattern
+  for (const p of patterns) {
+    if (string.match(test.path, p)[0] !== undefined) return true
+  }
+  return false
+}
+
 /** The definition phase's output: the test tree, and whether any test in it is focused. */
 export interface TestSuite {
   /** Replaced wholesale on a load error, and detached before a reload; never rebound otherwise. */
@@ -217,7 +227,7 @@ export function isSkippedTest(test: Test, state: TestSelection): boolean {
     test.mode === "skip" ||
     test.mode === "todo" ||
     (state.suite.hasFocusedTests && test.mode !== "only") ||
-    (state.config.test_pattern !== undefined && !string.match(test.path, state.config.test_pattern)[0]) ||
+    !testMatchesPattern(test, state.config) ||
     !testMatchesTagList(test, state.config)
   )
 }

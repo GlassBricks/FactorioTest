@@ -74,6 +74,7 @@ function resolveConfigPaths(config: FileConfig, configDir: string): FileConfig {
     factorioPath: config.factorioPath ? path.resolve(configDir, config.factorioPath) : undefined,
     dataDirectory: path.resolve(configDir, config.dataDirectory ?? DEFAULT_DATA_DIRECTORY),
     save: config.save ? path.resolve(configDir, config.save) : undefined,
+    outputFile: config.outputFile ? path.resolve(configDir, config.outputFile) : undefined,
   }
 }
 
