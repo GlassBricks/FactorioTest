@@ -1,5 +1,10 @@
+import { EventEmitter } from "events"
+import * as path from "path"
+import { PassThrough } from "stream"
+import { finished } from "stream/promises"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { parseResultMessage } from "./factorio-process.js"
+import { FactorioOutputHandler } from "./factorio-output-parser.js"
+import { parseResultMessage, type HeadlessSuperviseOptions } from "./factorio-process.js"
 
 vi.mock("child_process", async (importOriginal) => {
   const original = await importOriginal<typeof import("child_process")>()
@@ -48,5 +53,195 @@ describe("autoDetectFactorioPath", () => {
 
     const { autoDetectFactorioPath } = await import("./factorio-process.js")
     expect(() => autoDetectFactorioPath()).toThrow(/Could not auto-detect/)
+  })
+})
+
+describe("BufferLineSplitter", () => {
+  async function splitLines(chunks: string[]): Promise<string[]> {
+    const { BufferLineSplitter } = await import("./factorio-process.js")
+    const stream = new PassThrough()
+    const lines: string[] = []
+    new BufferLineSplitter(stream).on("line", (line) => lines.push(line))
+    for (const chunk of chunks) stream.write(chunk)
+    stream.end()
+    await finished(stream)
+    stream.destroy()
+    await new Promise((resolve) => setImmediate(resolve))
+    return lines
+  }
+
+  it.each([
+    [["a\nb\n"], ["a", "b"]],
+    [
+      ["a", "b\nc", "\n"],
+      ["ab", "c"],
+    ],
+    [["a\r\nb\r\n"], ["a", "b"]],
+    [
+      ["a\r", "\nb\n"],
+      ["a", "b"],
+    ],
+    [["a\ntrailing"], ["a", "trailing"]],
+  ])("splits %j into %j", async (chunks, expected) => {
+    expect(await splitLines(chunks)).toEqual(expected)
+  })
+})
+
+class FakeProcess extends EventEmitter {
+  stdout = new PassThrough()
+  stderr = new PassThrough()
+  kill = vi.fn(() => this.exit(null, "SIGTERM"))
+
+  writeLine(line: string, stream: "stdout" | "stderr" = "stdout"): void {
+    this[stream].write(line + "\n")
+  }
+
+  exit(code: number | null, signal: NodeJS.Signals | null = null): void {
+    this.emit("exit", code, signal)
+  }
+}
+
+const testRunStartedLine = 'FACTORIO-TEST-EVENT:{"type":"testRunStarted","total":1}'
+const resultLine = "FACTORIO-TEST-RESULT:passed"
+const dataDir = "/data-dir"
+const logHint = path.join(dataDir, "factorio-current.log")
+
+async function flushStreams(): Promise<void> {
+  await new Promise((resolve) => setImmediate(resolve))
+}
+
+describe("superviseHeadlessRun", () => {
+  let proc: FakeProcess
+  let handler: FactorioOutputHandler
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+    proc = new FakeProcess()
+    handler = new FactorioOutputHandler()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  async function startedRun(options: Partial<HeadlessSuperviseOptions> = {}) {
+    const { superviseHeadlessRun } = await import("./factorio-process.js")
+    const run = superviseHeadlessRun(proc, handler, { dataDir, ...options })
+    run.catch(() => {})
+    proc.writeLine(testRunStartedLine)
+    await flushStreams()
+    return { run }
+  }
+
+  it("finishes when a result is received before exit", async () => {
+    const { run } = await startedRun()
+    proc.writeLine(resultLine)
+    await flushStreams()
+    proc.exit(0)
+    expect(await run).toBe("finished")
+    expect(handler.getResultMessage()).toBe("passed")
+  })
+
+  it("reads protocol lines from stderr too", async () => {
+    const { run } = await startedRun()
+    proc.writeLine(resultLine, "stderr")
+    await flushStreams()
+    proc.exit(0)
+    expect(await run).toBe("finished")
+  })
+
+  it("kills the process when no output arrives within outputTimeout", async () => {
+    const { run } = await startedRun({ outputTimeout: 3 })
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(proc.kill).toHaveBeenCalled()
+    await expect(run).rejects.toThrow("no output received for 3 seconds")
+    await expect(run).rejects.toThrow(logHint)
+  })
+
+  it("resets the output watchdog on each line", async () => {
+    const { run } = await startedRun({ outputTimeout: 3 })
+    for (let i = 0; i < 3; i++) {
+      await vi.advanceTimersByTimeAsync(2000)
+      proc.writeLine("log line")
+      await flushStreams()
+    }
+    expect(proc.kill).not.toHaveBeenCalled()
+    proc.writeLine(resultLine)
+    await flushStreams()
+    proc.exit(0)
+    expect(await run).toBe("finished")
+  })
+
+  it("kills the process when the test run does not start in time", async () => {
+    const { superviseHeadlessRun } = await import("./factorio-process.js")
+    const run = superviseHeadlessRun(proc, handler, { dataDir, startupTimeoutMs: 5000 })
+    run.catch(() => {})
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(proc.kill).toHaveBeenCalled()
+    await expect(run).rejects.toThrow("no test run started within 5 seconds")
+  })
+
+  it("does not apply the startup timeout once the test run started", async () => {
+    const { run } = await startedRun({ startupTimeoutMs: 5000 })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(proc.kill).not.toHaveBeenCalled()
+    proc.writeLine(resultLine)
+    await flushStreams()
+    proc.exit(0)
+    expect(await run).toBe("finished")
+  })
+
+  it("is cancelled when the signal aborts", async () => {
+    const controller = new AbortController()
+    const { run } = await startedRun({ signal: controller.signal })
+    controller.abort()
+    expect(proc.kill).toHaveBeenCalled()
+    expect(await run).toBe("cancelled")
+  })
+
+  it("rejects when the process exits without a result", async () => {
+    const { run } = await startedRun()
+    proc.exit(1)
+    await expect(run).rejects.toThrow(`Factorio exited with code 1, signal null, no result received`)
+    await expect(run).rejects.toThrow(logHint)
+  })
+})
+
+describe("superviseGraphicsRun", () => {
+  let proc: FakeProcess
+  let handler: FactorioOutputHandler
+
+  beforeEach(() => {
+    proc = new FakeProcess()
+    handler = new FactorioOutputHandler()
+  })
+
+  async function supervise(resolveOnResult?: boolean) {
+    const { superviseGraphicsRun } = await import("./factorio-process.js")
+    let settled = false
+    const run = superviseGraphicsRun(proc, handler, { dataDir, resolveOnResult })
+    void run.then(
+      () => (settled = true),
+      () => (settled = true),
+    )
+    return { run, isSettled: () => settled }
+  }
+
+  it.each([
+    [true, true],
+    [false, false],
+  ])("with resolveOnResult=%s, settles on result without exit: %s", async (resolveOnResult, settlesEarly) => {
+    const { run, isSettled } = await supervise(resolveOnResult)
+    proc.writeLine(resultLine)
+    await flushStreams()
+    expect(isSettled()).toBe(settlesEarly)
+    proc.exit(0)
+    await expect(run).resolves.toBeUndefined()
+  })
+
+  it("rejects when the process exits without a result", async () => {
+    const { run } = await supervise()
+    proc.exit(0)
+    await expect(run).rejects.toThrow(logHint)
   })
 })

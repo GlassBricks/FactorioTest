@@ -6,6 +6,12 @@
   default, when run from the cli. Enable them with the `mods` config option or `--mods`, or by depending on them from the mod under test.
 - The bundled default save used to tests is now Factorio 2.1 save with only the `base` mod. This should remove migration notifications when run in graphics mode.
 
+### Fixes
+
+- Factorio output with CRLF line endings no longer produces spurious empty lines.
+- The last line of Factorio output, if not newline-terminated, is no longer processed twice.
+- In `--watch` mode, a rerun now waits for the cancelled run to finish cleaning up, and rapid file changes no longer leave a stale run uncancellable.
+
 ## v3.6.0
 
 - Updated for Factorio 2.1!

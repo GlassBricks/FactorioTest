@@ -1,5 +1,8 @@
-import { describe, it, expect } from "vitest"
-import { matchesPattern } from "./file-watcher.js"
+import * as fs from "fs"
+import * as os from "os"
+import * as path from "path"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { matchesPattern, watchDirectory } from "./file-watcher.js"
 
 describe("matchesPattern", () => {
   const defaultPatterns = ["info.json", "**/*.lua"]
@@ -30,5 +33,45 @@ describe("matchesPattern", () => {
 
   it("handles backslash paths (Windows)", () => {
     expect(matchesPattern("nested\\file.lua", defaultPatterns)).toBe(true)
+  })
+})
+
+describe("watchDirectory", () => {
+  let dir: string
+  let watcher: fs.FSWatcher | undefined
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "factorio-test-watch-"))
+    fs.writeFileSync(path.join(dir, "control.lua"), "")
+  })
+
+  afterEach(() => {
+    watcher?.close()
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  function watch(): { changes: () => number } {
+    let count = 0
+    watcher = watchDirectory(dir, () => count++, { patterns: ["info.json", "**/*.lua"], debounceMs: 50 })
+    return { changes: () => count }
+  }
+
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 200))
+
+  it("fires once for a burst of matching changes", async () => {
+    const { changes } = watch()
+    fs.writeFileSync(path.join(dir, "control.lua"), "-- 1")
+    fs.writeFileSync(path.join(dir, "control.lua"), "-- 2")
+    fs.mkdirSync(path.join(dir, "nested"))
+    fs.writeFileSync(path.join(dir, "nested", "module.lua"), "")
+    await settle()
+    expect(changes()).toBe(1)
+  })
+
+  it("ignores files not matching the patterns", async () => {
+    const { changes } = watch()
+    fs.writeFileSync(path.join(dir, "test.ts"), "// test file")
+    await settle()
+    expect(changes()).toBe(0)
   })
 })

@@ -185,9 +185,48 @@ locale=
   }
 }
 
-export interface AutorunOptions {
-  verbose?: boolean
-  lastFailedTests?: string[]
+export type RunMode = "headless" | "graphics"
+
+export interface AutoStartConfig {
+  mod: string
+  headless: boolean
+  last_failed_tests?: string[]
+}
+
+export function buildAutoStartConfig(modToTest: string, mode: RunMode, lastFailedTests?: string[]): AutoStartConfig {
+  return {
+    mod: modToTest,
+    headless: mode === "headless",
+    ...(lastFailedTests?.length && { last_failed_tests: lastFailedTests }),
+  }
+}
+
+type SettingScope = "startup" | "runtime-global"
+
+const AUTO_START_CONFIG_SETTING = "factorio-test-auto-start-config"
+const AUTO_START_SETTING = "factorio-test-auto-start"
+const TEST_CONFIG_SETTING = "factorio-test-config"
+const MOD_TO_TEST_SETTING = "factorio-test-mod-to-test"
+
+function setModSetting(modsDir: string, scope: SettingScope, name: string, value: string): Promise<void> {
+  return runScript("fmtk", "settings", "set", scope, name, value, "--modsPath", modsDir)
+}
+
+function unsetModSetting(modsDir: string, scope: SettingScope, name: string): Promise<void> {
+  return runScript("fmtk", "settings", "unset", scope, name, "--modsPath", modsDir)
+}
+
+export async function setTestConfigSetting(modsDir: string, testConfig: object): Promise<void> {
+  if (Object.keys(testConfig).length === 0) return
+  await setModSetting(modsDir, "runtime-global", TEST_CONFIG_SETTING, JSON.stringify(testConfig))
+}
+
+export function setModToTestSetting(modsDir: string, modToTest: string): Promise<void> {
+  return setModSetting(modsDir, "runtime-global", MOD_TO_TEST_SETTING, modToTest)
+}
+
+export async function adjustEnabledMods(modsDir: string, enableArgs: string[]): Promise<void> {
+  await runScript("fmtk", "mods", "adjust", "--modsPath", modsDir, "--disableExtra", ...enableArgs)
 }
 
 export async function ensureModSettingsDat(
@@ -217,37 +256,30 @@ export async function ensureModSettingsDat(
   }
 }
 
+export interface AutorunOptions {
+  verbose?: boolean
+  lastFailedTests?: string[]
+}
+
 export async function setSettingsForAutorun(
   factorioPath: string,
   dataDir: string,
   modsDir: string,
   modToTest: string,
-  mode: "headless" | "graphics",
+  mode: RunMode,
   options?: AutorunOptions,
 ): Promise<void> {
   await ensureModSettingsDat(factorioPath, dataDir, modsDir, options?.verbose)
   if (options?.verbose) console.log("Setting autorun settings")
-  const autoStartConfig = JSON.stringify({
-    mod: modToTest,
-    headless: mode === "headless",
-    ...(options?.lastFailedTests?.length && { last_failed_tests: options.lastFailedTests }),
-  })
-  await runScript(
-    "fmtk",
-    "settings",
-    "set",
-    "startup",
-    "factorio-test-auto-start-config",
-    autoStartConfig,
-    "--modsPath",
-    modsDir,
-  )
-  await runScript("fmtk", "settings", "unset", "startup", "factorio-test-auto-start", "--modsPath", modsDir)
+  const autoStartConfig = buildAutoStartConfig(modToTest, mode, options?.lastFailedTests)
+  await setModSetting(modsDir, "startup", AUTO_START_CONFIG_SETTING, JSON.stringify(autoStartConfig))
+  await unsetModSetting(modsDir, "startup", AUTO_START_SETTING)
 }
 
 export async function resetAutorunSettings(modsDir: string, verbose?: boolean): Promise<void> {
   if (verbose) console.log("Disabling auto-start settings")
-  await runScript("fmtk", "settings", "set", "startup", "factorio-test-auto-start-config", "{}", "--modsPath", modsDir)
+  await setModSetting(modsDir, "startup", AUTO_START_CONFIG_SETTING, "{}")
+  await setModSetting(modsDir, "runtime-global", TEST_CONFIG_SETTING, "{}")
 }
 
 export interface ModRequirement {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { parseRequiredDependencies, type ModRequirement } from "./mod-setup.js"
+import { buildAutoStartConfig, parseRequiredDependencies, type ModRequirement } from "./mod-setup.js"
 
 describe("parseRequiredDependencies", () => {
   it.each<[string[], ModRequirement[]]>([
@@ -33,5 +33,15 @@ describe("parseRequiredDependencies", () => {
     ],
   ])("parseRequiredDependencies(%j) => %j", (input, expected) => {
     expect(parseRequiredDependencies(input)).toEqual(expected)
+  })
+})
+
+describe("buildAutoStartConfig", () => {
+  it.each([
+    ["headless", undefined, { mod: "my-mod", headless: true }],
+    ["graphics", [], { mod: "my-mod", headless: false }],
+    ["headless", ["a > b"], { mod: "my-mod", headless: true, last_failed_tests: ["a > b"] }],
+  ] as const)("mode=%s lastFailedTests=%j", (mode, lastFailedTests, expected) => {
+    expect(buildAutoStartConfig("my-mod", mode, lastFailedTests && [...lastFailedTests])).toEqual(expected)
   })
 })

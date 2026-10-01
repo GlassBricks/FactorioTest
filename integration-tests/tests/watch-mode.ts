@@ -91,39 +91,6 @@ export const tests: TestDefinition[] = [
       }
     },
   },
-  {
-    name: "Watch mode ignores non-matching files",
-    async run(ctx: TestContext): Promise<boolean> {
-      const modDir = await copyModToTemp(ctx)
-      const { child, output } = spawnWatchCli(modDir, ctx.dataDir)
-
-      try {
-        const firstRunCompleted = await waitForOutput(output, "Tests:", 60000)
-        if (!firstRunCompleted) {
-          ctx.log("FAIL: First test run did not complete within timeout")
-          return false
-        }
-        ctx.log("PASS: First test run completed")
-
-        output.value = ""
-        await sleep(500)
-
-        const tsFile = path.join(modDir, "test.ts")
-        await fs.promises.writeFile(tsFile, "// test file")
-        await sleep(1500)
-
-        if (output.value.includes("File change detected")) {
-          ctx.log("FAIL: .ts file change triggered rerun (should be ignored with default patterns)")
-          return false
-        }
-        ctx.log("PASS: .ts file change was correctly ignored")
-
-        return true
-      } finally {
-        await killChild(child)
-      }
-    },
-  },
 ]
 
 if (import.meta.url === `file://${process.argv[1]}`) {

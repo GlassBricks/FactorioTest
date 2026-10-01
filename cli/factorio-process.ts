@@ -12,25 +12,28 @@ import { CliError } from "./cli-error.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-class BufferLineSplitter extends EventEmitter<{ line: [string] }> {
+export class BufferLineSplitter extends EventEmitter<{ line: [string] }> {
   private buf = ""
 
   constructor(stream: Readable) {
     super()
-    stream.on("close", () => {
-      if (this.buf.length > 0) this.emit("line", this.buf)
-    })
-    stream.on("end", () => {
-      if (this.buf.length > 0) this.emit("line", this.buf)
-    })
+    stream.on("close", () => this.flush())
+    stream.on("end", () => this.flush())
     stream.on("data", (chunk: Buffer) => {
       this.buf += chunk.toString()
-      let index: number
-      while ((index = this.buf.search(/\r?\n/)) !== -1) {
-        this.emit("line", this.buf.slice(0, index))
-        this.buf = this.buf.slice(index + 1)
+      let lineBreak: RegExpExecArray | null
+      while ((lineBreak = /\r?\n/.exec(this.buf))) {
+        this.emit("line", this.buf.slice(0, lineBreak.index))
+        this.buf = this.buf.slice(lineBreak.index + lineBreak[0].length)
       }
     })
+  }
+
+  private flush(): void {
+    if (this.buf.length === 0) return
+    const rest = this.buf
+    this.buf = ""
+    this.emit("line", rest)
   }
 }
 
@@ -129,7 +132,7 @@ export function parseResultMessage(message: string): Pick<FactorioTestResult, "s
   }
 }
 
-interface OutputComponents {
+export interface OutputComponents {
   handler: FactorioOutputHandler
   collector: TestRunCollector
 }
@@ -138,7 +141,7 @@ function factorioLogHint(dataDir: string): string {
   return `\nCheck Factorio log for details: ${path.join(dataDir, "factorio-current.log")}`
 }
 
-function createOutputComponents(options: FactorioTestOptions): OutputComponents {
+export function createOutputComponents(options: FactorioTestOptions): OutputComponents {
   const handler = new FactorioOutputHandler()
   const collector = new TestRunCollector()
   const isTTY = process.stdout.isTTY ?? false
@@ -179,6 +182,134 @@ function createOutputComponents(options: FactorioTestOptions): OutputComponents 
   return { handler, collector }
 }
 
+export interface SupervisedProcess {
+  stdout: Readable
+  stderr?: Readable | null
+  kill(): void
+  once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown
+}
+
+export interface HeadlessSuperviseOptions {
+  dataDir: string
+  outputTimeout?: number
+  startupTimeoutMs?: number
+  signal?: AbortSignal
+}
+
+const DEFAULT_STARTUP_TIMEOUT_MS = 10_000
+
+function forEachLine(proc: SupervisedProcess, onLine: (line: string) => void): void {
+  new BufferLineSplitter(proc.stdout).on("line", onLine)
+  if (proc.stderr) new BufferLineSplitter(proc.stderr).on("line", onLine)
+}
+
+export function superviseHeadlessRun(
+  proc: SupervisedProcess,
+  handler: FactorioOutputHandler,
+  options: HeadlessSuperviseOptions,
+): Promise<"finished" | "cancelled"> {
+  const { dataDir, outputTimeout, signal, startupTimeoutMs = DEFAULT_STARTUP_TIMEOUT_MS } = options
+
+  let testRunStarted = false
+  let startupTimedOut = false
+  let wasCancelled = false
+  let outputTimedOut = false
+
+  const startupTimeout = setTimeout(() => {
+    if (testRunStarted) return
+    startupTimedOut = true
+    proc.kill()
+  }, startupTimeoutMs)
+
+  handler.on("event", (event) => {
+    if (event.type !== "testRunStarted") return
+    testRunStarted = true
+    clearTimeout(startupTimeout)
+  })
+
+  let outputWatchdog: ReturnType<typeof setTimeout> | undefined
+  function resetOutputWatchdog(): void {
+    if (!outputTimeout) return
+    clearTimeout(outputWatchdog)
+    outputWatchdog = setTimeout(() => {
+      outputTimedOut = true
+      proc.kill()
+    }, outputTimeout * 1000)
+  }
+  resetOutputWatchdog()
+
+  const abortHandler = () => {
+    wasCancelled = true
+    proc.kill()
+  }
+  signal?.addEventListener("abort", abortHandler)
+
+  forEachLine(proc, (line) => {
+    resetOutputWatchdog()
+    handler.handleLine(line)
+  })
+
+  return new Promise((resolve, reject) => {
+    proc.once("exit", (code, exitSignal) => {
+      clearTimeout(startupTimeout)
+      clearTimeout(outputWatchdog)
+      signal?.removeEventListener("abort", abortHandler)
+      if (wasCancelled) {
+        resolve("cancelled")
+      } else if (outputTimedOut) {
+        reject(
+          new CliError(
+            `Factorio process stuck: no output received for ${outputTimeout} seconds${factorioLogHint(dataDir)}`,
+          ),
+        )
+      } else if (startupTimedOut) {
+        reject(
+          new CliError(
+            `Factorio unresponsive: no test run started within ${startupTimeoutMs / 1000} seconds${factorioLogHint(dataDir)}`,
+          ),
+        )
+      } else if (handler.getResultMessage() !== undefined) {
+        resolve("finished")
+      } else {
+        reject(
+          new CliError(
+            `Factorio exited with code ${code}, signal ${exitSignal}, no result received${factorioLogHint(dataDir)}`,
+          ),
+        )
+      }
+    })
+  })
+}
+
+export interface GraphicsSuperviseOptions {
+  dataDir: string
+  resolveOnResult?: boolean
+}
+
+export function superviseGraphicsRun(
+  proc: SupervisedProcess,
+  handler: FactorioOutputHandler,
+  options: GraphicsSuperviseOptions,
+): Promise<void> {
+  forEachLine(proc, (line) => handler.handleLine(line))
+
+  return new Promise((resolve, reject) => {
+    if (options.resolveOnResult) handler.on("result", () => resolve())
+    proc.once("exit", (code, signal) => {
+      if (handler.getResultMessage() !== undefined) {
+        resolve()
+      } else {
+        reject(new CliError(`Factorio exited with code ${code}, signal ${signal}${factorioLogHint(options.dataDir)}`))
+      }
+    })
+  })
+}
+
+function completedResult(handler: FactorioOutputHandler, collector: TestRunCollector): FactorioTestResult {
+  const resultMessage = handler.getResultMessage()!
+  return { ...parseResultMessage(resultMessage), message: resultMessage, data: collector.getData() }
+}
+
 export async function runFactorioTestsHeadless(
   factorioPath: string,
   dataDir: string,
@@ -204,93 +335,16 @@ export async function runFactorioTestsHeadless(
   })
 
   const { handler, collector } = createOutputComponents(options)
-
-  let testRunStarted = false
-  let startupTimedOut = false
-  let wasCancelled = false
-  let outputTimedOut = false
-
-  handler.on("event", (event) => {
-    if (event.type === "testRunStarted") {
-      testRunStarted = true
-      clearTimeout(startupTimeout)
-    }
+  const outcome = await superviseHeadlessRun(factorioProcess, handler, {
+    dataDir,
+    outputTimeout: options.outputTimeout,
+    signal: options.signal,
   })
 
-  const startupTimeout = setTimeout(() => {
-    if (!testRunStarted) {
-      startupTimedOut = true
-      factorioProcess.kill()
-    }
-  }, 10_000)
-
-  const outputTimeout = options.outputTimeout
-  let outputWatchdog: ReturnType<typeof setTimeout> | undefined
-
-  function resetOutputWatchdog(): void {
-    if (!outputTimeout) return
-    clearTimeout(outputWatchdog)
-    outputWatchdog = setTimeout(() => {
-      outputTimedOut = true
-      factorioProcess.kill()
-    }, outputTimeout * 1000)
-  }
-
-  if (outputTimeout) {
-    resetOutputWatchdog()
-  }
-
-  const abortHandler = () => {
-    wasCancelled = true
-    factorioProcess.kill()
-  }
-  options.signal?.addEventListener("abort", abortHandler)
-
-  const stdoutSplitter = new BufferLineSplitter(factorioProcess.stdout)
-  const stderrSplitter = new BufferLineSplitter(factorioProcess.stderr)
-  stdoutSplitter.on("line", (line) => {
-    resetOutputWatchdog()
-    handler.handleLine(line)
-  })
-  stderrSplitter.on("line", (line) => {
-    resetOutputWatchdog()
-    handler.handleLine(line)
-  })
-
-  await new Promise<void>((resolve, reject) => {
-    factorioProcess.on("exit", (code, signal) => {
-      clearTimeout(startupTimeout)
-      clearTimeout(outputWatchdog)
-      options.signal?.removeEventListener("abort", abortHandler)
-      if (wasCancelled) {
-        resolve()
-      } else if (outputTimedOut) {
-        reject(
-          new CliError(
-            `Factorio process stuck: no output received for ${outputTimeout} seconds${factorioLogHint(dataDir)}`,
-          ),
-        )
-      } else if (startupTimedOut) {
-        reject(new CliError(`Factorio unresponsive: no test run started within 10 seconds${factorioLogHint(dataDir)}`))
-      } else if (handler.getResultMessage() !== undefined) {
-        resolve()
-      } else {
-        reject(
-          new CliError(
-            `Factorio exited with code ${code}, signal ${signal}, no result received${factorioLogHint(dataDir)}`,
-          ),
-        )
-      }
-    })
-  })
-
-  if (wasCancelled) {
+  if (outcome === "cancelled") {
     return { status: "cancelled", hasFocusedTests: false }
   }
-
-  const resultMessage = handler.getResultMessage()!
-  const parsed = parseResultMessage(resultMessage)
-  return { ...parsed, message: resultMessage, data: collector.getData() }
+  return completedResult(handler, collector)
 }
 
 export interface GraphicsTestOptions extends FactorioTestOptions {
@@ -320,27 +374,6 @@ export async function runFactorioTestsGraphics(
   })
 
   const { handler, collector } = createOutputComponents(options)
-
-  let resolvePromise: (() => void) | undefined
-
-  if (options.resolveOnResult) {
-    handler.on("result", () => resolvePromise?.())
-  }
-
-  new BufferLineSplitter(factorioProcess.stdout).on("line", (line) => handler.handleLine(line))
-
-  await new Promise<void>((resolve, reject) => {
-    resolvePromise = resolve
-    factorioProcess.on("exit", (code, signal) => {
-      if (handler.getResultMessage() !== undefined) {
-        resolve()
-      } else {
-        reject(new CliError(`Factorio exited with code ${code}, signal ${signal}${factorioLogHint(dataDir)}`))
-      }
-    })
-  })
-
-  const resultMessage = handler.getResultMessage()!
-  const parsed = parseResultMessage(resultMessage)
-  return { ...parsed, message: resultMessage, data: collector.getData() }
+  await superviseGraphicsRun(factorioProcess, handler, { dataDir, resolveOnResult: options.resolveOnResult })
+  return completedResult(handler, collector)
 }

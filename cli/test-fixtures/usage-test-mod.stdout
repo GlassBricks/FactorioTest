@@ -1,0 +1,35 @@
+FACTORIO-TEST-EVENT:{"type":"testRunStarted","total":6}
+FACTORIO-TEST-EVENT:{"type":"describeBlockEntered","block":{"path":""}}
+FACTORIO-TEST-EVENT:{"type":"describeBlockEntered","block":{"path":"test1","source":{"file":"load.ts","line":77}}}
+FACTORIO-TEST-EVENT:{"type":"testStarted","test":{"path":"test1 > Pass","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":1}}}
+FACTORIO-TEST-EVENT:{"type":"testPassed","test":{"path":"test1 > Pass","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":1}}}
+FACTORIO-TEST-EVENT:{"type":"testSkipped","test":{"path":"test1 > Skip","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":4}}}
+FACTORIO-TEST-EVENT:{"type":"testTodo","test":{"path":"test1 > TODO","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":7}}}
+FACTORIO-TEST-EVENT:{"type":"testStarted","test":{"path":"test1 > each 1","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":8}}}
+FACTORIO-TEST-EVENT:{"type":"testPassed","test":{"path":"test1 > each 1","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":8}}}
+FACTORIO-TEST-EVENT:{"type":"testStarted","test":{"path":"test1 > each 2","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":8}}}
+FACTORIO-TEST-EVENT:{"type":"testFailed","test":{"path":"test1 > each 2","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":8}},"errors":["____factorio-usage-test-mod__/test1.ts:9: expected 1, got 2\nstack traceback:\n\t[C]: in function 'assert'\n\t____factorio-usage-test-mod__/test1.ts:9: in function <____factorio-usage-test-mod__/test1.lua:19>\n\t(...tail calls...)"]}
+FACTORIO-TEST-EVENT:{"type":"testStarted","test":{"path":"test1 > In world","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":11}}}
+FACTORIO-TEST-EVENT:{"type":"testPassed","test":{"path":"test1 > In world","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":11}}}
+FACTORIO-TEST-EVENT:{"type":"describeBlockEntered","block":{"path":"test1 > fail in describe block","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":15}}}
+FACTORIO-TEST-EVENT:{"type":"describeBlockFailed","block":{"path":"test1 > fail in describe block","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":15}},"errors":["Error in definition: ____factorio-usage-test-mod__/test1.ts:16: Oh no\nstack traceback:\n\t[C]: in function 'error'\n\t____factorio-usage-test-mod__/test1.ts:16: in function <____factorio-usage-test-mod__/test1.lua:37>"]}
+FACTORIO-TEST-EVENT:{"type":"describeBlockEntered","block":{"path":"test1 > Failing after_all hook","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":19}}}
+FACTORIO-TEST-EVENT:{"type":"testStarted","test":{"path":"test1 > Failing after_all hook > Pass","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":23}}}
+FACTORIO-TEST-EVENT:{"type":"testPassed","test":{"path":"test1 > Failing after_all hook > Pass","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":23}}}
+FACTORIO-TEST-EVENT:{"type":"describeBlockFailed","block":{"path":"test1 > Failing after_all hook","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":19}},"errors":["Error running afterAll: ____factorio-usage-test-mod__/test1.ts:21: Oh no\nstack traceback:\n\t[C]: in function 'error'\n\t____factorio-usage-test-mod__/test1.ts:21: in function <____factorio-usage-test-mod__/test1.lua:44>"]}
+FACTORIO-TEST-EVENT:{"type":"describeBlockFinished","block":{"path":"test1","source":{"file":"load.ts","line":77}}}
+FACTORIO-TEST-EVENT:{"type":"describeBlockEntered","block":{"path":"folder/test2","source":{"file":"load.ts","line":77}}}
+FACTORIO-TEST-EVENT:{"type":"testStarted","test":{"path":"folder/test2 > Reload","source":{"file":"____factorio-usage-test-mod__/folder/test2.ts","line":2}}}
+   0.283 Checksum for script __factorio-test__/control.lua: 2236717309
+   0.295 Checksum for script ____factorio-usage-test-mod__/control.lua: 811972949
+FACTORIO-TEST-EVENT:{"type":"testPassed","test":{"path":"folder/test2 > Reload","source":{"file":"____factorio-usage-test-mod__/folder/test2.ts","line":2}}}
+FACTORIO-TEST-EVENT:{"type":"testSkipped","test":{"path":"folder/test2 > Skip due to tag","source":{"file":"____factorio-usage-test-mod__/folder/test2.ts","line":9}}}
+FACTORIO-TEST-EVENT:{"type":"describeBlockFinished","block":{"path":"folder/test2","source":{"file":"load.ts","line":77}}}
+FACTORIO-TEST-EVENT:{"type":"describeBlockFinished","block":{"path":""}}
+FACTORIO-TEST-EVENT:{"type":"testRunFinished","results":{"failed":1,"passed":5,"ran":6,"skipped":2,"todo":1,"cancelled":0,"describeBlockErrors":2,"status":"failed"}}
+FACTORIO-TEST-MESSAGE-START
+   0.295 Script @____factorio-usage-test-mod__/control.lua:16: CONFIG:game_speed=1000
+   0.295 Script @____factorio-usage-test-mod__/control.lua:17: CONFIG:default_timeout=3600
+   0.295 Script @____factorio-usage-test-mod__/control.lua:37: Usage test mod result: passed
+FACTORIO-TEST-MESSAGE-END
+FACTORIO-TEST-RESULT:failed

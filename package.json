@@ -35,6 +35,8 @@
     "pretest:integration": "npm run build:integration",
     "test:integration": "tsx integration-tests/test-runner.ts",
     "prerun-fixture": "npm run build:integration",
-    "run-fixture": "tsx integration-tests/run-fixture.ts"
+    "run-fixture": "tsx integration-tests/run-fixture.ts",
+    "prerecord-transcript": "npm run build:integration",
+    "record-transcript": "tsx integration-tests/record-transcript.ts"
   }
 }

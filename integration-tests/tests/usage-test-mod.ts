@@ -1,4 +1,11 @@
+import * as fs from "fs"
+import * as path from "path"
 import { runCli, runTests, TestContext, TestDefinition } from "../test-utils.js"
+
+interface ResultsFile {
+  tests: unknown[]
+  summary: { status: string }
+}
 
 async function runTest(ctx: TestContext): Promise<boolean> {
   const { stdout, code } = await runCli({ dataDir: ctx.dataDir })
@@ -18,11 +25,23 @@ async function runTest(ctx: TestContext): Promise<boolean> {
 
   const expectedSummary = "Tests: 1 failed, 2 errors, 1 todo, 2 skipped, 5 passed (9 total)"
   if (!stdout.includes(expectedSummary)) {
-    ctx.log(`FAIL: Expected summary line "${expectedSummary}"`)
+    ctx.log(`FAIL: Expected summary line "${expectedSummary}"; re-record cli transcript if mod output changed`)
     ctx.log(`Output: ${stdout.slice(-500)}`)
     return false
   }
   ctx.log(`PASS: Summary line matches`)
+
+  const resultsPath = path.join(ctx.dataDir, "test-results.json")
+  if (!fs.existsSync(resultsPath)) {
+    ctx.log("FAIL: test-results.json not created")
+    return false
+  }
+  const results = JSON.parse(await fs.promises.readFile(resultsPath, "utf-8")) as ResultsFile
+  if (results.tests.length !== 11 || results.summary.status !== "failed") {
+    ctx.log(`FAIL: Unexpected results file: ${results.tests.length} tests, status ${results.summary.status}`)
+    return false
+  }
+  ctx.log("PASS: Results file written")
 
   return true
 }
