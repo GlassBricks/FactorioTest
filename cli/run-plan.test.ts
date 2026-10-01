@@ -43,6 +43,32 @@ describe("planModSetup", () => {
     expect(enableArgs).toContain(`${dlcMod}=true`)
   })
 
+  it.each([
+    [["space-age"], ["quality", "elevated-rails", "recycler"], []],
+    [["quality"], ["recycler"], ["elevated-rails", "space-age"]],
+    [["elevated-rails"], [], ["quality", "space-age", "recycler"]],
+    [["space-age", "quality=false"], ["elevated-rails", "recycler"], []],
+  ])("with --mods %j, enables DLC dependencies %j and disables %j", (configMods, enabled, disabled) => {
+    const { enableArgs } = planModSetup({ modToTest: "my-mod", modDependencies: [], configMods })
+    for (const mod of enabled) expect(enableArgs).toContain(`${mod}=true`)
+    for (const mod of disabled) expect(enableArgs).toContain(`${mod}=false`)
+  })
+
+  it("enables DLC dependencies of mod dependencies", () => {
+    const { enableArgs } = planModSetup({ modToTest: "my-mod", modDependencies: ["space-age"] })
+    expect(enableArgs).toEqual(expect.arrayContaining(["quality=true", "elevated-rails=true", "recycler=true"]))
+  })
+
+  it("respects an explicitly disabled DLC dependency", () => {
+    const { enableArgs } = planModSetup({
+      modToTest: "my-mod",
+      modDependencies: [],
+      configMods: ["space-age", "quality=false"],
+    })
+    expect(enableArgs).toContain("quality=false")
+    expect(enableArgs).not.toContain("quality=true")
+  })
+
   it("passes explicit enable/disable specs through without installing them", () => {
     const plan = planModSetup({ modToTest: "my-mod", modDependencies: [], configMods: ["other=false"] })
     expect(plan.toInstall).toEqual([])

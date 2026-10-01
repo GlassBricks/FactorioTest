@@ -9,7 +9,25 @@ const MIN_FACTORIO_TEST_VERSION = "3.0.0"
 
 // Ship with the game rather than the mod portal, so they cannot be downloaded, and Factorio enables
 // any of them missing from mod-list.json
-export const DLC_MODS = ["quality", "elevated-rails", "space-age", "recycler"]
+const DLC_MOD_DEPENDENCIES: Record<string, readonly string[]> = {
+  quality: ["recycler"],
+  "elevated-rails": [],
+  "space-age": ["quality", "elevated-rails", "recycler"],
+  recycler: [],
+}
+
+export const DLC_MODS = Object.keys(DLC_MOD_DEPENDENCIES)
+
+export function withDlcDependencies(mods: Iterable<string>): Set<string> {
+  const result = new Set<string>()
+  const pending = [...mods]
+  for (let mod = pending.pop(); mod !== undefined; mod = pending.pop()) {
+    if (result.has(mod)) continue
+    result.add(mod)
+    pending.push(...(DLC_MOD_DEPENDENCIES[mod] ?? []))
+  }
+  return result
+}
 
 const BUILTIN_MODS = new Set(["base", ...DLC_MODS])
 

@@ -3,7 +3,7 @@
 ### Changes
 
 - The Space Age DLC mods (`space-age`, `quality`, `elevated-rails`, `recycler`) are now disabled by
-  default, when run from the cli. Enable them with the `mods` config option or `--mods`, or by depending on them from the mod under test.
+  default, when run from the cli. Enable them with the `mods` config option or `--mods`, or by depending on them from the mod under test. Enabling one also enables the DLC mods it depends on (e.g. `space-age` enables `quality`, `elevated-rails` and `recycler`).
 - The bundled default save used to tests is now Factorio 2.1 save with only the `base` mod. This should remove migration notifications when run in graphics mode.
 
 ### Fixes
