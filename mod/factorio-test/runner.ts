@@ -5,7 +5,7 @@ import { prepareReload, resumeAfterReload } from "./reload-resume"
 import { createRunReport, recordEvent } from "./results"
 import { assertNever } from "./shared/util"
 import { PartRun, TestRun, TestState, setToLoadErrorState } from "./state"
-import { TestEvent, TestEventListener, TestRunCancelled, TestRunFinished } from "./test-events"
+import { StepAction, TestEvent, TestEventListener, TestRunCancelled, TestRunFinished } from "./test-events"
 import { reorderFailedFirst, shouldReorderFailedFirst } from "./test-reordering"
 import {
   DescribeBlock,
@@ -14,13 +14,20 @@ import {
   collectAfterEachHooks,
   collectBeforeEachHooks,
   formatSource,
+  formatStepError,
   isSkippedTest,
+  stepLabel,
 } from "./tests"
+
+/** A point the run can pause before in step mode. */
+type StepPoint = { kind: "testStart"; test: Test } | { kind: "stepPart"; testRun: TestRun; partIndex: number }
 
 /** The points at which the test runner can suspend/resume across a tick. */
 type Resumption =
   | { kind: "beforeTest"; test: Test; ticksLeft: number }
-  | { kind: "asyncPart"; testRun: TestRun }
+  | { kind: "asyncPart"; testRun: TestRun; part: PartRun }
+  | { kind: "startStepPoint"; point: StepPoint }
+  | { kind: "skipTest"; point: StepPoint }
   | { kind: "awaitingReload" }
 
 /**
@@ -45,12 +52,17 @@ function newPartRun(partIndex: number): PartRun {
   }
 }
 
-function newTestRun(test: Test, partIndex: number): TestRun {
-  return {
-    test,
-    afterTestFuncs: [],
-    part: newPartRun(partIndex),
-  }
+function stepPartLabel(test: Test, partIndex: number): string {
+  return stepLabel(test.parts[partIndex]!.step!)
+}
+
+function stepPointTest(point: StepPoint): Test {
+  return point.kind === "testStart" ? point.test : point.testRun.test
+}
+
+function pushPartError(test: Test, part: PartRun, message: string): void {
+  const { step } = test.parts[part.partIndex]!
+  test.errors.push(step ? formatStepError(step, message) : message)
 }
 
 function runBlockHooks(block: DescribeBlock, type: "beforeAll" | "afterAll", recordErrors: boolean): void {
@@ -74,10 +86,9 @@ function runAfterEachHooks(testRun: TestRun, recordErrors: boolean): void {
   }
 }
 
-function isPartComplete(testRun: TestRun): boolean {
-  const { part } = testRun
+function isPartComplete(test: Test, part: PartRun): boolean {
   return (
-    testRun.test.errors.length !== 0 ||
+    test.errors.length !== 0 ||
     !part.async ||
     part.asyncDone ||
     (!part.explicitAsync && next(part.onTickFuncs)[0] === undefined)
@@ -98,6 +109,8 @@ export class TestRunner {
   private resumePoint: Resumption | undefined
   private cancelRequested = false
   private failureCount = 0
+  private stepping = false
+  private stepPause: StepPoint | undefined
 
   private emit(event: TestEvent): void {
     recordEvent(this.state.report, event)
@@ -107,7 +120,7 @@ export class TestRunner {
   }
 
   tick(): void {
-    if (this.status === "done") return
+    if (this.status === "done" || this.stepPause) return
     if (this.cancelRequested) {
       this.cancelRun()
       return
@@ -118,18 +131,7 @@ export class TestRunner {
     }
     const resumePoint = this.resumePoint
     this.resumePoint = undefined
-    if (!resumePoint) {
-      this.advance()
-    } else if (resumePoint.kind === "beforeTest") {
-      resumePoint.ticksLeft--
-      if (resumePoint.ticksLeft > 0) {
-        this.resumePoint = resumePoint
-      } else if (!this.startAndRunTest(resumePoint.test)) {
-        this.advance()
-      }
-    } else if (resumePoint.kind === "awaitingReload") {
-      this.setLoadError(`Reload was requested but did not happen. Aborting test run.`)
-    } else if (!this.pollAsyncPart(resumePoint.testRun)) {
+    if (!resumePoint || !this.resume(resumePoint)) {
       this.advance()
     }
   }
@@ -138,8 +140,49 @@ export class TestRunner {
     return this.status === "done"
   }
 
+  isStepPaused(): boolean {
+    return this.stepPause !== undefined
+  }
+
   requestCancel(): void {
     this.cancelRequested = true
+    if (!this.stepPause) return
+    this.stepPause = undefined
+    this.emit({ type: "stepResumed", action: "cancel" })
+  }
+
+  stepAction(action: StepAction): void {
+    const point = this.stepPause
+    if (!point) return
+    this.stepPause = undefined
+    if (action === "runRest") this.stepping = false
+    this.resumePoint = { kind: action === "skipTest" ? "skipTest" : "startStepPoint", point }
+    this.emit({ type: "stepResumed", action })
+  }
+
+  /** Returns true if the runner suspended again. */
+  private resume(resumePoint: Resumption): boolean {
+    switch (resumePoint.kind) {
+      case "beforeTest":
+        resumePoint.ticksLeft--
+        if (resumePoint.ticksLeft > 0) {
+          this.resumePoint = resumePoint
+          return true
+        }
+        return this.reachTest(resumePoint.test)
+      case "asyncPart":
+        return this.pollAsyncPart(resumePoint.testRun, resumePoint.part)
+      case "startStepPoint":
+        return this.startStepPoint(resumePoint.point)
+      case "skipTest":
+        this.skipTest(resumePoint.point)
+        return false
+      case "awaitingReload":
+        this.setLoadError(`Reload was requested but did not happen. Aborting test run.`)
+        return true
+      default:
+        assertNever(resumePoint)
+    }
   }
 
   private begin(): void {
@@ -166,6 +209,7 @@ export class TestRunner {
   private startTestRun(isRerun: boolean): void {
     const { state } = this
     state.isRerun = isRerun
+    this.stepping = state.config.step
     state.report = createRunReport()
     state.report.profiler = helpers.create_profiler()
     state.store.stage.set(TestStage.Running)
@@ -187,13 +231,13 @@ export class TestRunner {
       return
     }
     const { test, partIndex } = resumePoint
+    this.stepping = resumePoint.stepping
     this.state.store.stage.set(TestStage.Running)
     // the cursor must point *past* the resumed test, or it would be re-run forever
     this.cursor = { block: test.parent, index: test.indexInParent + 1 }
 
-    const testRun = newTestRun(test, partIndex)
-    this.runPart(testRun)
-    if (!this.advanceParts(testRun)) {
+    const testRun: TestRun = { test, afterTestFuncs: [] }
+    if (!this.advanceParts(testRun, this.startPart(testRun, partIndex))) {
       this.advance()
     }
   }
@@ -214,11 +258,13 @@ export class TestRunner {
         this.endRun({ type: "testRunFinished" })
         return
       }
-      if (test.ticksBefore > 0) {
-        this.resumePoint = { kind: "beforeTest", test, ticksLeft: test.ticksBefore }
+      // the pause takes the place of the last tick before the test, so it starts on the same tick it would otherwise
+      const ticksBefore = this.stepping ? math.max(test.ticksBefore - 1, 0) : test.ticksBefore
+      if (ticksBefore > 0) {
+        this.resumePoint = { kind: "beforeTest", test, ticksLeft: ticksBefore }
         return
       }
-      if (this.startAndRunTest(test)) return
+      if (this.reachTest(test)) return
     }
   }
 
@@ -283,10 +329,43 @@ export class TestRunner {
     )
   }
 
+  /** Returns true if the runner suspended or paused. */
+  private reachTest(test: Test): boolean {
+    if (this.stepping) {
+      this.pause({ kind: "testStart", test })
+      return true
+    }
+    return this.startAndRunTest(test)
+  }
+
+  private pause(point: StepPoint): void {
+    this.stepPause = point
+    this.emit({
+      type: "stepPaused",
+      test: stepPointTest(point),
+      step: point.kind === "stepPart" ? stepPartLabel(point.testRun.test, point.partIndex) : undefined,
+    })
+  }
+
+  /** Returns true if the runner suspended. */
+  private startStepPoint(point: StepPoint): boolean {
+    return point.kind === "testStart"
+      ? this.startAndRunTest(point.test)
+      : this.startStepPart(point.testRun, point.partIndex)
+  }
+
+  private skipTest(point: StepPoint): void {
+    if (point.kind === "stepPart") {
+      this.closeTestRun(point.testRun, false)
+    }
+    this.emit({ type: "testSkippedByUser", test: stepPointTest(point) })
+  }
+
   /** Returns true if the runner suspended on an async part. */
   private startAndRunTest(test: Test): boolean {
     test.profiler = helpers.create_profiler()
-    const testRun = newTestRun(test, 0)
+    const part = newPartRun(0)
+    const testRun: TestRun = { test, afterTestFuncs: [], part }
     this.state.currentTestRun = testRun
     this.emit({ type: "testStarted", test })
 
@@ -299,17 +378,27 @@ export class TestRunner {
       }
     }
 
-    this.runPart(testRun)
-    return this.advanceParts(testRun)
+    this.runPart(testRun, part)
+    return this.advanceParts(testRun, part)
+  }
+
+  /** Returns true if the runner suspended. */
+  private startStepPart(testRun: TestRun, partIndex: number): boolean {
+    this.emit({ type: "stepStarted", test: testRun.test, step: stepPartLabel(testRun.test, partIndex) })
+    return this.advanceParts(testRun, this.startPart(testRun, partIndex))
   }
 
   /** Returns true if the runner is still suspended on the part. */
-  private pollAsyncPart(testRun: TestRun): boolean {
-    const { test, part } = testRun
+  private pollAsyncPart(testRun: TestRun, part: PartRun): boolean {
+    const { test } = testRun
     const tickNumber = ++part.ticksElapsed
     const timeout = part.timeout
     if (tickNumber > timeout) {
-      test.errors.push(`Test timed out after ${timeout} ticks:\n${formatSource(test.parts[part.partIndex]!.source)}`)
+      pushPartError(
+        test,
+        part,
+        `Test timed out after ${timeout} ticks:\n${formatSource(test.parts[part.partIndex]!.source)}`,
+      )
     }
 
     if (test.errors.length === 0) {
@@ -317,35 +406,42 @@ export class TestRunner {
       for (const func of Object.keys(part.onTickFuncs)) {
         const [success, result] = __factorio_test__pcallWithStacktrace(func, tickNumber)
         if (!success) {
-          test.errors.push(result as string)
+          pushPartError(test, part, result as string)
           break
         } else if (result === false) {
           part.onTickFuncs.delete(func)
         }
       }
     }
-    return this.advanceParts(testRun)
+    return this.advanceParts(testRun, part)
   }
 
-  private runPart(testRun: TestRun): void {
-    const { test, part } = testRun
+  private startPart(testRun: TestRun, partIndex: number): PartRun {
+    const part = newPartRun(partIndex)
+    testRun.part = part
+    this.runPart(testRun, part)
+    return part
+  }
+
+  private runPart(testRun: TestRun, part: PartRun): void {
+    const { test } = testRun
     this.state.currentTestRun = testRun
     if (test.errors.length === 0) {
       const [success, message] = __factorio_test__pcallWithStacktrace(test.parts[part.partIndex]!.func)
       if (!success) {
-        test.errors.push(message as string)
+        pushPartError(test, part, message as string)
       }
     }
   }
 
   /**
    * Called after a part has run or been polled: runs any following parts, then either
-   * suspends on an unfinished part or leaves the test. Returns true if suspended.
+   * suspends on an unfinished part or a step boundary, or leaves the test. Returns true if suspended.
    */
-  private advanceParts(testRun: TestRun): boolean {
+  private advanceParts(testRun: TestRun, part: PartRun): boolean {
     const { test } = testRun
-    while (isPartComplete(testRun)) {
-      const nextIndex = testRun.part.partIndex + 1
+    while (isPartComplete(test, part)) {
+      const nextIndex = part.partIndex + 1
       if (nextIndex >= test.parts.length) {
         // A cancel raised from the test body must not emit testPassed/testFailed.
         // Leave currentTestRun set, so the next tick's cancelRun runs afterEach.
@@ -353,23 +449,38 @@ export class TestRunner {
         this.leaveTest(testRun)
         return false
       }
-      const { reloadBefore } = test.parts[nextIndex]!
-      if (reloadBefore && test.errors.length === 0) {
-        if (testRun.afterTestFuncs.length === 0) {
-          this.beginReload(testRun.test, nextIndex, reloadBefore)
+      const { reloadBefore, step } = test.parts[nextIndex]!
+      if (test.errors.length === 0) {
+        if (reloadBefore) {
+          if (testRun.afterTestFuncs.length === 0) {
+            this.beginReload(test, nextIndex, reloadBefore)
+            return true
+          }
+          test.errors.push(`after_test cannot be used before a reload (after_reload_${reloadBefore})`)
+        } else if (step) {
+          this.reachStepPart(testRun, nextIndex)
           return true
         }
-        test.errors.push(`after_test cannot be used before a reload (after_reload_${reloadBefore})`)
       }
-      testRun.part = newPartRun(nextIndex)
-      this.runPart(testRun)
+      part = this.startPart(testRun, nextIndex)
     }
-    this.resumePoint = { kind: "asyncPart", testRun }
+    this.resumePoint = { kind: "asyncPart", testRun, part }
     return true
   }
 
+  private reachStepPart(testRun: TestRun, partIndex: number): void {
+    testRun.part = undefined
+    const point: StepPoint = { kind: "stepPart", testRun, partIndex }
+    // a cancel from the completed part must not pause: the paused runner would never tick into cancelRun
+    if (this.stepping && !this.cancelRequested) {
+      this.pause(point)
+    } else {
+      this.resumePoint = { kind: "startStepPoint", point }
+    }
+  }
+
   private beginReload(test: Test, resumePartIndex: number, kind: ReloadKind): void {
-    prepareReload(this.state, test, resumePartIndex)
+    prepareReload(this.state, { test, partIndex: resumePartIndex, stepping: this.stepping })
     this.resumePoint = { kind: "awaitingReload" }
     if (kind === "mods") {
       game.reload_mods()
@@ -378,11 +489,15 @@ export class TestRunner {
     }
   }
 
+  private closeTestRun(testRun: TestRun, recordErrors: boolean): void {
+    runAfterEachHooks(testRun, recordErrors)
+    this.state.currentTestRun = undefined
+    testRun.test.profiler?.stop()
+  }
+
   private leaveTest(testRun: TestRun): void {
     const { test } = testRun
-    runAfterEachHooks(testRun, true)
-    this.state.currentTestRun = undefined
-    test.profiler!.stop()
+    this.closeTestRun(testRun, true)
 
     if (test.errors.length === 0) {
       this.emit({ type: "testPassed", test })
@@ -412,11 +527,8 @@ export class TestRunner {
     const { state } = this
     let block: DescribeBlock | undefined
     if (state.currentTestRun) {
-      const { test } = state.currentTestRun
-      block = test.parent
-      runAfterEachHooks(state.currentTestRun, false)
-      test.profiler?.stop()
-      state.currentTestRun = undefined
+      block = state.currentTestRun.test.parent
+      this.closeTestRun(state.currentTestRun, false)
     } else {
       block = this.cursor?.block
     }

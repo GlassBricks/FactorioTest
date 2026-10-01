@@ -1,5 +1,6 @@
 import {
   ButtonGuiElement,
+  FlowGuiElement,
   FrameGuiElement,
   LabelGuiElement,
   LocalisedString,
@@ -12,9 +13,8 @@ import { Locale, Misc, Prototypes } from "../constants"
 import { getPlayer } from "./shared/util"
 import { MessageHandler } from "./output"
 import { TestRunResults } from "./results"
-import { TestEventContext } from "./test-events"
 import { testStorage } from "./storage"
-import { TestEventListener } from "./test-events"
+import { StepAction, TestEventContext, TestEventListener } from "./test-events"
 import { countActiveTests } from "./tests"
 import ProgressGui = Locale.ProgressGui
 import ConfigGui = Locale.ConfigGui
@@ -26,6 +26,8 @@ export interface TestGui {
   progressBar: ProgressBarGuiElement
   progressLabel: LabelGuiElement
   testSummary: LabelGuiElement
+  stepBar: FlowGuiElement
+  stepLabel: LabelGuiElement
   output: ScrollPaneGuiElement
   actionButton: ButtonGuiElement
 
@@ -71,6 +73,31 @@ function TestSummary(parent: LuaGuiElement): LabelGuiElement {
   const label = parent.add({ type: "label" })
   label.style.font = "default-bold"
   return label
+}
+
+function stepButton(parent: LuaGuiElement, caption: ProgressGui, action: StepAction, style?: string): void {
+  parent.add({
+    type: "button",
+    caption: [caption],
+    style,
+    tags: { modName: "factorio-test", on_gui_click: Misc.StepAction, stepAction: action },
+  })
+}
+
+function StepBar(parent: LuaGuiElement): { stepBar: FlowGuiElement; stepLabel: LabelGuiElement } {
+  const stepBar = parent.add({ type: "flow", direction: "horizontal" })
+  stepBar.style.vertical_align = "center"
+  stepBar.visible = false
+
+  const stepLabel = stepBar.add({ type: "label" })
+  stepLabel.style.font = "default-bold"
+  const spacer = stepBar.add({ type: "empty-widget" })
+  spacer.style.horizontally_stretchable = true
+
+  stepButton(stepBar, ProgressGui.StepSkipTest, "skipTest")
+  stepButton(stepBar, ProgressGui.StepRunRest, "runRest")
+  stepButton(stepBar, ProgressGui.StepContinue, "continue", "confirm_button_without_tooltip")
+  return { stepBar, stepLabel }
 }
 
 function TestOutput(parent: LuaGuiElement): ScrollPaneGuiElement {
@@ -186,6 +213,7 @@ function createTestProgressGui(state: TestEventContext): TestGui {
     statusText: StatusText(topFrame),
     ...ProgressBar(topFrame),
     testSummary: TestSummary(topFrame),
+    ...StepBar(topFrame),
     output: TestOutput(contentFlow),
     ...bottomButtonsBar(contentFlow),
   }
@@ -251,6 +279,24 @@ export const progressGuiListener: TestEventListener = (event, state) => {
       gui.statusText.caption = [ProgressGui.RunningTest, event.test.parent.path]
       break
     }
+    case "testSkippedByUser": {
+      gui.totalTests--
+      updateTestCounts(gui, state.report.results)
+      gui.statusText.caption = [ProgressGui.RunningTest, event.test.parent.path]
+      break
+    }
+    case "stepStarted":
+      gui.statusText.caption = [ProgressGui.RunningStep, event.test.path, event.step]
+      break
+    case "stepPaused": {
+      const { test, step } = event
+      gui.stepLabel.caption = [ProgressGui.StepPaused, step ? [ProgressGui.RunningStep, test.path, step] : test.path]
+      gui.stepBar.visible = true
+      break
+    }
+    case "stepResumed":
+      gui.stepBar.visible = false
+      break
     case "describeBlockFinished": {
       const { block } = event
       if (block.parent) gui.statusText.caption = [ProgressGui.RunningTest, block.parent.path]
@@ -283,9 +329,15 @@ export const progressGuiListener: TestEventListener = (event, state) => {
 }
 
 function showRunEnded(gui: TestGui, statusLocale: ProgressGui): void {
+  gui.stepBar.visible = false
   gui.statusText.caption = [statusLocale]
   gui.actionButton.caption = [ConfigGui.RerunTests]
   gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
+}
+
+export function hideStepBar(): void {
+  const gui = getTestProgressGui()
+  if (gui) gui.stepBar.visible = false
 }
 
 const profilerLength = "(Duration: 0.082400ms)".length - "(<Profiler>)".length

@@ -58,6 +58,7 @@ Test execution options are nested under a `test` key and use snake_case. These o
 | `reorder_failed_first` | `--reorder-failed-first` | Run failed tests first |
 | `log_passed_tests` | `--log-passed-tests` | Log passed test names |
 | `log_skipped_tests` | `--log-skipped-tests` | Log skipped test names |
+| `step` | `--step` | Pause before each test and step ([Step Mode](Running-Tests.md#step-mode)); requires `--graphics` |
 
 ### Example
 

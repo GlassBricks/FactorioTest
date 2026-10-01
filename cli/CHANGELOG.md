@@ -1,5 +1,9 @@
 ## Unreleased
 
+### Features
+
+- `--step` (config file: `test.step`): with `--graphics`, pause before each test and step, to watch the run in a window. Requires factorio-test mod v3.1.1.
+
 ### Changes
 
 - The Space Age DLC mods (`space-age`, `quality`, `elevated-rails`, `recycler`) are now disabled by

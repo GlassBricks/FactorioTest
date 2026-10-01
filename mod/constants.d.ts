@@ -57,6 +57,11 @@ export namespace Locale {
     TestsCancelled = "factorio-test.progress-gui.tests-cancelled",
     Cancel = "factorio-test.progress-gui.cancel",
     LoadError = "factorio-test.progress-gui.load-error",
+    RunningStep = "factorio-test.progress-gui.running-step",
+    StepPaused = "factorio-test.progress-gui.step-paused",
+    StepContinue = "factorio-test.progress-gui.step-continue",
+    StepSkipTest = "factorio-test.progress-gui.step-skip-test",
+    StepRunRest = "factorio-test.progress-gui.step-run-rest",
   }
 }
 
@@ -73,5 +78,6 @@ export const enum Misc {
   CloseTestGui = "close-test-gui",
   CancelTestRun = "cancel-test-run",
   RunTests = "start-tests",
+  StepAction = "step-action",
   TestGui = "factorio-test-test-gui",
 }

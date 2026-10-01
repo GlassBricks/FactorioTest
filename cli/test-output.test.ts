@@ -89,6 +89,18 @@ describe("ProgressRenderer", () => {
       expect(output).toContain("Running: describe > my test")
     })
 
+    it("includes the current step, until the test finishes", () => {
+      const renderer = new ProgressRenderer(true)
+      renderer.handleEvent({ type: "testRunStarted", total: 10 })
+      renderer.handleEvent({ type: "testStarted", test: { path: "describe > my test" } })
+      renderer.handleEvent({ type: "stepStarted", test: { path: "describe > my test" }, step: "step 1" })
+      expect(vi.mocked(logUpdate).mock.lastCall![0]).toContain("Running: describe > my test > step 1")
+
+      renderer.handleTestFinished({ path: "describe > my test", result: "passed", errors: [], logs: [] })
+      renderer.withPermanentOutput(() => {})
+      expect(vi.mocked(logUpdate).mock.lastCall![0]).not.toContain("Running:")
+    })
+
     it("handles ran exceeding total without error", () => {
       const renderer = new ProgressRenderer(true)
       renderer.handleEvent({ type: "testRunStarted", total: 2 })

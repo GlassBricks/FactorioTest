@@ -85,6 +85,13 @@ const testConfigFields = {
       description: "Log skipped test names.",
     },
   },
+  step: {
+    schema: z.boolean().optional(),
+    cli: {
+      flags: "--step",
+      description: "Pause before each test and step, to watch the run in a window (requires --graphics).",
+    },
+  },
 } satisfies Record<string, FieldDef>
 
 export const testRunnerConfigSchema: z.ZodType<TestRunnerConfig> = z.strictObject(

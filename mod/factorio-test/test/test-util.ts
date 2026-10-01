@@ -36,3 +36,11 @@ export function assertThrows(fn: () => void, msg?: string): void {
   const [ok] = pcall(fn)
   if (ok) error(msg ?? "Expected function to throw")
 }
+
+export function assertThrowsWith(fn: () => void, message: string): void {
+  const [ok, err] = pcall(fn)
+  if (ok) error("Expected function to throw")
+  if (string.find(tostring(err), message, 1, true)[0] === undefined) {
+    error(`Expected error containing "${message}", got "${tostring(err)}"`)
+  }
+}

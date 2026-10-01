@@ -12,6 +12,17 @@ test("In world", () => {
   assert(game.surfaces[1]!.count_entities_filtered({}) > 0, "expected entities in world")
 })
 
+let partsRun: string[] = []
+test("Steps", () => {
+  partsRun = ["body"]
+})
+  .step("captioned step", () => {
+    partsRun.push("captioned step")
+  })
+  .step(() => {
+    assert(partsRun.join() === "body,captioned step", `unexpected parts run: ${partsRun.join()}`)
+  })
+
 describe("fail in describe block", () => {
   error("Oh no")
 })

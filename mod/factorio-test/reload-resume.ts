@@ -177,20 +177,29 @@ export interface ResumeData {
   results: TestRunResults
   failedTestPaths: LuaSet<string>
   isRerun: boolean
+  stepping: boolean
   profiler: LuaProfiler
   resumeTestPath: string
   resumePartIndex: number
 }
 
-export function prepareReload(testState: TestState, test: Test, resumePartIndex: number): void {
+export interface ResumePoint {
+  test: Test
+  partIndex: number
+  stepping: boolean
+}
+
+export function prepareReload(testState: TestState, resumePoint: ResumePoint): void {
+  const { test, partIndex, stepping } = resumePoint
   const { store } = testState
   store.persisted().resume = {
     rootBlock: snapshotAndDetachDescribeBlock(testState.suite.rootBlock),
     results: testState.report.results,
     failedTestPaths: testState.report.failedTestPaths,
     isRerun: testState.isRerun,
+    stepping,
     resumeTestPath: test.path,
-    resumePartIndex,
+    resumePartIndex: partIndex,
     profiler: testState.report.profiler!,
   }
   testState.suite.rootBlock = undefined!
@@ -198,7 +207,7 @@ export function prepareReload(testState: TestState, test: Test, resumePartIndex:
   store.stage.set(TestStage.ReloadingMods)
 }
 
-export function resumeAfterReload(state: TestState): { test: Test; partIndex: number } | undefined {
+export function resumeAfterReload(state: TestState): ResumePoint | undefined {
   const persisted = state.store.persisted()
   const testResume = persisted.resume ?? error("attempting to resume after reload without resume data saved")
   persisted.resume = undefined
@@ -228,5 +237,6 @@ export function resumeAfterReload(state: TestState): { test: Test; partIndex: nu
   return {
     test,
     partIndex: testResume.resumePartIndex,
+    stepping: testResume.stepping,
   }
 }

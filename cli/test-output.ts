@@ -26,6 +26,9 @@ export class ProgressRenderer {
     } else if (event.type === "testStarted") {
       this.currentTest = event.test.path
       this.render()
+    } else if (event.type === "stepStarted") {
+      this.currentTest = `${event.test.path} > ${event.step}`
+      this.render()
     }
   }
 
@@ -166,6 +169,8 @@ export class OutputFormatter {
         return chalk.dim(`Running ${event.total} tests...`)
       case "testStarted":
         return chalk.dim(`Starting: ${event.test.path}`)
+      case "stepStarted":
+        return chalk.dim(`Step: ${event.test.path} > ${event.step}`)
       case "loadError":
         return chalk.red(`Load error: ${event.error}`)
       case "testRunCancelled":

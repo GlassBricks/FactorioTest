@@ -1,6 +1,9 @@
 ---------------------------------------------------------------------------------------------------
 Version: 3.1.1
 Date: ????
+  Features:
+    - `.step(fn)` / `.step(caption, fn)` on tests: parts that each start on a new tick, with their own async context.
+    - Step mode (`step` config, CLI `--step`): pause before each test and step, with Continue / Skip test / Run the rest buttons in the test GUI.
   Changes:
     - `test_pattern` config can be a list of patterns; tests matching any pattern are run.
     - Removed the always-zero `cancelled` count from test run results.

@@ -68,6 +68,27 @@ With `--graphics --watch`, the CLI sends a UDP signal to trigger in-game reload 
 
 Configure watched patterns with `--watch-patterns` (default: `info.json`, `**/*.lua`).
 
+### Step Mode
+
+Use `--step` with `--graphics` to watch a test run at human speed:
+
+```bash
+npx factorio-test run --mod-path ./my-mod --graphics --step
+```
+
+The game pauses before each test and before each [step](Writing-Tests.md#steps), and the test GUI
+shows what runs next, with buttons:
+
+- **Continue**: run the next test or step.
+- **Skip test**: abandon the test, and report it as skipped. `after_test` and `after_each` hooks still run.
+- **Run the rest**: stop pausing for the rest of this run.
+
+While step mode is on, the game runs at speed 1 instead of `game_speed`. The run does not pause
+before skipped tests, before `after_reload_*` parts, or before a step once the test has failed.
+
+Step mode can also be enabled with the `step` [config option](Configuration.md); in headless mode,
+it is ignored with a warning.
+
 ### Test Results File
 
 By default, test results are written to `test-results.json` in the data directory. With `--reorder-failed-first`, the CLI uses this file to run previously failed tests first.

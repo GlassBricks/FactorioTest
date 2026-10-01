@@ -12,7 +12,7 @@ function emitResult(status: string) {
 export const gameEnvironmentListener: TestEventListener = (event, state) => {
   switch (event.type) {
     case "testRunStarted":
-      game.speed = state.config.game_speed
+      game.speed = state.config.step ? 1 : state.config.game_speed
       game.autosave_enabled = false
       state.config.before_test_run?.()
       break
@@ -33,6 +33,13 @@ export const gameEnvironmentListener: TestEventListener = (event, state) => {
     case "loadError":
       game.speed = 1
       game.play_sound({ path: "utility/console_message" })
+      break
+    case "stepPaused":
+      game.tick_paused = true
+      break
+    case "stepResumed":
+      game.tick_paused = false
+      if (event.action === "runRest") game.speed = state.config.game_speed
       break
   }
 }

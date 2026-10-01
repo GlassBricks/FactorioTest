@@ -36,10 +36,25 @@ export type TestTags = LuaSet<string>
 
 export type ReloadKind = "mods" | "script"
 
+export interface PartStep {
+  readonly caption?: string
+  /** 1-based, among the test's step parts only. */
+  readonly index: number
+}
+
 export interface TestPart {
   readonly func: TestFn
   readonly source: Source
   readonly reloadBefore?: ReloadKind
+  readonly step?: PartStep
+}
+
+export function stepLabel({ caption, index }: PartStep): string {
+  return caption ?? `step ${index}`
+}
+
+export function formatStepError({ caption, index }: PartStep, message: string): string {
+  return caption !== undefined ? `In step "${caption}": ${message}` : `In step ${index}: ${message}`
 }
 
 export interface Test {

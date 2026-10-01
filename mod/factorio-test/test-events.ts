@@ -53,6 +53,28 @@ export interface LoadError extends BaseTestEvent {
   type: "loadError"
 }
 
+export type StepAction = "continue" | "runRest" | "skipTest"
+
+export interface StepPaused extends BaseTestEvent {
+  type: "stepPaused"
+  test: Test
+  /** The step label; undefined when paused before the test starts. */
+  step: string | undefined
+}
+export interface StepResumed extends BaseTestEvent {
+  type: "stepResumed"
+  action: StepAction | "cancel"
+}
+export interface StepStarted extends BaseTestEvent {
+  type: "stepStarted"
+  test: Test
+  step: string
+}
+export interface TestSkippedByUser extends BaseTestEvent {
+  type: "testSkippedByUser"
+  test: Test
+}
+
 export type TestEvent =
   | TestRunStarted
   | DescribeBlockEntered
@@ -67,6 +89,10 @@ export type TestEvent =
   | TestRunFinished
   | TestRunCancelled
   | LoadError
+  | StepPaused
+  | StepResumed
+  | StepStarted
+  | TestSkippedByUser
 
 /**
  * What a listener may see: the suite being run and what the run has produced so far,

@@ -47,6 +47,7 @@ export function recordEvent(report: RunReport, event: TestEvent): void {
       report.failedTestPaths.add(event.test.path)
       break
     case "testSkipped":
+    case "testSkippedByUser":
       results.skipped++
       break
     case "testTodo":
