@@ -19,7 +19,8 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.22.0",
-    "typescript-to-lua": "^1.33.2"
+    "typescript-to-lua": "^1.33.2",
+    "vitest": "^3.2.6"
   },
   "scripts": {
     "lint": "npm run lint --workspaces --if-present && eslint integration-tests",
@@ -33,7 +34,7 @@
     "build:test-mods": "concurrently npm:build:usage-test-mod npm:build:only-test-mod npm:build:infinite-loop-mod",
     "build:integration": "conc \"npm run pretest -w mod\" npm:build:test-mods",
     "pretest:integration": "npm run build:integration",
-    "test:integration": "tsx integration-tests/test-runner.ts",
+    "test:integration": "vitest run --root integration-tests",
     "prerun-fixture": "npm run build:integration",
     "run-fixture": "tsx integration-tests/run-fixture.ts",
     "prerecord-transcript": "npm run build:integration",

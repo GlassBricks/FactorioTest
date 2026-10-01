@@ -1,0 +1,115 @@
+import * as fs from "fs"
+import * as path from "path"
+import { expect } from "vitest"
+import { test } from "../test-fixture.js"
+import { runCli, runCliWithTimeout } from "../test-utils.js"
+
+interface TestCase {
+  name: string
+  modPath?: string
+  args?: string[]
+  configFile?: Record<string, unknown>
+  expectedOutput: string[]
+  unexpectedOutput?: string[]
+  expectExitCode: number
+}
+
+const testCases: TestCase[] = [
+  {
+    name: "Test config from file and CLI reaches the mod",
+    args: ["--game-speed", "300", "--test-pattern", "Pass"],
+    configFile: { test: { game_speed: 200, default_timeout: 120 } },
+    expectedOutput: [
+      "CONFIG:game_speed=300",
+      "CONFIG:default_timeout=120",
+      "CONFIG:test_pattern=Pass",
+      "PASS test1 > Pass",
+    ],
+    unexpectedOutput: ["PASS test1 > each 1", "PASS test1 > In world"],
+    expectExitCode: 1,
+  },
+  {
+    name: ".only test with --forbid-only (default) fails",
+    modPath: "../integration-tests/fixtures/only-test-mod",
+    expectedOutput: ["only-test-mod: completed", "Error: .only tests are present"],
+    expectExitCode: 1,
+  },
+  {
+    name: "--bail stops after first failure",
+    args: ["--bail"],
+    expectedOutput: [
+      "FAIL test1 > each 2",
+      "Bailed out after 1 failure(s)",
+      "Tests: 1 failed, 1 todo, 1 skipped, 2 passed (5 total)",
+    ],
+    unexpectedOutput: ["PASS test1 > In world", "PASS folder/test2 > Reload"],
+    expectExitCode: 1,
+  },
+]
+
+async function writeConfigFile(dir: string, config: Record<string, unknown> | undefined): Promise<string[]> {
+  if (!config) return []
+  const configFilePath = path.join(dir, "config.json")
+  await fs.promises.writeFile(configFilePath, JSON.stringify(config, null, 2))
+  return ["--config", configFilePath]
+}
+
+test.for(testCases.map((tc) => [tc.name, tc] as const))("%s", async ([, tc], { dirs }) => {
+  const configArgs = await writeConfigFile(dirs.tempDir, tc.configFile)
+  const { stdout, stderr, code } = await runCli({
+    modPath: tc.modPath,
+    dataDir: dirs.dataDir,
+    extraArgs: [...configArgs, ...(tc.args ?? [])],
+  })
+  const output = stdout + stderr
+
+  for (const expected of tc.expectedOutput) expect(output).toContain(expected)
+  for (const unexpected of tc.unexpectedOutput ?? []) expect(output).not.toContain(unexpected)
+  expect(code).toBe(tc.expectExitCode)
+})
+
+interface ModListEntry {
+  name: string
+  enabled: boolean
+}
+
+const dlcMods = ["space-age", "quality", "elevated-rails", "recycler"]
+
+async function readDlcModStates(dataDir: string): Promise<Record<string, boolean | undefined>> {
+  const modListPath = path.join(dataDir, "mods", "mod-list.json")
+  const { mods } = JSON.parse(await fs.promises.readFile(modListPath, "utf-8")) as { mods: ModListEntry[] }
+  return Object.fromEntries(dlcMods.map((name) => [name, mods.find((mod) => mod.name === name)?.enabled]))
+}
+
+function allDlcModsEnabled(enabled: boolean): Record<string, boolean> {
+  return Object.fromEntries(dlcMods.map((name) => [name, enabled]))
+}
+
+test("DLC mods disabled by default", async ({ dirs }) => {
+  await runCli({ dataDir: dirs.dataDir })
+
+  expect(await readDlcModStates(dirs.dataDir)).toEqual(allDlcModsEnabled(false))
+})
+
+test("DLC mod enabled via --mods, with its dependencies", async ({ dirs }) => {
+  const { stdout } = await runCli({ dataDir: dirs.dataDir, extraArgs: ["--mods", "space-age"] })
+
+  expect(await readDlcModStates(dirs.dataDir)).toEqual(allDlcModsEnabled(true))
+  expect(stdout).toContain("Usage test mod result: passed")
+})
+
+test("--output-timeout kills stuck process", async ({ dirs }) => {
+  const { stdout, stderr, code } = await runCliWithTimeout(
+    {
+      modPath: "../integration-tests/fixtures/infinite-loop-mod",
+      dataDir: dirs.dataDir,
+      extraArgs: ["--output-timeout", "3"],
+    },
+    30,
+  )
+  const output = stdout + stderr
+
+  expect(output).toContain("no output received for 3 seconds")
+  expect(output).toContain(path.join(dirs.dataDir, "factorio-current.log"))
+  expect(code).not.toBe(0)
+})

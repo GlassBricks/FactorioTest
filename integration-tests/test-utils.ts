@@ -17,63 +17,20 @@ export async function symlinkLocalFactorioTest(modsDir: string): Promise<void> {
   await fs.promises.symlink(localModPath, symlinkPath, "junction")
 }
 
-export interface TestResult {
-  name: string
-  passed: boolean
-  messages: string[]
-  durationMs: number
-}
-
-export interface TestContext {
+export interface TestDirs {
   tempDir: string
   dataDir: string
-  modsDir: string
-  log: (msg: string) => void
-  messages: string[]
 }
 
-export interface TestDefinition {
-  name: string
-  run: (ctx: TestContext) => Promise<boolean>
-}
-
-export async function createTestContext(prefix: string): Promise<TestContext> {
+export async function createTestDirs(prefix: string): Promise<TestDirs> {
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), `factorio-test-${prefix}-`))
   const dataDir = path.join(tempDir, "data")
-  const modsDir = path.join(dataDir, "mods")
-  const messages: string[] = []
-  await symlinkLocalFactorioTest(modsDir)
-  return {
-    tempDir,
-    dataDir,
-    modsDir,
-    messages,
-    log: (msg: string) => messages.push(msg),
-  }
+  await symlinkLocalFactorioTest(path.join(dataDir, "mods"))
+  return { tempDir, dataDir }
 }
 
-export async function cleanupTestContext(ctx: TestContext): Promise<void> {
-  await fs.promises.rm(ctx.tempDir, { recursive: true, force: true })
-}
-
-export async function runWithConcurrencyLimit<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length)
-  let nextIndex = 0
-
-  async function worker() {
-    while (nextIndex < items.length) {
-      const index = nextIndex++
-      results[index] = await fn(items[index], index)
-    }
-  }
-
-  const workers = Array.from({ length: Math.min(limit, items.length) }, worker)
-  await Promise.all(workers)
-  return results
+export async function removeTestDirs(dirs: TestDirs): Promise<void> {
+  await fs.promises.rm(dirs.tempDir, { recursive: true, force: true })
 }
 
 export interface RunCliOptions {
@@ -136,54 +93,4 @@ export function runCliWithTimeout(options: RunCliOptions, timeoutSeconds: number
   return collectOutput(
     spawnInRoot("timeout", [String(timeoutSeconds), "npm", ...buildCliArgs(options)], collectedStdio),
   )
-}
-
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-export async function waitForOutput(output: { value: string }, pattern: string, timeoutMs: number): Promise<boolean> {
-  const start = Date.now()
-  while (Date.now() - start < timeoutMs) {
-    if (output.value.includes(pattern)) return true
-    await sleep(100)
-  }
-  return false
-}
-
-export async function runTest(test: TestDefinition): Promise<TestResult> {
-  const ctx = await createTestContext(test.name.replace(/\s+/g, "-").slice(0, 20))
-  const start = Date.now()
-  try {
-    const passed = await test.run(ctx)
-    return { name: test.name, passed, messages: ctx.messages, durationMs: Date.now() - start }
-  } finally {
-    await cleanupTestContext(ctx)
-  }
-}
-
-export async function runTests(tests: TestDefinition[]): Promise<void> {
-  const concurrency = Math.max(1, Math.floor((os.cpus().length * 3) / 4))
-  console.log(`Running ${tests.length} tests with concurrency ${concurrency}...`)
-
-  const results = await runWithConcurrencyLimit(tests, concurrency, runTest)
-
-  let passed = 0
-  let failed = 0
-
-  for (const result of results) {
-    const duration = (result.durationMs / 1000).toFixed(1)
-    console.log(`\n=== ${result.name} (${duration}s) ===`)
-    for (const msg of result.messages) {
-      console.log(`  ${msg}`)
-    }
-    if (result.passed) {
-      passed++
-    } else {
-      failed++
-    }
-  }
-
-  console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`)
-  process.exit(failed > 0 ? 1 : 0)
 }

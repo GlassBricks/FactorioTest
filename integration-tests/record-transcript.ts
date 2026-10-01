@@ -1,7 +1,7 @@
 import * as fs from "fs"
 import * as path from "path"
 import { autoDetectFactorioPath } from "../cli/factorio-process.js"
-import { cleanupTestContext, createTestContext, root, runCli } from "./test-utils.js"
+import { createTestDirs, removeTestDirs, root, runCli } from "./test-utils.js"
 
 const transcriptPath = path.join(root, "cli/test-fixtures/usage-test-mod.stdout")
 
@@ -37,21 +37,21 @@ function extractTestRun(raw: string, dataDir: string): string {
 }
 
 async function main() {
-  const ctx = await createTestContext("record")
+  const dirs = await createTestDirs("record")
   try {
-    const rawOutputPath = path.join(ctx.tempDir, "raw.stdout")
-    const wrapperPath = path.join(ctx.tempDir, "factorio-tee.mjs")
+    const rawOutputPath = path.join(dirs.tempDir, "raw.stdout")
+    const wrapperPath = path.join(dirs.tempDir, "factorio-tee.mjs")
     await fs.promises.writeFile(wrapperPath, teeWrapperScript(autoDetectFactorioPath(), rawOutputPath), { mode: 0o755 })
 
-    const { code } = await runCli({ dataDir: ctx.dataDir, extraArgs: ["--factorio-path", wrapperPath] })
+    const { code } = await runCli({ dataDir: dirs.dataDir, extraArgs: ["--factorio-path", wrapperPath] })
     console.log(`CLI exited with code ${code}`)
 
     const raw = await fs.promises.readFile(rawOutputPath, "utf8")
     await fs.promises.mkdir(path.dirname(transcriptPath), { recursive: true })
-    await fs.promises.writeFile(transcriptPath, extractTestRun(raw, ctx.dataDir))
+    await fs.promises.writeFile(transcriptPath, extractTestRun(raw, dirs.dataDir))
     console.log(`Wrote ${path.relative(root, transcriptPath)}`)
   } finally {
-    await cleanupTestContext(ctx)
+    await removeTestDirs(dirs)
   }
 }
 
