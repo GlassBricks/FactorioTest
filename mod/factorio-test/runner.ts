@@ -40,7 +40,7 @@ function newPartRun(partIndex: number): PartRun {
     async: false,
     timeout: 0,
     asyncDone: false,
-    tickStarted: game.tick,
+    ticksElapsed: 0,
     onTickFuncs: new LuaSet(),
   }
 }
@@ -306,7 +306,7 @@ export class TestRunner {
   /** Returns true if the runner is still suspended on the part. */
   private pollAsyncPart(testRun: TestRun): boolean {
     const { test, part } = testRun
-    const tickNumber = game.tick - part.tickStarted
+    const tickNumber = ++part.ticksElapsed
     const timeout = part.timeout
     if (tickNumber > timeout) {
       test.errors.push(`Test timed out after ${timeout} ticks:\n${formatSource(test.parts[part.partIndex]!.source)}`)

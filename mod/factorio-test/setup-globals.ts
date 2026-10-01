@@ -237,7 +237,7 @@ function onTick(context: TestContext, func: OnTickFn) {
 
 function afterTicks(context: TestContext, ticks: number, func: TestFn) {
   implicitAsync(context)
-  const finishTick = game.tick - getCurrentPart(context).tickStarted + ticks
+  const finishTick = getCurrentPart(context).ticksElapsed + ticks
   if (ticks < 1) error("after_ticks amount must be positive")
   onTick(context, (tick) => {
     if (tick >= finishTick) {

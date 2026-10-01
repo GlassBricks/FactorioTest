@@ -67,7 +67,7 @@ export interface PartRun {
   explicitAsync?: boolean
   timeout: number
   asyncDone: boolean
-  tickStarted: number
+  ticksElapsed: number
   onTickFuncs: LuaSet<OnTickFn>
 }
 
