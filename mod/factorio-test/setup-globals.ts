@@ -3,7 +3,7 @@
 import * as util from "util"
 import { createEachItems } from "./each-format"
 import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
-import { consumeTags, getDefinitionState, getTestState, PartRun, TestRun } from "./state"
+import { consumeTags, PartRun, TestContext, TestRun } from "./state"
 import { propagateTestMode } from "./test-mode"
 import {
   addDescribeBlock,
@@ -19,6 +19,7 @@ import {
 import DescribeCreator = FactorioTest.DescribeCreator
 import DescribeCreatorBase = FactorioTest.DescribeBlockCreatorBase
 import HookFn = FactorioTest.HookFn
+import OnTickFn = FactorioTest.OnTickFn
 import TestBuilder = FactorioTest.TestBuilder
 import TestCreator = FactorioTest.TestCreator
 import TestCreatorBase = FactorioTest.TestCreatorBase
@@ -29,24 +30,32 @@ function getCallerSource(upStack: number = 1): Source {
   return createSource(info.source, info.currentline)
 }
 
-export function getCurrentTestRun(): TestRun {
-  return getTestState().currentTestRun ?? error("This can only be called within a test")
+function getCurrentTestRun(context: TestContext): TestRun {
+  return context.testState().currentTestRun ?? error("This can only be called within a test")
 }
 
-function addHook(type: HookType, func: HookFn): void {
-  getDefinitionState().currentBlock.hooks.push({
+function addHook(context: TestContext, type: HookType, func: HookFn): void {
+  context.definition().currentBlock.hooks.push({
     type,
     func,
   })
 }
 
-function afterTest(func: TestFn): void {
-  getCurrentTestRun().afterTestFuncs.push(func)
+function afterTest(context: TestContext, func: TestFn): void {
+  getCurrentTestRun(context).afterTestFuncs.push(func)
 }
 
-function createTest(name: string, func: TestFn, mode: TestMode, upStack: number = 1): Test {
-  const parent = getDefinitionState().currentBlock
-  return addTest(parent, name, getCallerSource(upStack + 1), func, mode, util.merge([consumeTags(), parent.tags]))
+function createTest(context: TestContext, name: string, func: TestFn, mode: TestMode, upStack: number = 1): Test {
+  const definition = context.definition()
+  const parent = definition.currentBlock
+  return addTest(
+    parent,
+    name,
+    getCallerSource(upStack + 1),
+    func,
+    mode,
+    util.merge([consumeTags(definition), parent.tags]),
+  )
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
@@ -75,12 +84,18 @@ function createTestBuilder<F extends () => void>(
   return result
 }
 
-function createDescribe(name: string, block: TestFn, mode: TestMode, upStack: number = 1): DescribeBlock {
-  const definition = getDefinitionState()
+function createDescribe(
+  context: TestContext,
+  name: string,
+  block: TestFn,
+  mode: TestMode,
+  upStack: number = 1,
+): DescribeBlock {
+  const definition = context.definition()
   const source = getCallerSource(upStack + 1)
 
   const parent = definition.currentBlock
-  const describeBlock = addDescribeBlock(parent, name, source, mode, util.merge([parent.tags, consumeTags()]))
+  const describeBlock = addDescribeBlock(parent, name, source, mode, util.merge([parent.tags, consumeTags(definition)]))
   definition.currentBlock = describeBlock
   const [success, msg] = __factorio_test__pcallWithStacktrace(block)
   if (!success) {
@@ -96,9 +111,9 @@ function createDescribe(name: string, block: TestFn, mode: TestMode, upStack: nu
   return describeBlock
 }
 
-function createTestEach(mode: TestMode): TestCreatorBase {
+function createTestEach(context: TestContext, mode: TestMode): TestCreatorBase {
   const result: TestCreatorBase = (name, func) => {
-    const test = createTest(name, func, mode)
+    const test = createTest(context, name, func, mode)
     return createTestBuilder(
       (func1, reloadBefore) => addPart(test, func1, reloadBefore),
       (tag) => test.tags.add(tag),
@@ -108,7 +123,7 @@ function createTestEach(mode: TestMode): TestCreatorBase {
   result.each = (values: unknown[]) => (name: string, func: (...values: any[]) => void) => {
     const items = createEachItems(values, name)
     const testBuilders = items.map((item) => {
-      const test = createTest(item.name, () => func(...item.row), mode, 3)
+      const test = createTest(context, item.name, () => func(...item.row), mode, 3)
       return { test, row: item.row }
     })
     return createTestBuilder<(...args: unknown[]) => void>(
@@ -134,44 +149,107 @@ function createTestEach(mode: TestMode): TestCreatorBase {
 
   return result
 }
-function createDescribeEach(mode: TestMode): DescribeCreatorBase {
+
+function createDescribeEach(context: TestContext, mode: TestMode): DescribeCreatorBase {
   const result: DescribeCreatorBase = (name, func) => {
     // avoid tail call, messes up stack trace
     // noinspection UnnecessaryLocalVariableJS
-    const block: DescribeBlock = createDescribe(name, func, mode)
+    const block: DescribeBlock = createDescribe(context, name, func, mode)
     return block
   }
   result.each = (values: unknown[]) => (name: string, func: (...values: any[]) => void) => {
     const items = createEachItems(values, name)
     for (const { row, name } of items) {
-      createDescribe(name, () => func(...row), mode, 2)
+      createDescribe(context, name, () => func(...row), mode, 2)
     }
   }
   return result
 }
 
-const test = createTestEach(undefined) as TestCreator
-test.skip = createTestEach("skip")
-test.only = createTestEach("only")
-test.todo = (name: string) => {
-  createTest(
-    name,
-    () => {
-      //noop
-    },
-    "todo",
-  )
+function createTestCreator(context: TestContext): TestCreator {
+  const test = createTestEach(context, undefined) as TestCreator
+  test.skip = createTestEach(context, "skip")
+  test.only = createTestEach(context, "only")
+  test.todo = (name: string) => {
+    createTest(
+      context,
+      name,
+      () => {
+        //noop
+      },
+      "todo",
+    )
+  }
+  return test
 }
-const describe = createDescribeEach(undefined) as DescribeCreator
-describe.skip = createDescribeEach("skip")
-describe.only = createDescribeEach("only")
 
-function tags(...tags: string[]) {
-  const definition = getDefinitionState()
+function createDescribeCreator(context: TestContext): DescribeCreator {
+  const describe = createDescribeEach(context, undefined) as DescribeCreator
+  describe.skip = createDescribeEach(context, "skip")
+  describe.only = createDescribeEach(context, "only")
+  return describe
+}
+
+function tags(context: TestContext, tags: string[]) {
+  const definition = context.definition()
   if (definition.currentTags) {
     definition.currentBlock.errors.push(`Double call to tags()`)
   }
   definition.currentTags = util.list_to_map(tags)
+}
+
+function getCurrentPart(context: TestContext): PartRun {
+  return getCurrentTestRun(context).part
+}
+
+function implicitAsync(context: TestContext) {
+  const part = getCurrentPart(context)
+  part.async = true
+  if (!part.explicitAsync) {
+    part.timeout = context.testState().config.default_timeout
+  }
+}
+
+function async(context: TestContext, timeout?: number) {
+  const part = getCurrentPart(context)
+  part.async = true
+  part.explicitAsync = true
+
+  if (!timeout) {
+    timeout = context.testState().config.default_timeout
+  }
+  if (timeout < 1) error("test timeout must be greater than 0")
+
+  part.timeout = timeout
+}
+
+function done(context: TestContext) {
+  const part = getCurrentPart(context)
+
+  if (!part.async) error(`"done" can only be used when test is async`)
+  part.asyncDone = true
+}
+
+function onTick(context: TestContext, func: OnTickFn) {
+  implicitAsync(context)
+  getCurrentPart(context).onTickFuncs.add(func)
+}
+
+function afterTicks(context: TestContext, ticks: number, func: TestFn) {
+  implicitAsync(context)
+  const finishTick = game.tick - getCurrentPart(context).tickStarted + ticks
+  if (ticks < 1) error("after_ticks amount must be positive")
+  onTick(context, (tick) => {
+    if (tick >= finishTick) {
+      func()
+      return false
+    }
+  })
+}
+
+function ticksBetweenTests(context: TestContext, ticks: number) {
+  if (ticks < 0) error("ticks between tests must be 0 or greater")
+  context.definition().currentBlock.ticksBetweenTests = ticks
 }
 
 type SetupGlobals =
@@ -187,77 +265,26 @@ type SetupGlobals =
   | "describe"
   | "tags"
 
-function getCurrentPart(): PartRun {
-  return getCurrentTestRun().part
-}
+export type TestApi = Pick<typeof globalThis, SetupGlobals>
 
-function implicitAsync() {
-  const part = getCurrentPart()
-  part.async = true
-  if (!part.explicitAsync) {
-    part.timeout = getTestState().config.default_timeout
+export function createTestApi(context: TestContext): TestApi {
+  const test = createTestCreator(context)
+  return {
+    test,
+    it: test,
+    describe: createDescribeCreator(context),
+    tags: (...tagNames) => tags(context, tagNames),
+
+    before_all: (func) => addHook(context, "beforeAll", func),
+    after_all: (func) => addHook(context, "afterAll", func),
+    before_each: (func) => addHook(context, "beforeEach", func),
+    after_each: (func) => addHook(context, "afterEach", func),
+    after_test: (func) => afterTest(context, func),
+
+    async: (timeout) => async(context, timeout),
+    done: () => done(context),
+    on_tick: (func) => onTick(context, func),
+    after_ticks: (ticks, func) => afterTicks(context, ticks, func),
+    ticks_between_tests: (ticks) => ticksBetweenTests(context, ticks),
   }
-}
-
-function async(timeout?: number) {
-  const part = getCurrentPart()
-  part.async = true
-  part.explicitAsync = true
-
-  if (!timeout) {
-    timeout = getTestState().config.default_timeout
-  }
-  if (timeout < 1) error("test timeout must be greater than 0")
-
-  part.timeout = timeout
-}
-
-export const globals: Pick<typeof globalThis, SetupGlobals> = {
-  test,
-  it: test,
-  describe,
-  tags,
-
-  before_all(func) {
-    addHook("beforeAll", func)
-  },
-  after_all(func) {
-    addHook("afterAll", func)
-  },
-  before_each(func) {
-    addHook("beforeEach", func)
-  },
-  after_each(func) {
-    addHook("afterEach", func)
-  },
-  after_test(func) {
-    afterTest(func)
-  },
-
-  async,
-  done() {
-    const part = getCurrentPart()
-
-    if (!part.async) error(`"done" can only be used when test is async`)
-    part.asyncDone = true
-  },
-  on_tick(func) {
-    implicitAsync()
-    getCurrentPart().onTickFuncs.add(func)
-  },
-  after_ticks(ticks, func) {
-    implicitAsync()
-    const finishTick = game.tick - getCurrentPart().tickStarted + ticks
-    if (ticks < 1) error("after_ticks amount must be positive")
-    on_tick((tick) => {
-      if (tick >= finishTick) {
-        func()
-        return false
-      }
-    })
-  },
-  ticks_between_tests(ticks) {
-    if (ticks < 0) error("ticks between tests must be 0 or greater")
-    getDefinitionState().currentBlock.ticksBetweenTests = ticks
-  },
 }

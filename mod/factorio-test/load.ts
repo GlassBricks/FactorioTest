@@ -7,38 +7,51 @@ import { failedTestCollector, initializeFailedTestsFromConfig } from "./failed-t
 import { createLogListener, debugAdapterLogger, logLogger, MessageHandler } from "./output"
 import { resultCollector } from "./results"
 import { TestRunner } from "./runner"
-import { globals } from "./setup-globals"
+import { createTestApi } from "./setup-globals"
 import { getAutoStartMod, isHeadlessMode } from "./shared/auto-start-config"
 import { debugAdapterEnabled } from "./shared/util"
-import { beginDefinition, endDefinition, getTestState, globalTestStage, onTestStageChanged } from "./state"
+import { TestContext, TestStageStore } from "./state"
+import { testStorage } from "./storage"
 import { TestEventListener } from "./test-events"
 import { progressGuiListener, progressGuiLogger } from "./test-gui"
 import Config = FactorioTest.Config
 
 declare const ____originalRequire: typeof require
 
+const onTestStageChanged = script.generate_event_name<{ stage: TestStage }>()
+
+const globalTestStage: TestStageStore = {
+  get: () => testStorage().testStage ?? TestStage.NotRun,
+  set: (stage) => {
+    testStorage().testStage = stage
+    script.raise_event(onTestStageChanged, { stage })
+  },
+}
+
+let testContext: TestContext
+
 function isRunning() {
-  const stage = getTestState().stage.get()
+  const stage = testContext.stage.get()
   return !(stage === TestStage.NotRun || stage === TestStage.LoadError || stage === TestStage.Finished)
 }
 
 // noinspection JSUnusedGlobalSymbols
 export = function (files: string[], config: Partial<Config>): void {
-  loadTests(files, config)
+  testContext = loadTests(files, config)
   remote.add_interface(Remote.FactorioTest, {
     runTests,
     cancelTestRun,
     modName: () => script.mod_name,
-    getTestStage: () => getTestState().stage.get(),
+    getTestStage: () => testContext.stage.get(),
     isRunning,
     onTestStageChanged: () => onTestStageChanged,
-    getResults: () => getTestState().report.results,
-    getConfig: () => getTestState().config,
+    getResults: () => testContext.testState().report.results,
+    getConfig: () => testContext.config,
   })
   tapEvent(defines.events.on_tick, tryContinueTests)
 }
 
-function loadTests(files: string[], partialConfig: Partial<Config>): void {
+function loadTests(files: string[], partialConfig: Partial<Config>): TestContext {
   const config = fillConfig(partialConfig)
 
   if (config.load_luassert) {
@@ -46,7 +59,8 @@ function loadTests(files: string[], partialConfig: Partial<Config>): void {
     require("@NoResolution:__factorio-test__/luassert/init")
   }
 
-  // load globals
+  const context = new TestContext(config, globalTestStage)
+  const globals = createTestApi(context)
   const defineGlobal = __DebugAdapter?.defineGlobal
   if (defineGlobal) {
     for (const key in globals) defineGlobal(key)
@@ -55,16 +69,15 @@ function loadTests(files: string[], partialConfig: Partial<Config>): void {
     ;(globalThis as any)[key] = value
   }
 
-  beginDefinition(config)
-
-  const autoStartMod = getAutoStartMod()
-  const manualMod = settings.global[Settings.ModToTest]!.value
-  const modToTest = autoStartMod || manualMod
+  const modToTest = getAutoStartMod() || settings.global[Settings.ModToTest]!.value
   const _require = modToTest === "factorio-test" ? require : ____originalRequire
+
+  context.beginDefinition()
   for (const file of files) {
-    describe(file, () => _require(file))
+    globals.describe(file, () => _require(file))
   }
-  endDefinition(globalTestStage)
+  context.endDefinition()
+  return context
 }
 
 function createMessageHandlers(headless: boolean): MessageHandler[] {
@@ -89,10 +102,8 @@ function createTestListeners(headless: boolean): TestEventListener[] {
   return listeners
 }
 
-const testListeners = createTestListeners(isHeadlessMode())
-
 function tryContinueTests() {
-  const testStage = getTestState().stage.get()
+  const testStage = testContext.stage.get()
   if (testStage === TestStage.Running || testStage === TestStage.ReloadingMods) {
     doRunTests()
   } else {
@@ -106,7 +117,7 @@ function runTests() {
   if (isRunning()) return
 
   log(`Running tests for ${script.mod_name}`)
-  getTestState().stage.set(TestStage.Ready)
+  testContext.stage.set(TestStage.Ready)
   doRunTests()
 }
 
@@ -118,7 +129,8 @@ function doRunTests() {
   initializeFailedTestsFromConfig()
   if (game !== undefined) game.tick_paused = false
 
-  const runner = new TestRunner(getTestState(), testListeners)
+  const testListeners = createTestListeners(isHeadlessMode())
+  const runner = new TestRunner(testContext.testState(), testListeners)
   currentRunner = runner
   tapEvent(defines.events.on_tick, () => {
     runner.tick()

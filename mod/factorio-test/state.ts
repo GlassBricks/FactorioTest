@@ -1,25 +1,14 @@
 /** @noSelfInFile */
 import { TestStage } from "../constants"
 import { createRunReport, RunReport } from "./results"
-import { testStorage } from "./storage"
 import { createRootDescribeBlock, DescribeBlock, Test, TestSuite, TestTags } from "./tests"
 import Config = FactorioTest.Config
 import OnTickFn = FactorioTest.OnTickFn
 import HookFn = FactorioTest.HookFn
 
-export const onTestStageChanged = script.generate_event_name<{ stage: TestStage }>()
-
 export interface TestStageStore {
   get(): TestStage
   set(stage: TestStage): void
-}
-
-export const globalTestStage: TestStageStore = {
-  get: () => testStorage().testStage ?? TestStage.NotRun,
-  set: (stage) => {
-    testStorage().testStage = stage
-    script.raise_event(onTestStageChanged, { stage })
-  },
 }
 
 /**
@@ -29,7 +18,6 @@ export const globalTestStage: TestStageStore = {
  */
 export interface DefinitionState {
   readonly kind: "definition"
-  config: Config
   readonly rootBlock: DescribeBlock
   currentBlock: DescribeBlock
   currentTags?: TestTags
@@ -67,54 +55,59 @@ export interface PartRun {
   onTickFuncs: LuaSet<OnTickFn>
 }
 
-export type GlobalState = DefinitionState | TestState
+export type ContextState = DefinitionState | TestState
 
-let globalState: GlobalState | undefined
+export class TestContext {
+  state?: ContextState
 
-export function beginDefinition(config: Config): DefinitionState {
-  const rootBlock = createRootDescribeBlock(config)
-  const definition: DefinitionState = {
-    kind: "definition",
-    config,
-    rootBlock,
-    currentBlock: rootBlock,
-    hasFocusedTests: false,
+  constructor(
+    public config: Config,
+    readonly stage: TestStageStore,
+  ) {}
+
+  beginDefinition(): void {
+    const rootBlock = createRootDescribeBlock(this.config)
+    this.state = {
+      kind: "definition",
+      rootBlock,
+      currentBlock: rootBlock,
+      hasFocusedTests: false,
+    }
   }
-  globalState = definition
-  return definition
+
+  definition(): DefinitionState {
+    const { state } = this
+    if (state?.kind === "definition") return state
+    const testRun = state?.currentTestRun
+    if (testRun) error(`Tests and hooks cannot be nested inside test "${testRun.test.path}"`)
+    error(`Tests and hooks cannot be added/configured at this time`)
+  }
+
+  /** Seals the definition phase, and installs the state the resulting suite is run with. */
+  endDefinition(): TestState {
+    const { rootBlock, hasFocusedTests } = this.definition()
+    const testState: TestState = {
+      kind: "test",
+      config: this.config,
+      suite: { rootBlock, hasFocusedTests },
+      report: createRunReport(),
+      stage: this.stage,
+    }
+    this.state = testState
+    return testState
+  }
+
+  testState(): TestState {
+    const { state } = this
+    if (state?.kind === "test") return state
+    error("Tests are not configured to be run")
+  }
 }
 
-export function getDefinitionState(): DefinitionState {
-  if (globalState?.kind === "definition") return globalState
-  const testRun = globalState?.currentTestRun
-  if (testRun) error(`Tests and hooks cannot be nested inside test "${testRun.test.path}"`)
-  error(`Tests and hooks cannot be added/configured at this time`)
-}
-
-export function consumeTags(): TestTags {
-  const definition = getDefinitionState()
+export function consumeTags(definition: DefinitionState): TestTags {
   const result = definition.currentTags
   definition.currentTags = undefined
   return result ?? new LuaSet()
-}
-
-/** Seals the definition phase, and installs the state the resulting suite is run with. */
-export function endDefinition(stage: TestStageStore): TestState {
-  const { config, rootBlock, hasFocusedTests } = getDefinitionState()
-  const testState: TestState = {
-    kind: "test",
-    config,
-    suite: { rootBlock, hasFocusedTests },
-    report: createRunReport(),
-    stage,
-  }
-  globalState = testState
-  return testState
-}
-
-export function getTestState(): TestState {
-  if (globalState?.kind === "test") return globalState
-  error("Tests are not configured to be run")
 }
 
 export function setToLoadErrorState(state: TestState, error: string): void {
@@ -123,14 +116,4 @@ export function setToLoadErrorState(state: TestState, error: string): void {
   rootBlock.errors = [error]
   state.suite = { rootBlock, hasFocusedTests: false }
   state.currentTestRun = undefined
-}
-
-// internal, export for meta-test only
-export function _getGlobalState(): GlobalState | undefined {
-  return globalState
-}
-
-// internal, export for meta-test only
-export function _setGlobalState(state: GlobalState | undefined): void {
-  globalState = state
 }

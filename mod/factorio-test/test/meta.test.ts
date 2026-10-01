@@ -3,15 +3,8 @@ import { TestStage } from "../../constants"
 import { fillConfig } from "../config"
 import { resultCollector } from "../results"
 import { TestRunner } from "../runner"
-import {
-  _getGlobalState,
-  _setGlobalState,
-  beginDefinition,
-  endDefinition,
-  getDefinitionState,
-  getTestState,
-  TestState,
-} from "../state"
+import { createTestApi } from "../setup-globals"
+import { TestContext, TestState } from "../state"
 import { TestEvent, TestEventListener } from "../test-events"
 import { propagateTestMode } from "../test-mode"
 import { DescribeBlock, Test } from "../tests"
@@ -29,33 +22,38 @@ import Config = FactorioTest.Config
 
 let actions: unknown[] = []
 let events: TestEvent[] = []
-let mockTestState: TestState
-let originalTestState: TestState
 let mockTestStage: TestStage
+
+function defaultMockConfig(): Config {
+  return fillConfig({ default_ticks_between_tests: 0 })
+}
+
+const mockContext = new TestContext(defaultMockConfig(), {
+  get: () => mockTestStage,
+  set: (stage) => {
+    mockTestStage = stage
+  },
+})
+const api = createTestApi(mockContext)
 
 before_each(() => {
   actions = []
   events = []
   mockTestStage = TestStage.NotRun
-  originalTestState = getTestState()
-  mockTestState = undefined!
-  beginDefinition(
-    fillConfig({
-      default_ticks_between_tests: 0,
-    }),
-  )
+  mockContext.config = defaultMockConfig()
+  mockContext.beginDefinition()
 })
 
 after_each(() => {
-  const unfinished = _getGlobalState()
-  _setGlobalState(originalTestState)
+  const unfinished = mockContext.state
+  mockContext.state = undefined
   if (unfinished?.kind === "definition" && unfinished.rootBlock.children.length > 0) {
     error("Simulated test defined but not run")
   }
 })
 
 function setMockConfig(config: Config): void {
-  getDefinitionState().config = config
+  mockContext.config = config
 }
 
 const mockListeners: TestEventListener[] = [
@@ -69,26 +67,24 @@ function newRunner(state: TestState): TestRunner {
   return new TestRunner(state, mockListeners)
 }
 
-/** Ends the simulated definition phase, and installs the state its suite is run with. */
+/** Ends the simulated definition phase, and returns the state its suite is run with. */
 function finishDefining(): TestState {
-  const definition = getDefinitionState()
+  const definition = mockContext.definition()
   propagateTestMode(definition, definition.rootBlock, undefined)
-  mockTestState = endDefinition({
-    get: () => mockTestStage,
-    set: (stage) => {
-      mockTestStage = stage
-    },
-  })
-  return mockTestState
+  return mockContext.endDefinition()
+}
+
+function isDefinitionFinished(): boolean {
+  return mockContext.state?.kind === "test"
 }
 
 /** Ends the simulated definition phase on first use; a rerun reuses the installed state. */
 function stateToRun(): TestState {
-  return mockTestState ?? finishDefining()
+  return isDefinitionFinished() ? mockContext.testState() : finishDefining()
 }
 
 function getFirst<T extends Test | DescribeBlock = Test>(): T {
-  return mockTestState.suite.rootBlock.children[0] as T
+  return mockContext.testState().suite.rootBlock.children[0] as T
 }
 
 function runTestSync<T extends Test | DescribeBlock = Test>(): T {
@@ -104,9 +100,8 @@ function runTestAsyncWithRunner<T extends Test | DescribeBlock = Test>(
   beforeTick: (runner: TestRunner, tickNumber: number) => void,
   callback: (item: T) => void,
 ): void {
-  if (mockTestState) error("duplicate call to runTestAsync/cannot re-run mock test async")
+  if (isDefinitionFinished()) error("duplicate call to runTestAsync/cannot re-run mock test async")
   const runner = newRunner(finishDefining())
-  _setGlobalState(originalTestState)
   async()
   let tickNumber = 0
   on_tick(() => {
@@ -114,11 +109,9 @@ function runTestAsyncWithRunner<T extends Test | DescribeBlock = Test>(
     runner.tick()
     if (runner.isDone()) {
       callback(getFirst())
-      _setGlobalState(originalTestState)
       done()
     }
   })
-  _setGlobalState(mockTestState)
 }
 
 function runTestAsync<T extends Test | DescribeBlock = Test>(callback: (item: T) => void): void {
@@ -132,21 +125,21 @@ function skipRun() {
 
 describe("setup", () => {
   test("a test", () => {
-    test("Hello", () => {
+    api.test("Hello", () => {
       // noop
     })
     const result = runTestSync()
     assertNotNil(result)
     assertEqual("Hello", result.name)
     assertMatches(result.path, "Hello")
-    assertDeepEquals(mockTestState.suite.rootBlock, result.parent)
+    assertDeepEquals(mockContext.testState().suite.rootBlock, result.parent)
     assertEqual(0, result.indexInParent)
     assertDeepEquals([], result.errors)
   })
 
   test("a describe block", () => {
-    describe("Block", () => {
-      test("Hello", () => {
+    api.describe("Block", () => {
+      api.test("Hello", () => {
         // noop
       })
     })
@@ -154,7 +147,7 @@ describe("setup", () => {
     assertNotNil(result)
     assertEqual("Block", result.name)
     assertMatches(result.path, "Block")
-    assertDeepEquals(mockTestState.suite.rootBlock, result.parent)
+    assertDeepEquals(mockContext.testState().suite.rootBlock, result.parent)
     assertEqual(0, result.indexInParent)
 
     assertEqual(1, result.children.length)
@@ -164,11 +157,11 @@ describe("setup", () => {
   })
 
   it("should run tests in order by default", () => {
-    describe("Block", () => {
-      test("first", () => {
+    api.describe("Block", () => {
+      api.test("first", () => {
         actions.push(1)
       })
-      test("second", () => {
+      api.test("second", () => {
         actions.push(2)
       })
     })
@@ -178,8 +171,8 @@ describe("setup", () => {
   })
 
   test("cannot nest tests", () => {
-    test("Some test", () => {
-      test("Nested", () => {
+    api.test("Some test", () => {
+      api.test("Nested", () => {
         // noop
       })
     })
@@ -189,8 +182,8 @@ describe("setup", () => {
   })
 
   test("cannot nest describe in test", () => {
-    test("Some test", () => {
-      describe("Nested", () => {
+    api.test("Some test", () => {
+      api.describe("Nested", () => {
         // noop
       })
     })
@@ -200,7 +193,7 @@ describe("setup", () => {
   })
 
   test("empty describe is error", () => {
-    describe("empty", () => {
+    api.describe("empty", () => {
       // nothing
     })
     const block = runTestSync<DescribeBlock>()
@@ -208,7 +201,7 @@ describe("setup", () => {
   })
 
   test("Failing describe does not report empty describe", () => {
-    describe("empty", () => {
+    api.describe("empty", () => {
       error("fail")
     })
     const block = runTestSync<DescribeBlock>()
@@ -219,13 +212,13 @@ describe("setup", () => {
 
 describe("hooks", () => {
   test("beforeAll, afterAll", () => {
-    before_all(() => {
+    api.before_all(() => {
       actions.push("beforeAll")
     })
-    after_all(() => {
+    api.after_all(() => {
       actions.push("afterAll")
     })
-    test("test", () => {
+    api.test("test", () => {
       actions.push("test")
     })
     runTestSync()
@@ -233,13 +226,13 @@ describe("hooks", () => {
   })
 
   test("beforeEach, afterEach", () => {
-    before_each(() => {
+    api.before_each(() => {
       actions.push("beforeEach")
     })
-    after_each(() => {
+    api.after_each(() => {
       actions.push("afterEach")
     })
-    test("test", () => {
+    api.test("test", () => {
       actions.push("test")
     })
     runTestSync()
@@ -247,19 +240,19 @@ describe("hooks", () => {
   })
 
   test("nested", () => {
-    before_all(() => actions.push("1 - beforeAll"))
-    after_all(() => actions.push("1 - afterAll"))
-    before_each(() => actions.push("1 - beforeEach"))
-    after_each(() => actions.push("1 - afterEach"))
-    test("test1", () => {
+    api.before_all(() => actions.push("1 - beforeAll"))
+    api.after_all(() => actions.push("1 - afterAll"))
+    api.before_each(() => actions.push("1 - beforeEach"))
+    api.after_each(() => actions.push("1 - afterEach"))
+    api.test("test1", () => {
       actions.push("1 - test")
     })
-    describe("Scoped / Nested scope", () => {
-      before_all(() => actions.push("2 - beforeAll"))
-      after_all(() => actions.push("2 - afterAll"))
-      before_each(() => actions.push("2 - beforeEach"))
-      after_each(() => actions.push("2 - afterEach"))
-      test("test2", () => actions.push("2 - test"))
+    api.describe("Scoped / Nested scope", () => {
+      api.before_all(() => actions.push("2 - beforeAll"))
+      api.after_all(() => actions.push("2 - afterAll"))
+      api.before_each(() => actions.push("2 - beforeEach"))
+      api.after_each(() => actions.push("2 - afterEach"))
+      api.test("test2", () => actions.push("2 - test"))
     })
     runTestSync()
     assertDeepEquals(
@@ -287,11 +280,11 @@ test("passing test", () => {
     assertEqual(1, 1)
   }
 
-  before_all(foo)
-  before_each(foo)
-  after_all(foo)
-  after_each(foo)
-  test("pass", foo)
+  api.before_all(foo)
+  api.before_each(foo)
+  api.after_all(foo)
+  api.after_each(foo)
+  api.test("pass", foo)
 
   const result = runTestSync()
   assertDeepEquals([], result.errors)
@@ -305,15 +298,15 @@ describe("failing tests", () => {
   }
 
   test("test", () => {
-    test("fail", fail)
+    api.test("fail", fail)
     const theTest = runTestSync()
     assertEqual(1, theTest.errors.length)
     assertMatches(theTest.errors[0]!, failMessage)
   })
 
   test("beforeEach", () => {
-    before_each(fail)
-    test("test", () => {
+    api.before_each(fail)
+    api.test("test", () => {
       error("Should not run")
     })
     const theTest = runTestSync()
@@ -322,18 +315,18 @@ describe("failing tests", () => {
   })
 
   test("beforeAll", () => {
-    before_all(fail)
-    test("test", () => {
+    api.before_all(fail)
+    api.test("test", () => {
       error("Should not run")
     })
     const theTest = runTestSync()
     assertDeepEquals([], theTest.errors)
-    assertMatches(mockTestState.suite.rootBlock.errors[0]!, failMessage)
+    assertMatches(mockContext.testState().suite.rootBlock.errors[0]!, failMessage)
   })
 
   test("afterEach", () => {
-    after_each(fail)
-    test("test", () => {
+    api.after_each(fail)
+    api.test("test", () => {
       error("first error")
     })
     const theTest = runTestSync()
@@ -342,18 +335,18 @@ describe("failing tests", () => {
   })
 
   test("afterAll", () => {
-    after_all(fail)
-    test("test", () => {
+    api.after_all(fail)
+    api.test("test", () => {
       error("first error")
     })
     const theTest = runTestSync()
     assertEqual(1, theTest.errors.length)
-    assertMatches(mockTestState.suite.rootBlock.errors[0]!, failMessage)
+    assertMatches(mockContext.testState().suite.rootBlock.errors[0]!, failMessage)
   })
 
   test("failure in describe definition", () => {
-    describe("foo", () => {
-      test("foo", () => {
+    api.describe("foo", () => {
+      api.test("foo", () => {
         error("should not run")
       })
 
@@ -365,7 +358,7 @@ describe("failing tests", () => {
   })
 
   test("Error stacktrace is clean", () => {
-    test("foo", () => {
+    api.test("foo", () => {
       error("oh no")
     })
     const t = runTestSync()
@@ -380,15 +373,15 @@ describe("failing tests", () => {
 
 describe("skipped tests", () => {
   function setupActionHooks() {
-    before_all(() => actions.push("beforeAll"))
-    after_all(() => actions.push("afterAll"))
-    before_each(() => actions.push("beforeEach"))
-    after_each(() => actions.push("afterEach"))
+    api.before_all(() => actions.push("beforeAll"))
+    api.after_all(() => actions.push("afterAll"))
+    api.before_each(() => actions.push("beforeEach"))
+    api.after_each(() => actions.push("afterEach"))
   }
 
   test("skipped test", () => {
     setupActionHooks()
-    test.skip("skipped test", () => {
+    api.test.skip("skipped test", () => {
       actions.push("run")
     })
     const first = runTestSync()
@@ -398,8 +391,8 @@ describe("skipped tests", () => {
 
   test("skipped describe", () => {
     setupActionHooks()
-    describe.skip("skipped describe", () => {
-      test("skipped test", () => {
+    api.describe.skip("skipped describe", () => {
+      api.test("skipped test", () => {
         actions.push("run")
       })
     })
@@ -410,16 +403,16 @@ describe("skipped tests", () => {
 
   test("todo", () => {
     setupActionHooks()
-    test.todo("skipped test")
+    api.test.todo("skipped test")
     const first = runTestSync()
     assertDeepEquals([], first.errors)
   })
 
   it("only skips skipped tests", () => {
-    test.skip("skipped test", () => {
+    api.test.skip("skipped test", () => {
       actions.push("no")
     })
-    test("not skipped test", () => {
+    api.test("not skipped test", () => {
       actions.push("yes")
     })
     runTestSync()
@@ -429,63 +422,63 @@ describe("skipped tests", () => {
 
 describe("focused tests", () => {
   test("focused test", () => {
-    test.only("should run", () => {
+    api.test.only("should run", () => {
       actions.push("yes")
     })
-    test("should not run", () => {
+    api.test("should not run", () => {
       actions.push("no")
     })
     runTestSync()
-    assertTrue(mockTestState.suite.hasFocusedTests)
+    assertTrue(mockContext.testState().suite.hasFocusedTests)
     assertDeepEquals(["yes"], actions)
   })
 
   test("focused describe", () => {
-    describe.only("should run", () => {
-      test("", () => {
+    api.describe.only("should run", () => {
+      api.test("", () => {
         actions.push("yes")
       })
     })
-    describe("should not run", () => {
-      test("", () => {
+    api.describe("should not run", () => {
+      api.test("", () => {
         actions.push("no")
       })
     })
     runTestSync()
-    assertTrue(mockTestState.suite.hasFocusedTests)
+    assertTrue(mockContext.testState().suite.hasFocusedTests)
     assertDeepEquals(["yes"], actions)
   })
 
   it("should still respect skip", () => {
-    describe.only("should run", () => {
-      test.skip("", () => {
+    api.describe.only("should run", () => {
+      api.test.skip("", () => {
         actions.push("no")
       })
-      test("", () => {
+      api.test("", () => {
         actions.push("yes")
       })
     })
-    describe("should not run", () => {
-      test("", () => {
+    api.describe("should not run", () => {
+      api.test("", () => {
         actions.push("no")
       })
     })
     runTestSync()
-    assertTrue(mockTestState.suite.hasFocusedTests)
+    assertTrue(mockContext.testState().suite.hasFocusedTests)
     assertDeepEquals(["yes"], actions)
   })
 
   test("shallow nested focus", () => {
-    describe.only("should run", () => {
-      test.only("", () => {
+    api.describe.only("should run", () => {
+      api.test.only("", () => {
         actions.push("yes1")
       })
-      test("", () => {
+      api.test("", () => {
         actions.push("no2")
       })
     })
-    describe("should not run", () => {
-      test("", () => {
+    api.describe("should not run", () => {
+      api.test("", () => {
         actions.push("no2")
       })
     })
@@ -494,26 +487,26 @@ describe("focused tests", () => {
   })
 
   test("skipped describes do not focus", () => {
-    describe.skip("func", () => {
-      test.only("", () => {
+    api.describe.skip("func", () => {
+      api.test.only("", () => {
         actions.push("no")
       })
     })
-    test("", () => {
+    api.test("", () => {
       actions.push("yes")
     })
     runTestSync()
-    assertFalse(mockTestState.suite.hasFocusedTests, "should not have focused tests if skipped")
+    assertFalse(mockContext.testState().suite.hasFocusedTests, "should not have focused tests if skipped")
     assertDeepEquals(["yes"], actions)
   })
 })
 
 describe("async tests", () => {
   test("immediately finished async test", () => {
-    test("an async", () => {
-      async()
+    api.test("an async", () => {
+      api.async()
       actions.push("hello")
-      done()
+      api.done()
     })
     runTestSync()
     assertDeepEquals(["hello"], actions)
@@ -523,13 +516,13 @@ describe("async tests", () => {
     test("Test can timeout", () => {
       let tick = 0
       let failedToTimeOut = false
-      test("left to timeout", () => {
-        async(30)
-        on_tick((t) => {
+      api.test("left to timeout", () => {
+        api.async(30)
+        api.on_tick((t) => {
           tick = t
           if (tick > 40) {
             failedToTimeOut = true
-            done()
+            api.done()
           }
         })
       })
@@ -541,9 +534,9 @@ describe("async tests", () => {
     })
 
     it.each([0, -1])("does not accept invalid timeout", (value) => {
-      test("Something", () => {
-        async(value)
-        done()
+      api.test("Something", () => {
+        api.async(value)
+        api.done()
       })
       runTestAsync((test) => {
         assertNotDeepEquals([], test.errors)
@@ -552,34 +545,32 @@ describe("async tests", () => {
   })
 
   test("async and done can only used during test", () => {
-    // a state that is not running a test: the mock, rather than the real run around it
-    _setGlobalState(finishDefining())
-    assertThrows(async)
-    assertThrows(done)
-    _setGlobalState(originalTestState)
+    finishDefining()
+    assertThrows(api.async)
+    assertThrows(api.done)
   })
 
   test("done when not async fails", () => {
-    test("should fail", () => {
-      done()
+    api.test("should fail", () => {
+      api.done()
     })
     assertNotDeepEquals([], runTestSync().errors)
   })
 
   test("double async does not fail", () => {
-    test("test", () => {
-      async()
-      async()
-      done()
+    api.test("test", () => {
+      api.async()
+      api.async()
+      api.done()
     })
     assertDeepEquals([], runTestSync().errors)
   })
 
   test("double done does not fail", () => {
-    test("test", () => {
-      async()
-      done()
-      done()
+    api.test("test", () => {
+      api.async()
+      api.done()
+      api.done()
     })
     runTestAsync((test) => {
       assertDeepEquals([], test.errors)
@@ -589,12 +580,12 @@ describe("async tests", () => {
 
 describe("on_tick", () => {
   test("simple", () => {
-    test("an async", () => {
-      async()
-      on_tick((tick) => {
+    api.test("an async", () => {
+      api.async()
+      api.on_tick((tick) => {
         actions.push(tick)
         if (tick === 2) {
-          done()
+          api.done()
         }
       })
     })
@@ -604,9 +595,9 @@ describe("on_tick", () => {
   })
 
   it("automatically sets async", () => {
-    test("some thing", () => {
-      on_tick((t) => {
-        if (t === 10) done()
+    api.test("some thing", () => {
+      api.on_tick((t) => {
+        if (t === 10) api.done()
       })
     })
     runTestAsync((test) => {
@@ -615,12 +606,12 @@ describe("on_tick", () => {
   })
 
   it("only runs on the next tick", () => {
-    test("an async", () => {
-      async()
-      on_tick((tick) => {
+    api.test("an async", () => {
+      api.async()
+      api.on_tick((tick) => {
         actions.push(tick)
       })
-      done()
+      api.done()
     })
     runTestAsync(() => {
       assertDeepEquals([], actions)
@@ -628,9 +619,9 @@ describe("on_tick", () => {
   })
 
   it("stops test on error", () => {
-    test("an async", () => {
-      async()
-      on_tick(() => {
+    api.test("an async", () => {
+      api.async()
+      api.on_tick(() => {
         actions.push("tick")
         error("uh oh")
       })
@@ -642,15 +633,15 @@ describe("on_tick", () => {
   })
 
   it("runs in order registered", () => {
-    test("an async", () => {
-      async()
-      on_tick(() => {
+    api.test("an async", () => {
+      api.async()
+      api.on_tick(() => {
         actions.push(1)
       })
-      on_tick((tick) => {
+      api.on_tick((tick) => {
         actions.push(2)
         if (tick === 2) {
-          done()
+          api.done()
         }
       })
     })
@@ -660,12 +651,12 @@ describe("on_tick", () => {
   })
 
   it("runs even if done", () => {
-    test("an async", () => {
-      async()
-      on_tick(() => {
-        done()
+    api.test("an async", () => {
+      api.async()
+      api.on_tick(() => {
+        api.done()
       })
-      on_tick((tick) => {
+      api.on_tick((tick) => {
         actions.push(tick)
       })
     })
@@ -675,16 +666,16 @@ describe("on_tick", () => {
   })
 
   it("can deregister themselves", () => {
-    test("an async", () => {
-      async()
-      on_tick((tick) => {
+    api.test("an async", () => {
+      api.async()
+      api.on_tick((tick) => {
         actions.push(tick)
         if (tick === 2) {
           return false
         }
       })
-      on_tick((tick) => {
-        if (tick === 3) done()
+      api.on_tick((tick) => {
+        if (tick === 3) api.done()
       })
     })
     runTestAsync(() => {
@@ -693,14 +684,14 @@ describe("on_tick", () => {
   })
 
   it("can be added at a later time and not immediately run", () => {
-    test("an async", () => {
-      async()
-      on_tick((t) => {
+    api.test("an async", () => {
+      api.async()
+      api.on_tick((t) => {
         if (t === 2) {
-          on_tick((t) => {
+          api.on_tick((t) => {
             actions.push(t)
             if (t === 4) {
-              done()
+              api.done()
             }
           })
         }
@@ -715,13 +706,13 @@ describe("on_tick", () => {
 describe("after_ticks", () => {
   test("simple", () => {
     let tick: number
-    test("an async", () => {
-      async()
-      on_tick((t) => {
+    api.test("an async", () => {
+      api.async()
+      api.on_tick((t) => {
         tick = t
       })
-      after_ticks(5, () => {
-        done()
+      api.after_ticks(5, () => {
+        api.done()
       })
     })
 
@@ -732,14 +723,14 @@ describe("after_ticks", () => {
 
   it("is relative", () => {
     let tick: number
-    test("an async", () => {
-      async()
-      on_tick((t) => {
+    api.test("an async", () => {
+      api.async()
+      api.on_tick((t) => {
         tick = t
       })
-      after_ticks(2, () => {
-        after_ticks(2, () => {
-          done()
+      api.after_ticks(2, () => {
+        api.after_ticks(2, () => {
+          api.done()
         })
       })
     })
@@ -750,8 +741,8 @@ describe("after_ticks", () => {
   })
 
   it("automatically sets async, and ends test when done", () => {
-    test("an async", () => {
-      after_ticks(2, () => {
+    api.test("an async", () => {
+      api.after_ticks(2, () => {
         // do nothing
       })
     })
@@ -761,9 +752,9 @@ describe("after_ticks", () => {
   })
 
   test("does not automatically end test if custom timeout given", () => {
-    test("an async", () => {
-      async(10)
-      after_ticks(2, () => {
+    api.test("an async", () => {
+      api.async(10)
+      api.after_ticks(2, () => {
         // do nothing
       })
     })
@@ -774,9 +765,9 @@ describe("after_ticks", () => {
   })
 
   it("only accepts valid arguments", () => {
-    test("Some test", () => {
-      async()
-      after_ticks(-1, () => {
+    api.test("Some test", () => {
+      api.async()
+      api.after_ticks(-1, () => {
         // noop
       })
     })
@@ -791,16 +782,16 @@ describe("ticks between tests", () => {
     let tick1 = 0
     let tick2 = 0
     let tick3 = 0
-    ticks_between_tests(2)
-    test("1", () => {
+    api.ticks_between_tests(2)
+    api.test("1", () => {
       tick1 = game.tick
     })
 
-    test("2", () => {
+    api.test("2", () => {
       tick2 = game.tick
     })
 
-    test("3", () => {
+    api.test("3", () => {
       tick3 = game.tick
     })
     runTestAsync(() => {
@@ -815,29 +806,29 @@ describe("ticks between tests", () => {
     let tick3 = 0
     let tick4 = 0
     let tick5 = 0
-    ticks_between_tests(2)
-    describe("nested", () => {
-      test("1", () => {
+    api.ticks_between_tests(2)
+    api.describe("nested", () => {
+      api.test("1", () => {
         tick1 = game.tick
       })
 
-      test("2", () => {
+      api.test("2", () => {
         tick2 = game.tick
       })
 
-      ticks_between_tests(3)
+      api.ticks_between_tests(3)
 
-      test("3", () => {
+      api.test("3", () => {
         tick3 = game.tick
       })
     })
 
-    test("4", () => {
+    api.test("4", () => {
       tick4 = game.tick
     })
 
-    ticks_between_tests(0)
-    test("5", () => {
+    api.ticks_between_tests(0)
+    api.test("5", () => {
       tick5 = game.tick
     })
 
@@ -850,21 +841,21 @@ describe("ticks between tests", () => {
   })
 
   it("does not wait for skipped tests", () => {
-    test("1", () => 0)
-    ticks_between_tests(2)
-    test.skip("1", () => 0)
+    api.test("1", () => 0)
+    api.ticks_between_tests(2)
+    api.test.skip("1", () => 0)
     runTestSync()
   })
 
   it("does not accept negative value", () => {
     assertThrows(() => {
-      ticks_between_tests(-1)
+      api.ticks_between_tests(-1)
     })
   })
 })
 
 describe.each(["test", "describe"])("%s.each", (funcName) => {
-  const creator = funcName === "test" ? test : describe
+  const creator = funcName === "test" ? api.test : api.describe
   test("single values", () => {
     const values = [1, 2, 3, 4]
     creator.each(values)("an each test", (value) => {
@@ -899,7 +890,7 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
     })
     runTestSync()
     assertDeepEquals(values, actions)
-    const titles = mockTestState.suite.rootBlock.children.map((x) => x.name)
+    const titles = mockContext.testState().suite.rootBlock.children.map((x) => x.name)
     assertDeepEquals(
       values.map((v) => string.format(title, ...v)),
       titles,
@@ -920,7 +911,7 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
       { id: 2, name: "second" },
     ])("test $id: $name", () => {})
     runTestSync()
-    const names = mockTestState.suite.rootBlock.children.map((x) => x.name)
+    const names = mockContext.testState().suite.rootBlock.children.map((x) => x.name)
     assertDeepEquals(["test 1: first", "test 2: second"], names)
   })
 
@@ -933,14 +924,14 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
   test("%# index specifier", () => {
     creator.each([1, 2, 3])("test %#", () => {})
     runTestSync()
-    const names = mockTestState.suite.rootBlock.children.map((x) => x.name)
+    const names = mockContext.testState().suite.rootBlock.children.map((x) => x.name)
     assertDeepEquals(["test 0", "test 1", "test 2"], names)
   })
 
   test("%$ 1-indexed specifier", () => {
     creator.each([1, 2])("test %$", () => {})
     runTestSync()
-    const names = mockTestState.suite.rootBlock.children.map((x) => x.name)
+    const names = mockContext.testState().suite.rootBlock.children.map((x) => x.name)
     assertDeepEquals(["test 1", "test 2"], names)
   })
 
@@ -953,56 +944,56 @@ describe.each(["test", "describe"])("%s.each", (funcName) => {
 
 describe("reload state", () => {
   function reloadAndTick(): void {
-    const runner = newRunner(mockTestState)
+    const runner = newRunner(mockContext.testState())
     runner.tick()
   }
 
   test("Reload state lifecycle", () => {
-    test("", () => {
+    api.test("", () => {
       // empty
     })
-    ticks_between_tests(1)
-    test("", () => {
+    api.ticks_between_tests(1)
+    api.test("", () => {
       // empty
     })
     const state = finishDefining()
     assertEqual(TestStage.NotRun, state.stage.get())
     const runner = newRunner(state)
     runner.tick()
-    assertEqual(TestStage.Running, mockTestState.stage.get())
+    assertEqual(TestStage.Running, mockContext.testState().stage.get())
     runner.tick()
-    assertEqual(TestStage.Finished, mockTestState.stage.get())
+    assertEqual(TestStage.Finished, mockContext.testState().stage.get())
   })
 
   test("Cannot reload while testing", () => {
-    test("Test 1", () => {
-      async()
+    api.test("Test 1", () => {
+      api.async()
     })
     finishDefining()
     reloadAndTick()
-    assertDeepEquals([], mockTestState.suite.rootBlock.errors)
+    assertDeepEquals([], mockContext.testState().suite.rootBlock.errors)
     reloadAndTick()
-    assertNotDeepEquals([], mockTestState.suite.rootBlock.errors)
-    assertEqual(TestStage.LoadError, mockTestState.stage.get())
+    assertNotDeepEquals([], mockContext.testState().suite.rootBlock.errors)
+    assertEqual(TestStage.LoadError, mockContext.testState().stage.get())
   })
 
   test("can reload after load error", () => {
-    test("Test 1", () => {
+    api.test("Test 1", () => {
       actions.push("test 1")
     })
     finishDefining()
-    mockTestState.stage.set(TestStage.LoadError)
+    mockContext.testState().stage.set(TestStage.LoadError)
     reloadAndTick()
-    assertDeepEquals([], mockTestState.suite.rootBlock.errors)
-    assertEqual(TestStage.Finished, mockTestState.stage.get())
+    assertDeepEquals([], mockContext.testState().suite.rootBlock.errors)
+    assertEqual(TestStage.Finished, mockContext.testState().stage.get())
     assertDeepEquals(["test 1"], actions)
   })
 })
 
 describe("test events", () => {
   test("Full lifecycle", () => {
-    describe("block", () => {
-      test("test", () => {
+    api.describe("block", () => {
+      api.test("test", () => {
         //noop
       })
     })
@@ -1024,7 +1015,7 @@ describe("test events", () => {
     )
   })
   test("failing", () => {
-    test("test", () => {
+    api.test("test", () => {
       error("on no")
     })
     runTestSync()
@@ -1043,7 +1034,7 @@ describe("test events", () => {
     )
   })
   test("skipped", () => {
-    test.skip("test", () => {
+    api.test.skip("test", () => {
       // noop
     })
     runTestSync()
@@ -1061,7 +1052,7 @@ describe("test events", () => {
     )
   })
   test("todo", () => {
-    test.todo("todo")
+    api.test.todo("todo")
     runTestSync()
     const expected: TestEvent["type"][] = [
       "testRunStarted",
@@ -1078,7 +1069,7 @@ describe("test events", () => {
   })
 
   test("failing describe block", () => {
-    describe("describe", () => {
+    api.describe("describe", () => {
       error("error")
     })
     runTestSync()
@@ -1097,11 +1088,11 @@ describe("test events", () => {
   })
 
   test("Failing before_all hook", () => {
-    describe("describe", () => {
-      before_all(() => {
+    api.describe("describe", () => {
+      api.before_all(() => {
         error("error")
       })
-      test("test", () => {
+      api.test("test", () => {
         // noop
       })
     })
@@ -1121,11 +1112,11 @@ describe("test events", () => {
   })
 
   test("Failing after_all hook", () => {
-    describe("describe", () => {
-      after_all(() => {
+    api.describe("describe", () => {
+      api.after_all(() => {
         error("error")
       })
-      test("test", () => {
+      api.test("test", () => {
         // noop
       })
     })
@@ -1149,11 +1140,11 @@ describe("test events", () => {
 })
 
 test("the run report outlives the run", () => {
-  test("foo", () => {
+  api.test("foo", () => {
     // noop
   })
   runTestSync()
-  const { report } = mockTestState
+  const { report } = mockContext.testState()
   assertEqual("passed", report.results.status)
   // the getResults remote and the finished-run duration output both read this after the run ends
   assertNotNil(report.profiler)
@@ -1165,14 +1156,14 @@ test("Test pattern", () => {
       test_pattern: "foo",
     }),
   )
-  test("bar", () => {
+  api.test("bar", () => {
     actions.push("no")
   })
-  test("a foo test", () => {
+  api.test("a foo test", () => {
     actions.push("yes1")
   })
-  describe("foo", () => {
-    test("yes", () => {
+  api.describe("foo", () => {
+    api.test("yes", () => {
       actions.push("yes2")
     })
   })
@@ -1182,8 +1173,8 @@ test("Test pattern", () => {
 
 describe("tags", () => {
   test("Can add tag to describe block", () => {
-    tags("foo", "bar")
-    describe("block", () => {
+    api.tags("foo", "bar")
+    api.describe("block", () => {
       // noop
     })
     const result = runTestSync<DescribeBlock>()
@@ -1191,59 +1182,59 @@ describe("tags", () => {
   })
 
   test("Can add tag to test", () => {
-    tags("foo", "bar")
-    test("Some test", () => 0)
-    test("Some other test", () => 0)
+    api.tags("foo", "bar")
+    api.test("Some test", () => 0)
+    api.test("Some other test", () => 0)
     const result = runTestSync()
     assertDeepEquals(util.list_to_map(["foo", "bar"]), result.tags)
-    assertDeepEquals([], mockTestState.suite.rootBlock.children[1]!.tags)
+    assertDeepEquals([], mockContext.testState().suite.rootBlock.children[1]!.tags)
   })
 
   test("Lonely tag call is error", () => {
-    describe("", () => {
-      tags("foo", "bar")
+    api.describe("", () => {
+      api.tags("foo", "bar")
     })
     const block = runTestSync<DescribeBlock>()
     assertNotDeepEquals([], block.errors)
   })
 
   test("double tag call is error", () => {
-    tags("foo", "bar")
-    tags("foo", "bar")
-    test("some test", () => 0)
+    api.tags("foo", "bar")
+    api.tags("foo", "bar")
+    api.test("some test", () => 0)
     runTestSync()
-    assertNotDeepEquals([], mockTestState.suite.rootBlock.errors)
+    assertNotDeepEquals([], mockContext.testState().suite.rootBlock.errors)
   })
 
   test("automatic after_reload_mods tag", () => {
-    tags("tag1")
-    test("foo", () => 0).after_reload_mods(() => 0)
+    api.tags("tag1")
+    api.test("foo", () => 0).after_reload_mods(() => 0)
     skipRun()
     assertDeepEquals(util.list_to_map(["tag1", "after_reload_mods"]), getFirst().tags)
   })
 
   test("automatic after_reload_script tag", () => {
-    tags("tag1")
-    test("foo", () => 0).after_reload_script(() => 0)
+    api.tags("tag1")
+    api.test("foo", () => 0).after_reload_script(() => 0)
     skipRun()
     assertDeepEquals(util.list_to_map(["tag1", "after_reload_script"]), getFirst().tags)
   })
 
   test("tag whitelist", () => {
-    tags("yes")
-    test("", () => {
+    api.tags("yes")
+    api.test("", () => {
       actions.push("yes1")
     })
 
-    tags("yes")
-    describe("", () => {
-      test("", () => {
+    api.tags("yes")
+    api.describe("", () => {
+      api.test("", () => {
         actions.push("yes2")
       })
     })
 
-    tags("no")
-    test("", () => {
+    api.tags("no")
+    api.test("", () => {
       actions.push("no")
     })
     setMockConfig(fillConfig({ tag_whitelist: ["yes"] }))
@@ -1252,20 +1243,20 @@ describe("tags", () => {
   })
 
   test("tag blacklist", () => {
-    tags("yes")
-    test("", () => {
+    api.tags("yes")
+    api.test("", () => {
       actions.push("yes")
     })
 
-    tags("no")
-    describe("", () => {
-      test("", () => {
+    api.tags("no")
+    api.describe("", () => {
+      api.test("", () => {
         actions.push("no")
       })
     })
 
-    tags("no")
-    test("Goodbye", () => {
+    api.tags("no")
+    api.test("Goodbye", () => {
       actions.push("no")
     })
 
@@ -1275,25 +1266,25 @@ describe("tags", () => {
   })
 
   test("tag whitelist and blacklist", () => {
-    tags("yes")
-    test("Hello", () => {
+    api.tags("yes")
+    api.test("Hello", () => {
       actions.push("yes")
     })
 
-    tags("yes", "no")
-    test("Hello", () => {
+    api.tags("yes", "no")
+    api.test("Hello", () => {
       actions.push("no")
     })
 
-    tags("no")
-    test("Goodbye", () => {
+    api.tags("no")
+    api.test("Goodbye", () => {
       actions.push("no")
     })
 
-    tags("yes")
-    describe("", () => {
-      tags("no")
-      test("", () => {
+    api.tags("yes")
+    api.describe("", () => {
+      api.tags("no")
+      api.test("", () => {
         actions.push("no")
       })
     })
@@ -1306,7 +1297,7 @@ describe("tags", () => {
 
 describe("rerun", () => {
   test("rerun", () => {
-    test("foo", () => {
+    api.test("foo", () => {
       actions.push("foo")
     })
     runTestSync()
@@ -1316,21 +1307,21 @@ describe("rerun", () => {
   })
 
   test("rerun resets test results", () => {
-    test("foo", () => {
+    api.test("foo", () => {
       // noop
     })
     runTestSync()
-    assertEqual(1, mockTestState.report.results.passed)
+    assertEqual(1, mockContext.testState().report.results.passed)
     runTestSync()
-    assertEqual(1, mockTestState.report.results.passed)
+    assertEqual(1, mockContext.testState().report.results.passed)
   })
 
   test("rerun after a cancelled run resets the run state", () => {
-    test("1", () => {
+    api.test("1", () => {
       actions.push("1")
     })
-    ticks_between_tests(2)
-    test("2", () => {
+    api.ticks_between_tests(2)
+    api.test("2", () => {
       actions.push("2")
     })
     runTestAsyncWithRunner(
@@ -1341,7 +1332,7 @@ describe("rerun", () => {
         assertDeepEquals(["1"], actions, "cancelled before test 2 ran")
         actions = []
 
-        const runner = newRunner(mockTestState)
+        const runner = newRunner(mockContext.testState())
         for (let i = 0; i < 10 && !runner.isDone(); i++) runner.tick()
         assertTrue(runner.isDone(), "rerun must not inherit the cancel request")
         assertDeepEquals(["1", "2"], actions)
@@ -1350,15 +1341,15 @@ describe("rerun", () => {
   })
 
   test("rerun blacklists tests with no_rerun tag", () => {
-    test("run both", () => {
+    api.test("run both", () => {
       actions.push("run both")
     })
-    tags("no_rerun")
-    test("run one", () => {
+    api.tags("no_rerun")
+    api.test("run one", () => {
       actions.push("run one")
     })
-    tags("no")
-    test("run never", () => {
+    api.tags("no")
+    api.test("run never", () => {
       actions.push("run never")
     })
 
@@ -1373,10 +1364,10 @@ describe("rerun", () => {
 
 describe("cancellation", () => {
   function setupHooks(prefix: string) {
-    before_all(() => actions.push(prefix + "beforeAll"))
-    after_all(() => actions.push(prefix + "afterAll"))
-    before_each(() => actions.push(prefix + "beforeEach"))
-    after_each(() => actions.push(prefix + "afterEach"))
+    api.before_all(() => actions.push(prefix + "beforeAll"))
+    api.after_all(() => actions.push(prefix + "afterAll"))
+    api.before_each(() => actions.push(prefix + "beforeEach"))
+    api.after_each(() => actions.push(prefix + "afterEach"))
   }
 
   function assertLastEvents(expected: TestEvent["type"][]) {
@@ -1386,13 +1377,13 @@ describe("cancellation", () => {
 
   test("cancel during a test runs after hooks up the tree", () => {
     setupHooks("root ")
-    describe("block", () => {
+    api.describe("block", () => {
       setupHooks("block ")
-      test("async test", () => {
-        after_test(() => actions.push("afterTest"))
+      api.test("async test", () => {
+        api.after_test(() => actions.push("afterTest"))
         actions.push("test")
-        async(100)
-        on_tick(() => {
+        api.async(100)
+        api.on_tick(() => {
           actions.push("tick")
         })
       })
@@ -1418,16 +1409,16 @@ describe("cancellation", () => {
           actions,
         )
         assertLastEvents(["describeBlockFinished", "describeBlockFinished", "testRunCancelled"])
-        assertEqual("cancelled", mockTestState.report.results.status)
+        assertEqual("cancelled", mockContext.testState().report.results.status)
       },
     )
   })
 
   test("cancel between tests", () => {
     setupHooks("root ")
-    test("1", () => actions.push("1"))
-    ticks_between_tests(2)
-    test("2", () => actions.push("2"))
+    api.test("1", () => actions.push("1"))
+    api.ticks_between_tests(2)
+    api.test("2", () => actions.push("2"))
     runTestAsyncWithRunner(
       (runner, tickNumber) => {
         if (tickNumber === 2) runner.requestCancel()
@@ -1435,36 +1426,36 @@ describe("cancellation", () => {
       () => {
         assertDeepEquals(["root beforeAll", "root beforeEach", "1", "root afterEach", "root afterAll"], actions)
         assertLastEvents(["describeBlockFinished", "testRunCancelled"])
-        assertEqual("cancelled", mockTestState.report.results.status)
+        assertEqual("cancelled", mockContext.testState().report.results.status)
       },
     )
   })
 
   test("bail finishes the run instead of cancelling it", () => {
     setMockConfig(fillConfig({ bail: 1 }))
-    after_all(() => actions.push("afterAll"))
-    test("fail", () => {
+    api.after_all(() => actions.push("afterAll"))
+    api.test("fail", () => {
       actions.push("fail")
       error("oh no")
     })
-    test("not run", () => actions.push("not run"))
+    api.test("not run", () => actions.push("not run"))
     runTestAsync(() => {
       assertDeepEquals(["fail", "afterAll"], actions)
-      assertTrue(mockTestState.report.bailedOut)
+      assertTrue(mockContext.testState().report.bailedOut)
       assertLastEvents(["describeBlockFinished", "testRunFinished"])
-      assertEqual("failed", mockTestState.report.results.status)
+      assertEqual("failed", mockContext.testState().report.results.status)
     })
   })
 
   test("cancel does not run after_all for a block whose before_all never ran", () => {
     setMockConfig(fillConfig({ bail: 1 }))
-    test("fail", () => {
+    api.test("fail", () => {
       error("oh no")
     })
-    describe("no active tests", () => {
-      before_all(() => actions.push("beforeAll"))
-      after_all(() => actions.push("afterAll"))
-      test.skip("x", () => {})
+    api.describe("no active tests", () => {
+      api.before_all(() => actions.push("beforeAll"))
+      api.after_all(() => actions.push("afterAll"))
+      api.test.skip("x", () => {})
     })
     runTestAsync(() => {
       assertDeepEquals([], actions)
@@ -1474,8 +1465,8 @@ describe("cancellation", () => {
 
 describe("after_test", () => {
   test("simple", () => {
-    test("foo", () => {
-      after_test(() => {
+    api.test("foo", () => {
+      api.after_test(() => {
         actions.push("after_foo")
       })
       actions.push("foo")
@@ -1486,26 +1477,30 @@ describe("after_test", () => {
 
   test("registered in an earlier part still runs", () => {
     // the error skips the remaining parts, so no reload actually happens
-    test("foo", () => {
-      after_test(() => {
-        actions.push("after_foo")
+    api
+      .test("foo", () => {
+        api.after_test(() => {
+          actions.push("after_foo")
+        })
+        error("oh no")
       })
-      error("oh no")
-    }).after_reload_mods(() => {
-      actions.push("continuation")
-    })
+      .after_reload_mods(() => {
+        actions.push("continuation")
+      })
     runTestSync()
     assertDeepEquals(["after_foo"], actions)
   })
 
   test("cannot be used before a reload", () => {
-    test("foo", () => {
-      after_test(() => {
-        actions.push("after_foo")
+    api
+      .test("foo", () => {
+        api.after_test(() => {
+          actions.push("after_foo")
+        })
       })
-    }).after_reload_mods(() => {
-      actions.push("continuation")
-    })
+      .after_reload_mods(() => {
+        actions.push("continuation")
+      })
     const errors = runTestSync().errors
     assertEqual(1, errors.length)
     assertMatches(errors[0]!, "after_test cannot be used before a reload")
@@ -1513,8 +1508,8 @@ describe("after_test", () => {
   })
 
   test("called even if test failed", () => {
-    test("foo", () => {
-      after_test(() => {
+    api.test("foo", () => {
+      api.after_test(() => {
         actions.push("after_foo")
       })
       error("oh no")
@@ -1524,12 +1519,12 @@ describe("after_test", () => {
   })
 
   test("called in async", () => {
-    test("foo", () => {
-      after_test(() => {
+    api.test("foo", () => {
+      api.after_test(() => {
         actions.push("after_foo")
       })
-      async(2)
-      on_tick(() => {
+      api.async(2)
+      api.on_tick(() => {
         actions.push("foo")
       })
     })
@@ -1539,11 +1534,11 @@ describe("after_test", () => {
   })
 
   test("called in order", () => {
-    test("foo", () => {
-      after_test(() => {
+    api.test("foo", () => {
+      api.after_test(() => {
         actions.push("after_foo")
       })
-      after_test(() => {
+      api.after_test(() => {
         actions.push("after_foo2")
       })
       actions.push("foo")
