@@ -1498,6 +1498,20 @@ describe("after_test", () => {
     assertDeepEquals(["after_foo"], actions)
   })
 
+  test("cannot be used before a reload", () => {
+    test("foo", () => {
+      after_test(() => {
+        actions.push("after_foo")
+      })
+    }).after_reload_mods(() => {
+      actions.push("continuation")
+    })
+    const errors = runTestSync().errors
+    assertEqual(1, errors.length)
+    assertMatches(errors[0]!, "after_test cannot be used before a reload")
+    assertDeepEquals(["after_foo"], actions)
+  })
+
   test("called even if test failed", () => {
     test("foo", () => {
       after_test(() => {

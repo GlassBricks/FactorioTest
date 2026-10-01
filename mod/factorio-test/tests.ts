@@ -34,6 +34,14 @@ export function createSource(file: string | undefined, line: number | undefined)
 export type TestMode = undefined | "skip" | "only" | "todo"
 export type TestTags = LuaSet<string>
 
+export type ReloadKind = "mods" | "script"
+
+export interface TestPart {
+  readonly func: TestFn
+  readonly source: Source
+  readonly reloadBefore?: ReloadKind
+}
+
 export interface Test {
   readonly type: "test"
 
@@ -45,10 +53,7 @@ export interface Test {
   readonly parent: DescribeBlock
   indexInParent: number
 
-  readonly parts: {
-    func: TestFn
-    source: Source
-  }[]
+  readonly parts: TestPart[]
 
   readonly declaredMode: TestMode
   mode: TestMode

@@ -3,10 +3,19 @@
 import * as util from "util"
 import { createEachItems } from "./each-format"
 import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
-import { prepareReload } from "./reload-resume"
 import { consumeTags, getDefinitionState, getTestState, PartRun, TestRun } from "./state"
 import { propagateTestMode } from "./test-mode"
-import { addDescribeBlock, addTest, createSource, DescribeBlock, HookType, Source, Test, TestMode } from "./tests"
+import {
+  addDescribeBlock,
+  addTest,
+  createSource,
+  DescribeBlock,
+  HookType,
+  ReloadKind,
+  Source,
+  Test,
+  TestMode,
+} from "./tests"
 import DescribeCreator = FactorioTest.DescribeCreator
 import DescribeCreatorBase = FactorioTest.DescribeBlockCreatorBase
 import HookFn = FactorioTest.HookFn
@@ -41,29 +50,27 @@ function createTest(name: string, func: TestFn, mode: TestMode, upStack: number 
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-function addPart(test: Test, func: TestFn, funcForSource: Function = func) {
+function addPart(test: Test, func: TestFn, reloadBefore: ReloadKind, funcForSource: Function = func) {
   const info = debug.getinfo(funcForSource, "Sl")
   const source = createSource(info.source, info.linedefined)
-  test.parts.push({ func, source })
+  test.parts.push({ func, source, reloadBefore })
 }
 
-function createTestBuilder<F extends () => void>(addPart: (func: F) => void, addTag: (tag: string) => void) {
-  function reloadFunc(reload: () => void, what: string, tag: string) {
+function createTestBuilder<F extends () => void>(
+  addPart: (func: F, reloadBefore: ReloadKind) => void,
+  addTag: (tag: string) => void,
+) {
+  function reloadFunc(reloadBefore: ReloadKind, tag: string) {
     return (func: F) => {
-      addPart((() => {
-        async(1)
-        prepareReload(getTestState())
-        reload()
-      }) as F)
-      addPart(func)
+      addPart(func, reloadBefore)
       addTag(tag)
       return result
     }
   }
 
   const result: TestBuilder<F> = {
-    after_reload_script: reloadFunc(() => game.reload_script(), "script", "after_reload_script"),
-    after_reload_mods: reloadFunc(() => game.reload_mods(), "mods", "after_reload_mods"),
+    after_reload_script: reloadFunc("script", "after_reload_script"),
+    after_reload_mods: reloadFunc("mods", "after_reload_mods"),
   }
   return result
 }
@@ -93,7 +100,7 @@ function createTestEach(mode: TestMode): TestCreatorBase {
   const result: TestCreatorBase = (name, func) => {
     const test = createTest(name, func, mode)
     return createTestBuilder(
-      (func1) => addPart(test, func1),
+      (func1, reloadBefore) => addPart(test, func1, reloadBefore),
       (tag) => test.tags.add(tag),
     )
   }
@@ -105,13 +112,14 @@ function createTestEach(mode: TestMode): TestCreatorBase {
       return { test, row: item.row }
     })
     return createTestBuilder<(...args: unknown[]) => void>(
-      (func) => {
+      (func, reloadBefore) => {
         for (const { test, row } of testBuilders) {
           addPart(
             test,
             () => {
               func(...row)
             },
+            reloadBefore,
             func,
           )
         }

@@ -182,14 +182,13 @@ export interface ResumeData {
   resumePartIndex: number
 }
 
-export function prepareReload(testState: TestState): void {
-  const currentRun = testState.currentTestRun!
+export function prepareReload(testState: TestState, test: Test, resumePartIndex: number): void {
   testStorage().resume = {
     rootBlock: snapshotAndDetachDescribeBlock(testState.suite.rootBlock),
     results: testState.report.results,
     failedTestPaths: testState.report.failedTestPaths,
-    resumeTestPath: currentRun.test.path,
-    resumePartIndex: currentRun.part.partIndex + 1,
+    resumeTestPath: test.path,
+    resumePartIndex,
     profiler: testState.report.profiler!,
   }
   testState.suite.rootBlock = undefined!

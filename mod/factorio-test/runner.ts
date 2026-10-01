@@ -1,7 +1,7 @@
 /** @noSelfInFile */
 import { TestStage } from "../constants"
 import { __factorio_test__pcallWithStacktrace } from "./pcall-with-stacktrace"
-import { resumeAfterReload } from "./reload-resume"
+import { prepareReload, resumeAfterReload } from "./reload-resume"
 import { createRunReport } from "./results"
 import { assertNever } from "./shared/util"
 import { PartRun, TestRun, TestState, setToLoadErrorState } from "./state"
@@ -9,6 +9,7 @@ import { TestEvent, TestEventListener } from "./test-events"
 import { reorderFailedFirst, shouldReorderFailedFirst } from "./test-reordering"
 import {
   DescribeBlock,
+  ReloadKind,
   Test,
   collectAfterEachHooks,
   collectBeforeEachHooks,
@@ -17,7 +18,10 @@ import {
 } from "./tests"
 
 /** The points at which the test runner can suspend/resume across a tick. */
-type Resumption = { kind: "beforeTest"; test: Test; ticksLeft: number } | { kind: "asyncPart"; testRun: TestRun }
+type Resumption =
+  | { kind: "beforeTest"; test: Test; ticksLeft: number }
+  | { kind: "asyncPart"; testRun: TestRun }
+  | { kind: "awaitingReload" }
 
 /**
  * Position in the test tree. `block` has already been entered (its
@@ -122,6 +126,8 @@ export class TestRunner {
       } else if (!this.startAndRunTest(resumePoint.test)) {
         this.advance()
       }
+    } else if (resumePoint.kind === "awaitingReload") {
+      this.setLoadError(`Reload was requested but did not happen. Aborting test run.`)
     } else if (!this.pollAsyncPart(resumePoint.testRun)) {
       this.advance()
     }
@@ -344,19 +350,37 @@ export class TestRunner {
   private advanceParts(testRun: TestRun): boolean {
     const { test } = testRun
     while (isPartComplete(testRun)) {
-      const { partIndex } = testRun.part
-      if (partIndex + 1 >= test.parts.length) {
+      const nextIndex = testRun.part.partIndex + 1
+      if (nextIndex >= test.parts.length) {
         // A cancel raised from the test body must not emit testPassed/testFailed.
         // Leave currentTestRun set, so the next tick's cancelRun runs afterEach.
         if (this.cancelRequested) return true
         this.leaveTest(testRun)
         return false
       }
-      testRun.part = newPartRun(partIndex + 1)
+      const { reloadBefore } = test.parts[nextIndex]!
+      if (reloadBefore && test.errors.length === 0) {
+        if (testRun.afterTestFuncs.length === 0) {
+          this.beginReload(testRun.test, nextIndex, reloadBefore)
+          return true
+        }
+        test.errors.push(`after_test cannot be used before a reload (after_reload_${reloadBefore})`)
+      }
+      testRun.part = newPartRun(nextIndex)
       this.runPart(testRun)
     }
     this.resumePoint = { kind: "asyncPart", testRun }
     return true
+  }
+
+  private beginReload(test: Test, resumePartIndex: number, kind: ReloadKind): void {
+    prepareReload(this.state, test, resumePartIndex)
+    this.resumePoint = { kind: "awaitingReload" }
+    if (kind === "mods") {
+      game.reload_mods()
+    } else {
+      game.reload_script()
+    }
   }
 
   private leaveTest(testRun: TestRun): void {
