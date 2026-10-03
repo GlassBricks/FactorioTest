@@ -2,21 +2,21 @@
 
 ### Features
 
-- `--step` (config file: `test.step`): with `--graphics`, pause before each test and step, to watch the run in a window. Requires factorio-test mod v3.1.1.
+- Added `.step()` test api: allows breaking up a test into multiple independent optionally named "steps". Can be used for interactively stepping through a test (see step mode), or having multiple distinct "async" contexts.
+- Added step mode: (`--step` with CLI, `test.step` with config file). When running in-game (graphics mode), allows pause before each test, to interactively watch and step through tests. Requires factorio-test mod v3.1.1.
 
 ### Changes
 
 - The Space Age DLC mods (`space-age`, `quality`, `elevated-rails`, `recycler`) are now disabled by
-  default, when run from the cli. Enable them with the `mods` config option or `--mods`, or by depending on them from the mod under test. Enabling one also enables the DLC mods it depends on (e.g. `space-age` enables `quality`, `elevated-rails` and `recycler`).
+  default, when run from the cli. Enable them with the `mods` config option or `--mods`, or by depending on them from the mod under test.
 - The bundled default save used for tests is now a Factorio 2.1 save with only the `base` mod. This should remove migration notifications when run in graphics mode.
 
 ### Fixes
 
 - Factorio output with CRLF line endings no longer produces spurious empty lines.
-- The last line of Factorio output, if not newline-terminated, is no longer processed twice.
-- In `--watch` mode, a rerun now waits for the cancelled run to finish cleaning up, and rapid file changes no longer leave a stale run uncancellable.
-- Multiple filter arguments now run tests matching any of them (previously matched nothing). They are also combined with `--test-pattern`, instead of replacing it. Requires factorio-test mod v3.1.1.
-- `outputFile` in a config file is now resolved relative to the config file, like other paths.
+- In `--watch` mode, a rerun now waits for the cancelled run to finish cleaning up, so rapid file changes no longer leave a stale uncancellable run.
+- Multiple filter arguments now run tests matching any of them (previously matched nothing). They are also combinable with `--test-pattern`, instead of replacing it.
+- `outputFile` in a config file is now resolved relative to the config file, consistent with other paths.
 
 ## v3.6.0
 
