@@ -52,6 +52,23 @@ Test output is also printed to the Factorio log file.
 If [Factorio DebugAdapter](https://github.com/justarandomgeek/vscode-factoriomod-debug) is detected,
 output goes to the debug console with clickable links instead.
 
+## Step Mode
+
+Step mode pauses the run before each test, and before each [step](Writing-Tests.md#steps), so you
+can interactively step through tests (with the game open).
+It needs the in-game GUI, so it works in graphical mode only: (run in-game, or from the CLI with `--graphics`).
+
+Enable it with the `step` [config option](Configuration.md), or using `--step --graphics` from the cli.
+
+While paused, the test GUI caption shows what _will_ run next, with buttons:
+
+- **Step**: run the next test or step.
+- **Skip test**: abandon the test, and report it as skipped. `after_test` and `after_each` hooks still run.
+- **Run to end**: stop pausing, run all remaining tests this run.
+
+While paused, the game speed is 1 (normal), while tests run, it is the configured `game_speed`.
+To watch tests in real time, set a lower `game_speed`, e.g. `--game-speed 1`.
+
 ## CLI Options
 
 ### Watch Mode
@@ -67,27 +84,6 @@ In headless mode, this restarts the Factorio process on each change.
 With `--graphics --watch`, the CLI sends a UDP signal to trigger in-game reload without restarting (port set by `--udp-port`, default `14434`).
 
 Configure watched patterns with `--watch-patterns` (default: `info.json`, `**/*.lua`).
-
-### Step Mode
-
-Use `--step` with `--graphics` to interactively step through tests:
-
-```bash
-npx factorio-test run --mod-path ./my-mod --graphics --step
-```
-
-The game pauses before each test and before each [step](Writing-Tests.md#steps), and the test GUI
-shows what runs next, with buttons:
-
-- **Step**: run the next test or step.
-- **Skip test**: abandon the test, and report it as skipped. `after_test` and `after_each` hooks still run.
-- **Run to end**: stop pausing, run all remaining tests this run.
-
-While step mode is on, the game runs at speed 1 instead of `game_speed`. The run does not pause
-before skipped tests, before `after_reload_*` parts, or before a step once the test has failed.
-
-Step mode can also be enabled with the `step` [config option](Configuration.md); in headless mode,
-it is ignored with a warning.
 
 ### Test Results File
 

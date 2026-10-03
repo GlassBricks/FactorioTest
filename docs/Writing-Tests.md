@@ -257,13 +257,9 @@ end)
 - Use `.step`, not `:step`.
 - `on_tick` and `after_ticks` handlers stop when their part completes; register them in each part
   that needs them.
-- `async`, `done`, `on_tick` and `after_ticks` cannot be called between parts, e.g. from an event
-  handler that fires after a part completes, before the next step starts.
-- Errors in a step are prefixed with it: `In step "place the covering tile": ...`, or `In step 2: ...`
-  for a step without a caption.
 - Steps can be mixed with `after_reload_mods` and `after_reload_script`.
 
-Steps are where [step mode](Running-Tests.md#step-mode) pauses within a test.
+Steps are also places where [step mode](Running-Tests.md#step-mode) pauses within a test.
 
 ## Tags
 
