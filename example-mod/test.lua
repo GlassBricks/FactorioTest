@@ -1,0 +1,5 @@
+describe("ci example", function()
+  it("loads science-duck from the mod portal", function()
+    assert(script.active_mods["science-duck"])
+  end)
+end)
