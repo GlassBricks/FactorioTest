@@ -42,4 +42,4 @@ jobs:
         run: |
           cp -r example-mod "$RUNNER_TEMP/example-mod"
           cd "$RUNNER_TEMP"
-          npx --yes factorio-test-cli run --mod-path example-mod < /dev/null
+          npx --yes factorio-test-cli run -v --mod-path example-mod < /dev/null
