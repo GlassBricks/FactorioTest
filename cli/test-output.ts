@@ -5,6 +5,10 @@ import type { CapturedTest, TestRunData } from "./test-results.js"
 
 export type { CapturedTest, TestRunData }
 
+function formatStepPath(testPath: string, step: string): string {
+  return `${testPath} (${step})`
+}
+
 export class ProgressRenderer {
   private readonly isTTY: boolean
   private active = false
@@ -27,7 +31,7 @@ export class ProgressRenderer {
       this.currentTest = event.test.path
       this.render()
     } else if (event.type === "stepStarted") {
-      this.currentTest = `${event.test.path} > ${event.step}`
+      this.currentTest = formatStepPath(event.test.path, event.step)
       this.render()
     }
   }
@@ -170,7 +174,7 @@ export class OutputFormatter {
       case "testStarted":
         return chalk.dim(`Starting: ${event.test.path}`)
       case "stepStarted":
-        return chalk.dim(`Step: ${event.test.path} > ${event.step}`)
+        return chalk.dim(`Step: ${formatStepPath(event.test.path, event.step)}`)
       case "loadError":
         return chalk.red(`Load error: ${event.error}`)
       case "testRunCancelled":

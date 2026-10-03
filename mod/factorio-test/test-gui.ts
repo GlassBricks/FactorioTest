@@ -8,7 +8,6 @@ import {
   LuaPlayer,
   ProgressBarGuiElement,
   ScrollPaneGuiElement,
-  SpriteGuiElement,
 } from "factorio:runtime"
 import { Locale, Misc, Prototypes } from "../constants"
 import { getPlayer } from "./shared/util"
@@ -24,7 +23,10 @@ export interface TestGui {
   player: LuaPlayer
   mainFrame: FrameGuiElement
   statusText: LabelGuiElement
-  pauseIcon: SpriteGuiElement
+  lastRunCaption?: LocalisedString
+  nextRow: FlowGuiElement
+  nextKindLabel: LabelGuiElement
+  nextLabel: LabelGuiElement
   progressBar: ProgressBarGuiElement
   progressLabel: LabelGuiElement
   testSummary: LabelGuiElement
@@ -36,20 +38,28 @@ export interface TestGui {
   totalTests: number
 }
 
-function StatusRow(parent: LuaGuiElement): { statusText: LabelGuiElement; pauseIcon: SpriteGuiElement } {
-  const row = parent.add({ type: "flow", direction: "horizontal" })
-  row.style.vertical_align = "center"
-
-  const pauseIcon = row.add({ type: "sprite" })
-  const iconStyle = pauseIcon.style
-  iconStyle.size = 20
-  iconStyle.stretch_image_to_widget_size = true
-  pauseIcon.visible = false
-
-  const statusText = row.add({ type: "label" })
+function StatusText(parent: LuaGuiElement): LabelGuiElement {
+  const statusText = parent.add({ type: "label" })
   statusText.style.font = "default-large"
+  return statusText
+}
 
-  return { statusText, pauseIcon }
+function NextRow(parent: LuaGuiElement): {
+  nextRow: FlowGuiElement
+  nextKindLabel: LabelGuiElement
+  nextLabel: LabelGuiElement
+} {
+  const nextRow = parent.add({ type: "flow", direction: "horizontal" })
+  nextRow.visible = false
+  // keeps the row's height while its labels are blank, so the progress bar doesn't shift
+  nextRow.style.minimal_height = 20
+
+  const nextKindLabel = nextRow.add({ type: "label", style: "caption_label" })
+  const nextLabel = nextRow.add({ type: "label" })
+  const nextStyle = nextLabel.style
+  nextStyle.single_line = false
+  nextStyle.maximal_width = 500
+  return { nextRow, nextKindLabel, nextLabel }
 }
 
 function ProgressBar(parent: LuaGuiElement): {
@@ -225,7 +235,8 @@ function createTestProgressGui(state: TestEventContext): TestGui {
     player,
     mainFrame,
     totalTests: countActiveTests(state),
-    ...StatusRow(topFrame),
+    statusText: StatusText(topFrame),
+    ...NextRow(topFrame),
     ...ProgressBar(topFrame),
     testSummary: TestSummary(topFrame),
     ...StepControls(topFrame),
@@ -300,23 +311,25 @@ export const progressGuiListener: TestEventListener = (event, state) => {
       gui.statusText.caption = [ProgressGui.RunningTest, event.test.parent.path]
       break
     }
+    case "testStarted":
+      showRunning(gui, [ProgressGui.RunningTest, event.test.path])
+      break
     case "stepStarted":
-      gui.statusText.caption = [ProgressGui.RunningStep, event.test.path, event.step]
+      showRunning(gui, [ProgressGui.RunningStep, event.test.path, event.step])
       break
     case "stepPaused": {
       const { test, step } = event
-      if (step) gui.statusText.caption = [ProgressGui.RunningStep, test.path, step]
-      showStepControls(gui, true)
-      gui.pauseIcon.sprite = "utility/pause"
+      gui.statusText.caption = gui.lastRunCaption ?? [ProgressGui.RunningTest, test.parent.path]
+      gui.nextKindLabel.caption = [step ? ProgressGui.StepNextStep : ProgressGui.StepNextTest]
+      gui.nextLabel.caption = step ?? test.path
+      setStepControlsVisible(gui, true)
       setStepButtonsEnabled(gui, true)
       break
     }
     case "stepResumed":
-      if (event.action === "runRest" || event.action === "cancel") {
-        showStepControls(gui, false)
-      } else {
-        gui.pauseIcon.sprite = ""
-      }
+      gui.nextKindLabel.caption = ""
+      gui.nextLabel.caption = ""
+      if (event.action === "runRest" || event.action === "cancel") setStepControlsVisible(gui, false)
       break
     case "describeBlockFinished": {
       const { block } = event
@@ -349,9 +362,14 @@ export const progressGuiListener: TestEventListener = (event, state) => {
   }
 }
 
-function showStepControls(gui: TestGui, visible: boolean): void {
-  gui.pauseIcon.visible = visible
+function setStepControlsVisible(gui: TestGui, visible: boolean): void {
+  gui.nextRow.visible = visible
   gui.stepControls.visible = visible
+}
+
+function showRunning(gui: TestGui, caption: LocalisedString): void {
+  gui.statusText.caption = caption
+  gui.lastRunCaption = caption
 }
 
 // Toggling `enabled` drops a button's hover state until the mouse moves, so skip no-op writes.
@@ -368,7 +386,7 @@ export function showStepRunning(): void {
 }
 
 function showRunEnded(gui: TestGui, statusLocale: ProgressGui): void {
-  showStepControls(gui, false)
+  setStepControlsVisible(gui, false)
   gui.statusText.caption = [statusLocale]
   gui.actionButton.caption = [ConfigGui.RerunTests]
   gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
@@ -376,7 +394,7 @@ function showRunEnded(gui: TestGui, statusLocale: ProgressGui): void {
 
 export function hideStepControls(): void {
   const gui = getTestProgressGui()
-  if (gui) showStepControls(gui, false)
+  if (gui) setStepControlsVisible(gui, false)
 }
 
 const profilerLength = "(Duration: 0.082400ms)".length - "(<Profiler>)".length

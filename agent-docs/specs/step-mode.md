@@ -131,13 +131,18 @@ test("connects an underground pipe", () => placeUnderground())
 
 ### Controls (in-game test GUI)
 
-- **CTL-1** Step controls: a pause icon before the status text, and buttons **Skip test**, **Run to
-  end** (`utility/tick_once` icon), **Step** (primary/confirm style), right-aligned at the bottom
-  of the top frame, below a full-width separator line. Shown from the first pause until Run to end,
-  Cancel, or the run ends. While paused: icon shown, buttons enabled. On resume: icon blank (its slot
-  is kept, so the text doesn't shift). Buttons are disabled only once a step outlasts the tick it
+- **CTL-1** Step controls: a next label directly below the status text, and buttons **Skip test**,
+  **Run to end** (`utility/tick_once` icon), **Step** (primary/confirm style), right-aligned at the
+  bottom of the top frame, below a full-width separator line. The next label is a caption-styled
+  kind (`Next test:` / `Next step:`) followed by the upcoming item (bounded width, wraps):
+  `<test.path>` before a test, `<step label>` alone before a step part (the status text right
+  above already names its test, OUT-1a). Shown from the first pause until Run to end, Cancel, or
+  the run ends. While paused: next label set, buttons enabled. On resume: next label blank (its row
+  keeps its height, so nothing shifts). Buttons are disabled only once a step outlasts the tick it
   started on: a step that pauses again within its tick never toggles them (toggling drops the
-  button's hover state). What comes next is named by the status text (OUT-1). The existing **Cancel** remains available.
+  button's hover state). The existing **Cancel** remains available.
+  > The next label and button state together show paused vs running; there is no separate pause
+  > indicator.
 - **CTL-2** A step action or Cancel while paused unpauses the game immediately; the action takes
   effect on the next runner tick.
 
@@ -239,14 +244,17 @@ step on:  part N @T → pause → rest of T simulates → frozen … Step
 
 ## Output
 
-`<step label>` below is the step label (Definitions).
+`<step label>` below is the step label (Definitions). It is parenthesized, not joined with `>`,
+so a step doesn't read as a nested test; the GUI also colors it (caption color).
 
-- **OUT-1** While a step part runs (step mode on or off), and while paused before it, the progress
-  GUI status text is `<test.path> > <step label>`. Reset as today when the next test is entered or
-  the test finishes. So while paused, the status text names what runs next.
-- **OUT-2** With `--verbose`, the CLI prints `Step: <test.path> > <step label>` (dim) when a step
+- **OUT-1** While a step part runs (step mode on or off), the progress GUI status text is
+  `<test.path> (<step label>)`. Reset as today when the next test is entered or the test finishes.
+- **OUT-1a** While paused, the status text names the last test or step part that started (what
+  produced the world state on screen), or the upcoming test's parent block path if nothing has
+  run yet. What runs next is named by the next label (CTL-1).
+- **OUT-2** With `--verbose`, the CLI prints `Step: <test.path> (<step label>)` (dim) when a step
   part starts, like `Starting: <test.path>` for tests.
-- **OUT-3** The CLI progress line (TTY) shows `Running: <test.path> > <step label>` while a step
+- **OUT-3** The CLI progress line (TTY) shows `Running: <test.path> (<step label>)` while a step
   part runs.
   > OUT-2 / OUT-3 are only observable in headless runs, i.e. with step mode off: the mod sends
   > events to the CLI only when headless (`createTestListeners` in `load.ts`), and step mode
@@ -284,7 +292,7 @@ boundary: easy to verify by reading, checked by hand (Manual testing), and not u
 | Adapter                                                    | Responsibility                                                                                                                                                                                                                                          |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `gameEnvironmentListener` (`builtin-test-event-listeners`) | `stepPaused` → `tick_paused = true`, speed 1; `stepResumed` → `tick_paused = false`, speed `config.game_speed`                                                                                                                                          |
-| progress GUI (`test-gui.ts`)                               | step controls on `stepPaused` / `stepResumed`, also hidden in `showRunEnded`; status text on `stepStarted` and `stepPaused`; total and counts on `testSkippedByUser`                                                                                    |
+| progress GUI (`test-gui.ts`)                               | step controls and next label on `stepPaused` / `stepResumed`, also hidden in `showRunEnded`; status text and last-run caption on `testStarted` / `stepStarted`, last-run caption restored on `stepPaused`; total and counts on `testSkippedByUser`      |
 | log listener (`createLogListener`)                         | `testSkippedByUser` → `SKIP` line, unconditionally                                                                                                                                                                                                      |
 | `cliEventEmitter`                                          | forwards `stepStarted`                                                                                                                                                                                                                                  |
 | `load.ts` `on_tick` glue                                   | keep `tick_paused = false` and disable step buttons (`showStepRunning`) after each runner tick unless `runner.isStepPaused()`; routes GUI/remote actions to runner; with no `currentRunner`, a step action unpauses and hides the step controls (CTL-9) |
@@ -311,8 +319,9 @@ New `TestEvent`s:
   `{ type: "stepStarted"; test: TestInfo; step: string }` (`types/events.d.ts`), handled like
   `testStarted`: `OutputFormatter.formatEvent` (verbose line), `ProgressRenderer.handleEvent`
   (current test label; cleared by `handleTestFinished` as today). `TestRunCollector` ignores it.
-- Step controls: `stepPaused` → shown, pause icon, buttons enabled; `stepResumed` → hidden for
-  `runRest` / `cancel`, else icon blank; `showStepRunning()` (`load.ts` glue) → buttons disabled;
+- Step controls: `stepPaused` → shown, next label set, buttons enabled, status text = last-run
+  caption; `stepResumed` → next label blank, hidden for `runRest` / `cancel`;
+  `showStepRunning()` (`load.ts` glue) → buttons disabled;
   `showRunEnded` → hidden: a save made while paused can be loaded, then unpaused into a load error
   with the controls still shown (CTL-9). Button `enabled` is written only when it changes.
 - Status text reset by existing `testEntered` / test-finished handling.
@@ -359,10 +368,12 @@ New `TestEvent`s:
 ### Locale
 
 ```
+step-next-test=Next test:
+step-next-step=Next step:
 step-continue=Step
 step-skip-test=Skip test
 step-run-rest=Run to end [img=utility/tick_once]
-running-step=__1__ > __2__
+running-step=__1__ [color=255,230,192](__2__)[/color]
 ```
 
 ## Tests
@@ -450,9 +461,9 @@ with one part.
   > cases prove the flag and file both reach `validateRunConfig`. No separate schema / mapping
   > tests.
 - `run-plan.test.ts` `validateRunConfig`: accepts `step` with `graphics` (HL-1)
-- `test-output.test.ts` `ProgressRenderer`: `Running: <path> > <step label>` after `stepStarted`;
+- `test-output.test.ts` `ProgressRenderer`: `Running: <path> (<step label>)` after `stepStarted`;
   cleared when the test finishes (OUT-3)
-- `transcript.test.ts` replay: verbose prints `Step: <path> > <step label>`; default and quiet do
+- `transcript.test.ts` replay: verbose prints `Step: <path> (<step label>)`; default and quiet do
   not (OUT-2)
   > Covers `formatEvent` and the stdout parser for `stepStarted`; no separate `formatEvent` test.
 
@@ -472,14 +483,14 @@ Only the adapters (Environment boundary) and button wiring; runner behavior is a
 npm run run-fixture -- usage-test-mod --step
 ```
 
-| #   | Do                                                     | Expect                                                                                                                                                                                                                                     | Covers                                        |
-| --- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------- |
-| 1   | Start; Step until the `.step()` part                   | Each pause: world frozen, game speed 1 (`game_speed` while a part runs), pause icon, buttons enabled, status text `<path>` / `<path> > <caption>` (the upcoming item). While the part runs: same status text, icon blank, buttons disabled | `gameEnvironmentListener`, GUI; Step button   |
-| 2   | While paused, `/c game.tick_paused = false`; then Step | World runs, the test does not advance, pause icon and buttons stay, game is not re-paused; Step resumes                                                                                                                                    | `load.ts` unpause glue                        |
-| 3   | At a pause, Skip test; Run to end                      | `SKIP <path>` logged; counted skipped; progress bar full at the end                                                                                                                                                                        | Skip button, log + GUI on `testSkippedByUser` |
-| 4   | At a pause, Run to end                                 | Step controls gone, no more pauses, speed `game_speed`                                                                                                                                                                                     | Run to end button, speed restore              |
-| 5   | Rerun tests; Cancel at the first pause                 | Run cancelled, step controls gone, game unpaused                                                                                                                                                                                           | Cancel while paused                           |
-| 6   | Rerun; at a pause, save; load the save; Step           | Game unpauses, step controls gone; run ends in load error ("Save was unexpectedly reloaded")                                                                                                                                               | CTL-9 glue, `showRunEnded` hides controls     |
+| #   | Do                                                     | Expect                                                                                                                                                                                                                                                                                         | Covers                                        |
+| --- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| 1   | Start; Step until the `.step()` part                   | Each pause: world frozen, game speed 1 (`game_speed` while a part runs), buttons enabled, status text names the item that just ran, next label `Next test: <path>` / `Next step: <caption>` (the upcoming item). While the part runs: status text names it, next label blank, buttons disabled | `gameEnvironmentListener`, GUI; Step button   |
+| 2   | While paused, `/c game.tick_paused = false`; then Step | World runs, the test does not advance, next label and buttons stay, game is not re-paused; Step resumes                                                                                                                                                                                        | `load.ts` unpause glue                        |
+| 3   | At a pause, Skip test; Run to end                      | `SKIP <path>` logged; counted skipped; progress bar full at the end                                                                                                                                                                                                                            | Skip button, log + GUI on `testSkippedByUser` |
+| 4   | At a pause, Run to end                                 | Step controls gone, no more pauses, speed `game_speed`                                                                                                                                                                                                                                         | Run to end button, speed restore              |
+| 5   | Rerun tests; Cancel at the first pause                 | Run cancelled, step controls gone, game unpaused                                                                                                                                                                                                                                               | Cancel while paused                           |
+| 6   | Rerun; at a pause, save; load the save; Step           | Game unpauses, step controls gone; run ends in load error ("Save was unexpectedly reloaded")                                                                                                                                                                                                   | CTL-9 glue, `showRunEnded` hides controls     |
 
 Confirm by reading:
 

@@ -44,7 +44,7 @@ describe("usage-test-mod transcript replay", () => {
     [
       "verbose",
       { verbose: true },
-      [...perTestLines, "Starting: test1 > Pass", "Step: test1 > Steps > captioned step", summaryLine],
+      [...perTestLines, "Starting: test1 > Pass", "Step: test1 > Steps (captioned step)", summaryLine],
       ['"type":"testStarted"', "SKIP test1 > Skip"],
     ],
   ])("%s output", (_, options, expected, unexpected) => {

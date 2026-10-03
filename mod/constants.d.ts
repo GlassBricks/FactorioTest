@@ -58,6 +58,8 @@ export namespace Locale {
     Cancel = "factorio-test.progress-gui.cancel",
     LoadError = "factorio-test.progress-gui.load-error",
     RunningStep = "factorio-test.progress-gui.running-step",
+    StepNextTest = "factorio-test.progress-gui.step-next-test",
+    StepNextStep = "factorio-test.progress-gui.step-next-step",
     StepContinue = "factorio-test.progress-gui.step-continue",
     StepSkipTest = "factorio-test.progress-gui.step-skip-test",
     StepRunRest = "factorio-test.progress-gui.step-run-rest",

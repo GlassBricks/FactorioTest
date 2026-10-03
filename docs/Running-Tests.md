@@ -54,13 +54,13 @@ output goes to the debug console with clickable links instead.
 
 ## Step Mode
 
-Step mode pauses the run before each test, and before each [step](Writing-Tests.md#steps), so you
-can interactively step through tests (with the game open).
-It needs the in-game GUI, so it works in graphical mode only: (run in-game, or from the CLI with `--graphics`).
+Step mode pauses the run before each test and [steps](Writing-Tests.md#steps) within tests, with the game open.
+This can be useful for interactively stepping through and debugging tests in-game.
 
 Enable it with the `step` [config option](Configuration.md), or using `--step --graphics` from the cli.
+It needs the in-game GUI: run it in-game, or with `--graphics`.
 
-While paused, the test GUI caption shows what _will_ run next, with buttons:
+While paused, the test GUI caption shows what just ran (the world state you see is its result), and the step controls show what will run next, with buttons:
 
 - **Step**: run the next test or step.
 - **Skip test**: abandon the test, and report it as skipped. `after_test` and `after_each` hooks still run.
