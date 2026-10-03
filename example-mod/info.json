@@ -1,0 +1,8 @@
+{
+  "name": "factorio-test-ci-example",
+  "version": "0.0.1",
+  "title": "CI example",
+  "author": "test",
+  "factorio_version": "2.1",
+  "dependencies": ["base", "science-duck"]
+}

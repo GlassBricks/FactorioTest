@@ -1,0 +1,41 @@
+name: Portal download test
+
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        creds: [service-token, upload-api-key, none]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Resolve Factorio version
+        id: factorio
+        run: echo "version=$(curl -fsSL https://factorio.com/api/latest-releases | jq -r .experimental.headless)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        id: factorio-cache
+        with:
+          path: ~/factorio
+          key: factorio-headless-${{ steps.factorio.outputs.version }}
+      - name: Download Factorio headless
+        if: steps.factorio-cache.outputs.cache-hit != 'true'
+        run: curl -fsSL "https://factorio.com/get-download/${{ steps.factorio.outputs.version }}/headless/linux64" | tar -xJ -C ~
+      - run: echo ~/factorio/bin/x64 >> "$GITHUB_PATH"
+
+      - name: Set mod portal credentials
+        if: matrix.creds != 'none'
+        env:
+          FACTORIO_USERNAME: ${{ secrets.FACTORIO_USERNAME }}
+          FACTORIO_TOKEN: ${{ matrix.creds == 'service-token' && secrets.FACTORIO_TOKEN || secrets.FACTORIO_UPLOAD_API_KEY }}
+        run: |
+          mkdir -p ~/.factorio
+          jq -n --arg u "$FACTORIO_USERNAME" --arg t "$FACTORIO_TOKEN" '{"service-username": $u, "service-token": $t}' > ~/.factorio/player-data.json
+
+      - run: npx --yes factorio-test-cli run --mod-path example-mod --data-directory "$RUNNER_TEMP/factorio-test-data" < /dev/null
