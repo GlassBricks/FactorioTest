@@ -50,16 +50,19 @@ describe("watchDirectory", () => {
     fs.rmSync(dir, { recursive: true, force: true })
   })
 
-  function watch(): { changes: () => number } {
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 200))
+
+  // macOS FSEvents can deliver events from before the watcher started, e.g. the fixture creation in beforeEach
+  async function watch(): Promise<{ changes: () => number }> {
     let count = 0
     watcher = watchDirectory(dir, () => count++, { patterns: ["info.json", "**/*.lua"], debounceMs: 50 })
+    await settle()
+    count = 0
     return { changes: () => count }
   }
 
-  const settle = () => new Promise((resolve) => setTimeout(resolve, 200))
-
   it("fires once for a burst of matching changes", async () => {
-    const { changes } = watch()
+    const { changes } = await watch()
     fs.writeFileSync(path.join(dir, "control.lua"), "-- 1")
     fs.writeFileSync(path.join(dir, "control.lua"), "-- 2")
     fs.mkdirSync(path.join(dir, "nested"))
@@ -69,7 +72,7 @@ describe("watchDirectory", () => {
   })
 
   it("ignores files not matching the patterns", async () => {
-    const { changes } = watch()
+    const { changes } = await watch()
     fs.writeFileSync(path.join(dir, "test.ts"), "// test file")
     await settle()
     expect(changes()).toBe(0)

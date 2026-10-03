@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { buildAutoStartConfig, parseRequiredDependencies, type ModRequirement } from "./mod-setup.js"
+import { buildAutoStartConfig, parseRequiredDependencies, readDataPath, type ModRequirement } from "./mod-setup.js"
 
 describe("parseRequiredDependencies", () => {
   it.each<[string[], ModRequirement[]]>([
@@ -43,5 +43,15 @@ describe("buildAutoStartConfig", () => {
     ["headless", ["a > b"], { mod: "my-mod", headless: true, last_failed_tests: ["a > b"] }],
   ] as const)("mode=%s lastFailedTests=%j", (mode, lastFailedTests, expected) => {
     expect(buildAutoStartConfig("my-mod", mode, lastFailedTests && [...lastFailedTests])).toEqual(expected)
+  })
+})
+
+describe("readDataPath", () => {
+  it.each<[NodeJS.Platform, string]>([
+    ["darwin", "__PATH__executable__/../data"],
+    ["linux", "__PATH__executable__/../../data"],
+    ["win32", "__PATH__executable__/../../data"],
+  ])("%s => %s", (platform, expected) => {
+    expect(readDataPath(platform)).toBe(expected)
   })
 })

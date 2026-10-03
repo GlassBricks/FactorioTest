@@ -17,6 +17,7 @@
 - In `--watch` mode, a rerun now waits for the cancelled run to finish cleaning up, so rapid file changes no longer leave a stale uncancellable run.
 - Multiple filter arguments now run tests matching any of them (previously matched nothing). They are also combinable with `--test-pattern`, instead of replacing it.
 - `outputFile` in a config file is now resolved relative to the config file, consistent with other paths.
+- Fixed incorrect `read-data` path in the generated `config.ini` on macOS (#3). If affected, delete `config.ini` in the data directory (default `./factorio-test-data-dir`) to regenerate it.
 
 ## v3.6.0
 
