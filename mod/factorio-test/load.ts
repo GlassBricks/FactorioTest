@@ -12,7 +12,7 @@ import { debugAdapterEnabled } from "./shared/util"
 import { RunStore, TestContext } from "./state"
 import { testStorage } from "./storage"
 import { StepAction, TestEventListener } from "./test-events"
-import { hideStepBar, progressGuiListener, progressGuiLogger } from "./test-gui"
+import { hideStepControls, progressGuiListener, progressGuiLogger, showStepRunning } from "./test-gui"
 import Config = FactorioTest.Config
 
 declare const ____originalRequire: typeof require
@@ -145,7 +145,7 @@ function stepAction(action: StepAction) {
   }
   // e.g. a save made while step-paused was loaded: there is no runner to resume
   game.tick_paused = false
-  hideStepBar()
+  hideStepControls()
 }
 
 function doRunTests() {
@@ -165,6 +165,7 @@ function doRunTests() {
       // since 2.1). The runner is driven by on_tick, which only fires while ticks advance, so
       // keep the game unpaused for the duration of the run, except while paused for step mode.
       game.tick_paused = false
+      showStepRunning()
     }
   })
 }

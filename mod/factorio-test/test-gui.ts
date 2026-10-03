@@ -8,6 +8,7 @@ import {
   LuaPlayer,
   ProgressBarGuiElement,
   ScrollPaneGuiElement,
+  SpriteGuiElement,
 } from "factorio:runtime"
 import { Locale, Misc, Prototypes } from "../constants"
 import { getPlayer } from "./shared/util"
@@ -23,21 +24,32 @@ export interface TestGui {
   player: LuaPlayer
   mainFrame: FrameGuiElement
   statusText: LabelGuiElement
+  pauseIcon: SpriteGuiElement
   progressBar: ProgressBarGuiElement
   progressLabel: LabelGuiElement
   testSummary: LabelGuiElement
-  stepBar: FlowGuiElement
-  stepLabel: LabelGuiElement
+  stepControls: FlowGuiElement
+  stepButtons: FlowGuiElement
   output: ScrollPaneGuiElement
   actionButton: ButtonGuiElement
 
   totalTests: number
 }
 
-function StatusText(parent: LuaGuiElement) {
-  const statusText = parent.add({ type: "label" })
+function StatusRow(parent: LuaGuiElement): { statusText: LabelGuiElement; pauseIcon: SpriteGuiElement } {
+  const row = parent.add({ type: "flow", direction: "horizontal" })
+  row.style.vertical_align = "center"
+
+  const pauseIcon = row.add({ type: "sprite" })
+  const iconStyle = pauseIcon.style
+  iconStyle.size = 20
+  iconStyle.stretch_image_to_widget_size = true
+  pauseIcon.visible = false
+
+  const statusText = row.add({ type: "label" })
   statusText.style.font = "default-large"
-  return statusText
+
+  return { statusText, pauseIcon }
 }
 
 function ProgressBar(parent: LuaGuiElement): {
@@ -75,7 +87,7 @@ function TestSummary(parent: LuaGuiElement): LabelGuiElement {
   return label
 }
 
-function stepButton(parent: LuaGuiElement, caption: ProgressGui, action: StepAction, style?: string): void {
+function stepButton(parent: LuaGuiElement, caption: ProgressGui, action: StepAction, style = "dialog_button"): void {
   parent.add({
     type: "button",
     caption: [caption],
@@ -84,20 +96,23 @@ function stepButton(parent: LuaGuiElement, caption: ProgressGui, action: StepAct
   })
 }
 
-function StepBar(parent: LuaGuiElement): { stepBar: FlowGuiElement; stepLabel: LabelGuiElement } {
-  const stepBar = parent.add({ type: "flow", direction: "horizontal" })
-  stepBar.style.vertical_align = "center"
-  stepBar.visible = false
+function StepControls(parent: LuaGuiElement): { stepControls: FlowGuiElement; stepButtons: FlowGuiElement } {
+  const stepControls = parent.add({ type: "flow", direction: "vertical" })
+  stepControls.visible = false
+  // matches the top frame's bottom padding, so the buttons sit centered between line and frame edge
+  stepControls.style.vertical_spacing = 12
+  stepControls.add({ type: "line", direction: "horizontal", style: "inside_shallow_frame_with_padding_line" })
 
-  const stepLabel = stepBar.add({ type: "label" })
-  stepLabel.style.font = "default-bold"
-  const spacer = stepBar.add({ type: "empty-widget" })
-  spacer.style.horizontally_stretchable = true
+  const stepButtons = stepControls.add({ type: "flow", direction: "horizontal" })
+  const buttonsStyle = stepButtons.style
+  buttonsStyle.horizontally_stretchable = true
+  buttonsStyle.horizontal_align = "right"
+  buttonsStyle.vertical_align = "center"
 
-  stepButton(stepBar, ProgressGui.StepSkipTest, "skipTest")
-  stepButton(stepBar, ProgressGui.StepRunRest, "runRest")
-  stepButton(stepBar, ProgressGui.StepContinue, "continue", "confirm_button_without_tooltip")
-  return { stepBar, stepLabel }
+  stepButton(stepButtons, ProgressGui.StepSkipTest, "skipTest")
+  stepButton(stepButtons, ProgressGui.StepRunRest, "runRest")
+  stepButton(stepButtons, ProgressGui.StepContinue, "continue", "confirm_button")
+  return { stepControls, stepButtons }
 }
 
 function TestOutput(parent: LuaGuiElement): ScrollPaneGuiElement {
@@ -210,10 +225,10 @@ function createTestProgressGui(state: TestEventContext): TestGui {
     player,
     mainFrame,
     totalTests: countActiveTests(state),
-    statusText: StatusText(topFrame),
+    ...StatusRow(topFrame),
     ...ProgressBar(topFrame),
     testSummary: TestSummary(topFrame),
-    ...StepBar(topFrame),
+    ...StepControls(topFrame),
     output: TestOutput(contentFlow),
     ...bottomButtonsBar(contentFlow),
   }
@@ -290,12 +305,18 @@ export const progressGuiListener: TestEventListener = (event, state) => {
       break
     case "stepPaused": {
       const { test, step } = event
-      gui.stepLabel.caption = [ProgressGui.StepPaused, step ? [ProgressGui.RunningStep, test.path, step] : test.path]
-      gui.stepBar.visible = true
+      if (step) gui.statusText.caption = [ProgressGui.RunningStep, test.path, step]
+      showStepControls(gui, true)
+      gui.pauseIcon.sprite = "utility/pause"
+      setStepButtonsEnabled(gui, true)
       break
     }
     case "stepResumed":
-      gui.stepBar.visible = false
+      if (event.action === "runRest" || event.action === "cancel") {
+        showStepControls(gui, false)
+      } else {
+        gui.pauseIcon.sprite = ""
+      }
       break
     case "describeBlockFinished": {
       const { block } = event
@@ -328,16 +349,34 @@ export const progressGuiListener: TestEventListener = (event, state) => {
   }
 }
 
+function showStepControls(gui: TestGui, visible: boolean): void {
+  gui.pauseIcon.visible = visible
+  gui.stepControls.visible = visible
+}
+
+// Toggling `enabled` drops a button's hover state until the mouse moves, so skip no-op writes.
+function setStepButtonsEnabled(gui: TestGui, enabled: boolean): void {
+  for (const button of gui.stepButtons.children) {
+    if (button.enabled !== enabled) button.enabled = enabled
+  }
+}
+
+/** Called after each runner tick that ends unpaused: a step that re-pauses within its tick never disables buttons. */
+export function showStepRunning(): void {
+  const gui = getTestProgressGui()
+  if (gui?.stepControls.visible) setStepButtonsEnabled(gui, false)
+}
+
 function showRunEnded(gui: TestGui, statusLocale: ProgressGui): void {
-  gui.stepBar.visible = false
+  showStepControls(gui, false)
   gui.statusText.caption = [statusLocale]
   gui.actionButton.caption = [ConfigGui.RerunTests]
   gui.actionButton.tags = { modName: "factorio-test", on_gui_click: Misc.RunTests }
 }
 
-export function hideStepBar(): void {
+export function hideStepControls(): void {
   const gui = getTestProgressGui()
-  if (gui) gui.stepBar.visible = false
+  if (gui) showStepControls(gui, false)
 }
 
 const profilerLength = "(Duration: 0.082400ms)".length - "(<Profiler>)".length

@@ -1790,7 +1790,7 @@ describe("step mode", () => {
         { ran: 0, skipped: 1 },
       ],
       [
-        "Run the rest",
+        "Run to end",
         1,
         "runRest",
         false,
@@ -1847,7 +1847,7 @@ describe("step mode", () => {
       assertDeepEquals([], getFirst().errors)
     })
 
-    test("Run the rest lasts only for the current run", () => {
+    test("Run to end lasts only for the current run", () => {
       afterEachThrows = false
       defineActionsFixture()
       const state = finishDefining()

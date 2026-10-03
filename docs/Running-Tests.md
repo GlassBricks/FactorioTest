@@ -70,7 +70,7 @@ Configure watched patterns with `--watch-patterns` (default: `info.json`, `**/*.
 
 ### Step Mode
 
-Use `--step` with `--graphics` to watch a test run at human speed:
+Use `--step` with `--graphics` to interactively step through tests:
 
 ```bash
 npx factorio-test run --mod-path ./my-mod --graphics --step
@@ -79,9 +79,9 @@ npx factorio-test run --mod-path ./my-mod --graphics --step
 The game pauses before each test and before each [step](Writing-Tests.md#steps), and the test GUI
 shows what runs next, with buttons:
 
-- **Continue**: run the next test or step.
+- **Step**: run the next test or step.
 - **Skip test**: abandon the test, and report it as skipped. `after_test` and `after_each` hooks still run.
-- **Run the rest**: stop pausing for the rest of this run.
+- **Run to end**: stop pausing, run all remaining tests this run.
 
 While step mode is on, the game runs at speed 1 instead of `game_speed`. The run does not pause
 before skipped tests, before `after_reload_*` parts, or before a step once the test has failed.
