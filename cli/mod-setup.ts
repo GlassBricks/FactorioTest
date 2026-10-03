@@ -2,7 +2,7 @@ import * as fsp from "fs/promises"
 import * as fs from "fs"
 import * as os from "os"
 import * as path from "path"
-import { runScript, runProcess } from "./process-utils.js"
+import { runFmtk, runProcess } from "./process-utils.js"
 import { getFactorioPlayerDataPath } from "./factorio-process.js"
 import type { AutoStartConfig } from "../types/config.js"
 import { CliError } from "./cli-error.js"
@@ -156,21 +156,11 @@ export async function installFactorioTest(modsDir: string): Promise<void> {
 
   if (!version) {
     console.log("Downloading mod: factorio-test")
-    await runScript("fmtk", "mods", "install", "--modsPath", modsDir, "--playerData", playerDataPath, "factorio-test")
+    await runFmtk("mods", "install", "--modsPath", modsDir, "--playerData", playerDataPath, "factorio-test")
     version = await getInstalledModVersion(modsDir, "factorio-test")
   } else if (compareVersions(version, MIN_FACTORIO_TEST_VERSION) < 0) {
     console.log(`Updating mod: factorio-test (${version} is below minimum ${MIN_FACTORIO_TEST_VERSION})`)
-    await runScript(
-      "fmtk",
-      "mods",
-      "install",
-      "--force",
-      "--modsPath",
-      modsDir,
-      "--playerData",
-      playerDataPath,
-      "factorio-test",
-    )
+    await runFmtk("mods", "install", "--force", "--modsPath", modsDir, "--playerData", playerDataPath, "factorio-test")
     version = await getInstalledModVersion(modsDir, "factorio-test")
   }
 
@@ -228,11 +218,11 @@ const TEST_CONFIG_SETTING = "factorio-test-config"
 const MOD_TO_TEST_SETTING = "factorio-test-mod-to-test"
 
 function setModSetting(modsDir: string, scope: SettingScope, name: string, value: string): Promise<void> {
-  return runScript("fmtk", "settings", "set", scope, name, value, "--modsPath", modsDir)
+  return runFmtk("settings", "set", scope, name, value, "--modsPath", modsDir)
 }
 
 function unsetModSetting(modsDir: string, scope: SettingScope, name: string): Promise<void> {
-  return runScript("fmtk", "settings", "unset", scope, name, "--modsPath", modsDir)
+  return runFmtk("settings", "unset", scope, name, "--modsPath", modsDir)
 }
 
 export async function setTestConfigSetting(modsDir: string, testConfig: ModConfig): Promise<void> {
@@ -245,7 +235,7 @@ export function setModToTestSetting(modsDir: string, modToTest: string): Promise
 }
 
 export async function adjustEnabledMods(modsDir: string, enableArgs: string[]): Promise<void> {
-  await runScript("fmtk", "mods", "adjust", "--modsPath", modsDir, "--disableExtra", ...enableArgs)
+  await runFmtk("mods", "adjust", "--modsPath", modsDir, "--disableExtra", ...enableArgs)
 }
 
 export async function ensureModSettingsDat(
@@ -347,10 +337,10 @@ export async function installMods(modsDir: string, mods: ModRequirement[]): Prom
     }
 
     try {
-      const args = ["fmtk", "mods", "install", "--modsPath", modsDir, "--playerData", playerDataPath]
+      const args = ["mods", "install", "--modsPath", modsDir, "--playerData", playerDataPath]
       if (installedVersion) args.push("--force")
       args.push(name)
-      await runScript(...args)
+      await runFmtk(...args)
     } catch {
       console.log(`Could not download mod: ${name}`)
     }

@@ -15,6 +15,7 @@
 
 ### Fixes
 
+- Running the CLI with `npx factorio-test-cli` without installing it no longer fails to find `fmtk`.
 - Invalid numeric CLI option values (e.g. `--udp-port abc`) are now reported as errors, instead of being ignored.
 - Factorio output with CRLF line endings no longer produces spurious empty lines.
 - In `--watch` mode, a rerun now waits for the cancelled run to finish cleaning up, so rapid file changes no longer leave a stale uncancellable run.

@@ -1,4 +1,6 @@
 import { spawn } from "child_process"
+import { createRequire } from "module"
+import * as path from "path"
 import { CliError } from "./cli-error.js"
 
 let verbose = false
@@ -7,8 +9,18 @@ export function setVerbose(v: boolean): void {
   verbose = v
 }
 
-export function runScript(...command: string[]): Promise<void> {
-  return runProcess(verbose, "npx", ...command)
+let fmtkCliPath: string | undefined
+
+function resolveFmtkCli(): string {
+  const require = createRequire(import.meta.url)
+  const packageJsonPath = require.resolve("factoriomod-debug/package.json")
+  const { bin } = require(packageJsonPath) as { bin: Record<string, string> }
+  return path.resolve(path.dirname(packageJsonPath), bin["fmtk"]!)
+}
+
+export function runFmtk(...args: string[]): Promise<void> {
+  fmtkCliPath ??= resolveFmtkCli()
+  return runProcess(verbose, process.execPath, fmtkCliPath, ...args)
 }
 
 export function runProcess(inheritStdio: boolean, command: string, ...args: string[]): Promise<void> {
