@@ -57,15 +57,12 @@ function buildCliArgs(options: RunCliOptions): string[] {
 
 const collectedStdio: child_process.StdioOptions = ["inherit", "pipe", "pipe"]
 
-function spawnInRoot(command: string, args: string[], stdio: child_process.StdioOptions): child_process.ChildProcess {
-  return child_process.spawn(command, args, { stdio, cwd: root })
-}
-
 export function spawnCli(
   options: RunCliOptions,
   stdio: child_process.StdioOptions = collectedStdio,
+  timeoutMs?: number,
 ): child_process.ChildProcess {
-  return spawnInRoot("npm", buildCliArgs(options), stdio)
+  return child_process.spawn("npm", buildCliArgs(options), { stdio, cwd: root, timeout: timeoutMs })
 }
 
 interface CliOutput {
@@ -90,7 +87,5 @@ export function runCli(options: RunCliOptions): Promise<CliOutput> {
 }
 
 export function runCliWithTimeout(options: RunCliOptions, timeoutSeconds: number): Promise<CliOutput> {
-  return collectOutput(
-    spawnInRoot("timeout", [String(timeoutSeconds), "npm", ...buildCliArgs(options)], collectedStdio),
-  )
+  return collectOutput(spawnCli(options, collectedStdio, timeoutSeconds * 1000))
 }

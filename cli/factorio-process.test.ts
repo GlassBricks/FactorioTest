@@ -14,6 +14,14 @@ vi.mock("child_process", async (importOriginal) => {
   }
 })
 
+vi.mock("fs", async (importOriginal) => {
+  const original = await importOriginal<typeof import("fs")>()
+  return {
+    ...original,
+    statSync: vi.fn(original.statSync),
+  }
+})
+
 describe("parseResultMessage", () => {
   it.each([
     ["passed", { status: "passed", hasFocusedTests: false }],
@@ -50,6 +58,8 @@ describe("autoDetectFactorioPath", () => {
   it("throws if no path found and factorio not in PATH", async () => {
     const { spawnSync } = await import("child_process")
     vi.mocked(spawnSync).mockReturnValue({ status: 1 } as ReturnType<typeof spawnSync>)
+    const { statSync } = await import("fs")
+    vi.mocked(statSync).mockReturnValue(undefined)
 
     const { autoDetectFactorioPath } = await import("./factorio-process.js")
     expect(() => autoDetectFactorioPath()).toThrow(/Could not auto-detect/)
