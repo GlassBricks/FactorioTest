@@ -1,6 +1,6 @@
 import * as util from "util"
 import { TestStage } from "../../constants"
-import { disableStepIfHeadless, withDefaultConfig } from "../config"
+import { withDefaultConfig } from "../config"
 import { prepareReload } from "../reload-resume"
 import { TestRunner } from "../runner"
 import { createTestApi } from "../setup-globals"
