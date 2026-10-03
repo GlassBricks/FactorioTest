@@ -131,18 +131,16 @@ test("connects an underground pipe", () => placeUnderground())
 
 ### Controls (in-game test GUI)
 
-- **CTL-1** Step controls: a next label directly below the status text, and buttons **Skip test**,
-  **Run to end** (`utility/tick_once` icon), **Step** (primary/confirm style), right-aligned at the
-  bottom of the top frame, below a full-width separator line. The next label is a caption-styled
-  kind (`Next test:` / `Next step:`) followed by the upcoming item (bounded width, wraps):
-  `<test.path>` before a test, `<step label>` alone before a step part (the status text right
-  above already names its test, OUT-1a). Shown from the first pause until Run to end, Cancel, or
-  the run ends. While paused: next label set, buttons enabled. On resume: next label blank (its row
-  keeps its height, so nothing shifts). Buttons are disabled only once a step outlasts the tick it
-  started on: a step that pauses again within its tick never toggles them (toggling drops the
-  button's hover state). The existing **Cancel** remains available.
-  > The next label and button state together show paused vs running; there is no separate pause
-  > indicator.
+- **CTL-1** Step controls, in the progress GUI:
+  - **Next label**, below the status text: what runs next. `Next test: <test.path>` before a test,
+    `Next step: <step label>` before a step part (the status text above names its test, OUT-1a).
+  - **Buttons**: Skip test, Run to end, Step (primary), below the progress section.
+  - Visibility: shown from the first pause until Run to end, Cancel, or the run ends.
+  - While paused: next label set, buttons enabled.
+  - While running: next label blank, without shifting the layout. Buttons are disabled once a
+    step outlasts the tick it started on; a step that pauses again within its tick leaves them
+    enabled.
+    > Avoids flicker for one-tick tests: toggling a button drops its hover state.
 - **CTL-2** A step action or Cancel while paused unpauses the game immediately; the action takes
   effect on the next runner tick.
 
