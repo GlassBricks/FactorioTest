@@ -3,16 +3,19 @@
 ### Features
 
 - Added `.step()` test api: allows breaking up a test into multiple independent optionally named "steps". Can be used for interactively stepping through a test (see step mode), or having multiple distinct "async" contexts.
-- Added step mode: (`--step` with CLI, `test.step` with config file). When running in-game (graphics mode), allows pause before each test, to interactively watch and step through tests. Requires factorio-test mod v3.1.1.
+- Added step mode: (`--step` with CLI, `step` option in config). When running in-game (graphics mode), allows pause before each test, to interactively watch and step through tests. Requires factorio-test mod v3.1.1.
 
 ### Changes
 
+- Config file options are now all top-level camelCase. Test execution options previously under `"test"` in snake_case (e.g. `"test": { "game_speed": 10 }`) are now e.g. `"gameSpeed": 10`. The `test` key is still accepted, with a deprecation warning.
+- `"outputFile": false` in a config file disables writing the results file, like `--no-output-file`.
 - The Space Age DLC mods (`space-age`, `quality`, `elevated-rails`, `recycler`) are now disabled by
   default, when run from the cli. Enable them with the `mods` config option or `--mods`, or by depending on them from the mod under test.
 - The bundled default save used for tests is now a Factorio 2.1 save with only the `base` mod. This should remove migration notifications when run in graphics mode.
 
 ### Fixes
 
+- Invalid numeric CLI option values (e.g. `--udp-port abc`) are now reported as errors, instead of being ignored.
 - Factorio output with CRLF line endings no longer produces spurious empty lines.
 - In `--watch` mode, a rerun now waits for the cancelled run to finish cleaning up, so rapid file changes no longer leave a stale uncancellable run.
 - Multiple filter arguments now run tests matching any of them (previously matched nothing). They are also combinable with `--test-pattern`, instead of replacing it.

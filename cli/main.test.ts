@@ -39,10 +39,11 @@ describe("main", () => {
     ["both --mod-path and --mod-name", ["--mod-path", "a", "--mod-name", "b"], "Only one of --mod-path or --mod-name"],
     ["--step without --graphics", ["--mod-path", "mod", "--step"], "Step mode requires --graphics"],
     [
-      "config file test.step without --graphics",
-      () => ["--mod-path", "mod", "--config", writeConfig({ test: { step: true } })],
+      "config file step without --graphics",
+      () => ["--mod-path", "mod", "--config", writeConfig({ step: true })],
       "Step mode requires --graphics",
     ],
+    ["invalid numeric option", ["--mod-path", "mod", "--udp-port", "abc"], "--udp-port"],
   ])("reports %s as an error", async (_, args, message) => {
     expect(await run(...(typeof args === "function" ? args() : args))).toBe(1)
     expect(stderr.join("\n")).toContain(message)

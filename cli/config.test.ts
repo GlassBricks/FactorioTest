@@ -1,186 +1,165 @@
-import { describe, it, expect, beforeEach, afterEach, assertType } from "vitest"
+import { afterEach, assertType, beforeEach, describe, expect, it, vi } from "vitest"
 import * as fs from "fs"
 import * as path from "path"
-import { loadFileConfig, resolveConfig, type TestRunnerConfig } from "./config/index.js"
+import { loadFileConfig, type ModConfig, resolveConfig, toModConfig } from "./config/index.js"
 
 const testDir = path.join(import.meta.dirname, "__test_fixtures__")
 
-describe("loadConfig", () => {
-  beforeEach(() => {
-    fs.mkdirSync(testDir, { recursive: true })
-  })
+beforeEach(() => {
+  fs.mkdirSync(testDir, { recursive: true })
+})
 
-  afterEach(() => {
-    fs.rmSync(testDir, { recursive: true, force: true })
-  })
+afterEach(() => {
+  vi.restoreAllMocks()
+  fs.rmSync(testDir, { recursive: true, force: true })
+})
 
+function writeConfig(config: Record<string, unknown>): string {
+  const configPath = path.join(testDir, "factorio-test.json")
+  fs.writeFileSync(configPath, JSON.stringify(config))
+  return configPath
+}
+
+describe("loadFileConfig", () => {
   it("returns empty object when no config exists", () => {
     expect(loadFileConfig(path.join(testDir, "nonexistent.json"))).toEqual({})
   })
 
-  it("loads factorio-test.json with snake_case test config", () => {
-    const configPath = path.join(testDir, "factorio-test.json")
-    fs.writeFileSync(
-      configPath,
-      JSON.stringify({
-        modPath: "./test",
-        test: { game_speed: 100 },
-      }),
-    )
-    expect(loadFileConfig(configPath)).toMatchObject({
+  it("loads flat camelCase config", () => {
+    expect(loadFileConfig(writeConfig({ modPath: "./test", gameSpeed: 100 }))).toMatchObject({
       modPath: path.join(testDir, "test"),
-      test: { game_speed: 100 },
+      gameSpeed: 100,
     })
   })
 
   it.each(["modPath", "factorioPath", "dataDirectory", "save", "outputFile"])(
     "resolves %s relative to the config file",
     (key) => {
-      const configPath = path.join(testDir, "factorio-test.json")
-      fs.writeFileSync(configPath, JSON.stringify({ [key]: "./some/path" }))
-      expect(loadFileConfig(configPath)).toMatchObject({ [key]: path.join(testDir, "some/path") })
+      expect(loadFileConfig(writeConfig({ [key]: "./some/path" }))).toMatchObject({
+        [key]: path.join(testDir, "some/path"),
+      })
     },
   )
 
-  it("throws on invalid keys", () => {
-    const configPath = path.join(testDir, "bad.json")
-    fs.writeFileSync(configPath, JSON.stringify({ test: { invalid_key: true } }))
-    expect(() => loadFileConfig(configPath)).toThrow()
+  it("accepts outputFile: false", () => {
+    expect(loadFileConfig(writeConfig({ outputFile: false })).outputFile).toBe(false)
   })
 
-  it("error message includes file path for invalid top-level key", () => {
-    const configPath = path.join(testDir, "bad-toplevel.json")
-    fs.writeFileSync(configPath, JSON.stringify({ unknownKey: true }))
+  it.each([
+    ["unknown top-level key", { unknownKey: true }, /unknownKey/],
+    ["unknown legacy test key", { test: { badNestedKey: true } }, /test/],
+    ["type mismatch", { gameSpeed: "fast" }, /gameSpeed/],
+    ["legacy type mismatch", { test: { game_speed: "fast" } }, /test\.game_speed/],
+    ["CLI-only option", { graphics: true }, /graphics/],
+  ])("rejects %s", (_, config, message) => {
+    const configPath = writeConfig(config)
+    expect(() => loadFileConfig(configPath)).toThrow(message)
     expect(() => loadFileConfig(configPath)).toThrow(configPath)
   })
 
-  it("error message includes field name for invalid top-level key", () => {
-    const configPath = path.join(testDir, "bad-toplevel.json")
-    fs.writeFileSync(configPath, JSON.stringify({ unknownKey: true }))
-    expect(() => loadFileConfig(configPath)).toThrow(/unknownKey/)
-  })
+  describe("legacy test key", () => {
+    beforeEach(() => {
+      vi.spyOn(console, "warn").mockImplementation(() => {})
+    })
 
-  it("error message includes field path for invalid nested key", () => {
-    const configPath = path.join(testDir, "bad-nested.json")
-    fs.writeFileSync(configPath, JSON.stringify({ test: { badNestedKey: true } }))
-    expect(() => loadFileConfig(configPath)).toThrow(/test/)
-  })
+    it("maps snake_case test options to top-level camelCase, with a deprecation warning", () => {
+      const config = loadFileConfig(writeConfig({ test: { game_speed: 100, tag_blacklist: ["slow"] } }))
+      expect(config).toMatchObject({ gameSpeed: 100, tagBlacklist: ["slow"] })
+      expect(config).not.toHaveProperty("test")
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("deprecated"))
+    })
 
-  it("error message includes field name for type mismatch", () => {
-    const configPath = path.join(testDir, "bad-type.json")
-    fs.writeFileSync(configPath, JSON.stringify({ test: { game_speed: "fast" } }))
-    expect(() => loadFileConfig(configPath)).toThrow(/game_speed/)
+    it("rejects an option set both top-level and under test", () => {
+      expect(() => loadFileConfig(writeConfig({ gameSpeed: 1, test: { game_speed: 2 } }))).toThrow(/gameSpeed/)
+    })
   })
 })
 
-describe("TestRunnerConfig type compatibility", () => {
-  it("all TestRunnerConfig keys exist in FactorioTest.Config with compatible types", () => {
-    type ConfigSubset = Pick<FactorioTest.Config, keyof TestRunnerConfig>
-    assertType<ConfigSubset>({} as Required<TestRunnerConfig>)
+describe("ModConfig type compatibility", () => {
+  it("all ModConfig keys exist in FactorioTest.Config with compatible types", () => {
+    type ConfigSubset = Pick<FactorioTest.Config, keyof ModConfig>
+    assertType<ConfigSubset>({} as Required<ModConfig>)
   })
 })
 
 describe("resolveConfig", () => {
-  beforeEach(() => {
-    fs.mkdirSync(testDir, { recursive: true })
-  })
-
-  afterEach(() => {
-    fs.rmSync(testDir, { recursive: true, force: true })
-  })
-
-  function writeConfig(config: Record<string, unknown>): string {
-    const configPath = path.join(testDir, "factorio-test.json")
-    fs.writeFileSync(configPath, JSON.stringify(config))
-    return configPath
+  function resolve(
+    fileConfig: Record<string, unknown>,
+    cliOptions: Record<string, unknown> = {},
+    patterns: string[] = [],
+  ) {
+    return resolveConfig({ cliOptions: { config: writeConfig(fileConfig), ...cliOptions }, patterns })
   }
 
   it("CLI options override file config", () => {
-    const configPath = writeConfig({ verbose: true, forbidOnly: false })
-    const result = resolveConfig({
-      cliOptions: { config: configPath, verbose: false, forbidOnly: true },
-      patterns: [],
-    })
-    expect(result.verbose).toBe(false)
-    expect(result.forbidOnly).toBe(true)
-  })
-
-  it("applies defaults when neither CLI nor file provides value", () => {
-    const configPath = writeConfig({})
-    const result = resolveConfig({ cliOptions: { config: configPath }, patterns: [] })
-    expect(result.forbidOnly).toBe(true)
-    expect(result.udpPort).toBe(14434)
-    expect(result.outputTimeout).toBe(15)
-    expect(result.watchPatterns).toEqual(["info.json", "**/*.lua"])
-  })
-
-  it("outputFile: false disables output", () => {
-    const configPath = writeConfig({ outputFile: "results.json" })
-    const result = resolveConfig({
-      cliOptions: { config: configPath, outputFile: false },
-      patterns: [],
-    })
-    expect(result.outputFile).toBeUndefined()
-  })
-
-  it("computes default outputFile from dataDirectory", () => {
-    const configPath = writeConfig({})
-    const result = resolveConfig({ cliOptions: { config: configPath }, patterns: [] })
-    expect(result.outputFile).toMatch(/test-results\.json$/)
+    const result = resolve(
+      { verbose: true, forbidOnly: false, gameSpeed: 100 },
+      { verbose: false, forbidOnly: true, gameSpeed: 200 },
+    )
+    expect(result).toMatchObject({ verbose: false, forbidOnly: true, gameSpeed: 200 })
   })
 
   it("file config fills in missing CLI values", () => {
-    const configPath = writeConfig({ udpPort: 9999, outputTimeout: 30 })
-    const result = resolveConfig({ cliOptions: { config: configPath }, patterns: [] })
-    expect(result.udpPort).toBe(9999)
-    expect(result.outputTimeout).toBe(30)
+    expect(resolve({ udpPort: 9999, outputTimeout: 30, logPassedTests: true })).toMatchObject({
+      udpPort: 9999,
+      outputTimeout: 30,
+      logPassedTests: true,
+    })
   })
 
-  describe("test config merge", () => {
-    it("positional patterns combine with CLI option, overriding config file", () => {
-      const configPath = writeConfig({ test: { test_pattern: "config" } })
-      const result = resolveConfig({
-        cliOptions: { config: configPath, testPattern: "cli" },
-        patterns: ["pos1", "pos2"],
-      })
-      expect(result.testConfig.test_pattern).toEqual(["cli", "pos1", "pos2"])
+  it("applies defaults when neither CLI nor file provides value", () => {
+    expect(resolve({})).toMatchObject({
+      autoStart: true,
+      forbidOnly: true,
+      udpPort: 14434,
+      outputTimeout: 15,
+      watchPatterns: ["info.json", "**/*.lua"],
+      dataDirectory: path.join(testDir, "factorio-test-data-dir"),
     })
+  })
 
-    it("CLI option overrides config file when no positional patterns", () => {
-      const configPath = writeConfig({ test: { test_pattern: "config" } })
-      const result = resolveConfig({
-        cliOptions: { config: configPath, testPattern: "cli" },
-        patterns: [],
-      })
-      expect(result.testConfig.test_pattern).toBe("cli")
+  it("does not default mod-side options, leaving them to the mod", () => {
+    const result = resolve({})
+    expect(result.logPassedTests).toBeUndefined()
+    expect(result.reorderFailedFirst).toBeUndefined()
+  })
+
+  it.each([
+    ["CLI", {}, { outputFile: false }],
+    ["config file", { outputFile: false }, {}],
+  ])("outputFile: false from %s disables output", (_, fileConfig, cliOptions) => {
+    expect(resolve(fileConfig, cliOptions).outputFile).toBeUndefined()
+  })
+
+  it("computes default outputFile from dataDirectory", () => {
+    expect(resolve({}).outputFile).toMatch(/test-results\.json$/)
+  })
+
+  it.each<[string, Record<string, unknown>, string[], string | string[] | undefined]>([
+    [
+      "positional patterns combine with CLI option, overriding config file",
+      { testPattern: "cli" },
+      ["pos1", "pos2"],
+      ["cli", "pos1", "pos2"],
+    ],
+    ["CLI option overrides config file", { testPattern: "cli" }, [], "cli"],
+    ["config file used when no CLI option or positional patterns", {}, [], "config"],
+  ])("testPattern: %s", (_, cliOptions, patterns, expected) => {
+    expect(resolve({ testPattern: "config" }, cliOptions, patterns).testPattern).toEqual(expected)
+  })
+})
+
+describe("toModConfig", () => {
+  it("includes only defined mod options, in snake_case", () => {
+    const config = resolveConfig({
+      cliOptions: { config: writeConfig({ gameSpeed: 100, verbose: true }), tagBlacklist: ["slow"], bail: 2 },
+      patterns: ["foo"],
     })
-
-    it("uses config file when no CLI option or positional patterns", () => {
-      const configPath = writeConfig({ test: { test_pattern: "config" } })
-      const result = resolveConfig({ cliOptions: { config: configPath }, patterns: [] })
-      expect(result.testConfig.test_pattern).toBe("config")
-    })
-
-    it("undefined when no patterns specified anywhere", () => {
-      const configPath = writeConfig({})
-      const result = resolveConfig({ cliOptions: { config: configPath }, patterns: [] })
-      expect(result.testConfig.test_pattern).toBeUndefined()
-    })
-
-    it("CLI test options override file test config", () => {
-      const configPath = writeConfig({ test: { game_speed: 100 } })
-      const result = resolveConfig({
-        cliOptions: { config: configPath, gameSpeed: 200 },
-        patterns: [],
-      })
-      expect(result.testConfig.game_speed).toBe(200)
-    })
-
-    it("preserves file test config when CLI undefined", () => {
-      const configPath = writeConfig({ test: { game_speed: 100, log_passed_tests: true } })
-      const result = resolveConfig({ cliOptions: { config: configPath }, patterns: [] })
-      expect(result.testConfig.game_speed).toBe(100)
-      expect(result.testConfig.log_passed_tests).toBe(true)
+    expect(toModConfig(config)).toEqual({
+      game_speed: 100,
+      tag_blacklist: ["slow"],
+      bail: 2,
+      test_pattern: "foo",
     })
   })
 })

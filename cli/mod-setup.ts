@@ -4,7 +4,9 @@ import * as os from "os"
 import * as path from "path"
 import { runScript, runProcess } from "./process-utils.js"
 import { getFactorioPlayerDataPath } from "./factorio-process.js"
+import type { AutoStartConfig } from "../types/config.js"
 import { CliError } from "./cli-error.js"
+import type { ModConfig } from "./config/index.js"
 
 const MIN_FACTORIO_TEST_VERSION = "3.1.1"
 
@@ -210,12 +212,6 @@ locale=
 
 export type RunMode = "headless" | "graphics"
 
-export interface AutoStartConfig {
-  mod: string
-  headless: boolean
-  last_failed_tests?: string[]
-}
-
 export function buildAutoStartConfig(modToTest: string, mode: RunMode, lastFailedTests?: string[]): AutoStartConfig {
   return {
     mod: modToTest,
@@ -239,7 +235,7 @@ function unsetModSetting(modsDir: string, scope: SettingScope, name: string): Pr
   return runScript("fmtk", "settings", "unset", scope, name, "--modsPath", modsDir)
 }
 
-export async function setTestConfigSetting(modsDir: string, testConfig: object): Promise<void> {
+export async function setTestConfigSetting(modsDir: string, testConfig: ModConfig): Promise<void> {
   if (Object.keys(testConfig).length === 0) return
   await setModSetting(modsDir, "runtime-global", TEST_CONFIG_SETTING, JSON.stringify(testConfig))
 }

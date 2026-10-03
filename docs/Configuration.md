@@ -42,7 +42,7 @@ require("__factorio-test__/init")(
 When using the CLI, options set on the command line or in the config file override the corresponding Lua options. Priority:
 
 1. In-mod Lua config (lowest priority)
-2. Config file (`test` key)
+2. Config file (camelCase, e.g. `gameSpeed`)
 3. CLI options (highest priority)
 
 For more details, see `factorio-test run --help` or [CLI Reference](CLI-Reference.md).

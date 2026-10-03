@@ -1,15 +1,8 @@
 /**
- * Test runner configuration passed from CLI to the Factorio mod.
+ * Startup setting the CLI sets to auto-start a test run. Snake_case: read by the Factorio mod.
  */
-export interface TestRunnerConfig {
-  test_pattern?: string | string[]
-  tag_whitelist?: string[]
-  tag_blacklist?: string[]
-  default_timeout?: number
-  game_speed?: number
-  log_passed_tests?: boolean
-  log_skipped_tests?: boolean
-  reorder_failed_first?: boolean
-  bail?: number
-  step?: boolean
+export interface AutoStartConfig {
+  mod?: string
+  headless?: boolean
+  last_failed_tests?: string[]
 }

@@ -20,45 +20,45 @@ Options can be set in a config file instead of on the command line. The CLI look
 2. `factorio-test.json` in the current directory
 3. `"factorio-test"` key in `package.json`
 
-### CLI Options
-
-These use camelCase in the config file:
+Keys are the camelCase form of the long CLI flag (`--game-speed` → `gameSpeed`). CLI arguments override the config file.
 
 | Config Key | CLI Flag | Description |
 |------------|----------|-------------|
-| `modPath` | `--mod-path` | Path to mod folder |
+| `modPath` | `-p, --mod-path` | Path to mod folder |
 | `modName` | `--mod-name` | Name of mod in data directory |
 | `factorioPath` | `--factorio-path` | Path to Factorio binary |
-| `dataDirectory` | `--data-directory` | Factorio data directory |
+| `dataDirectory` | `-d, --data-directory` | Factorio data directory (default: `./factorio-test-data-dir`) |
 | `save` | `--save` | Path to save file |
 | `mods` | `--mods` | Additional mods to enable (array) |
 | `factorioArgs` | `--factorio-args` | Extra Factorio arguments (array) |
 | `verbose` | `-v, --verbose` | Verbose logging; pipe Factorio output to stdout |
 | `quiet` | `-q, --quiet` | Only show the final result |
-| `outputFile` | `--output-file` | Test results JSON path |
-| `forbidOnly` | `--forbid-only` | Fail if `.only` tests are present (default: `true`) |
+| `outputFile` | `--output-file`, `--no-output-file` | Test results JSON path, or `false` to disable |
+| `forbidOnly` | `--[no-]forbid-only` | Fail if `.only` tests are present (default: `true`) |
 | `outputTimeout` | `--output-timeout` | Kill Factorio after this many seconds without output; `0` disables (default: `15`) |
 | `watchPatterns` | `--watch-patterns` | Glob patterns to watch (array) |
 | `udpPort` | `--udp-port` | UDP port for graphics watch mode (default: `14434`) |
 
 `modPath`, `factorioPath`, `dataDirectory`, `save`, and `outputFile` are resolved relative to the config file.
 
+`--graphics`, `--watch`, and `--no-auto-start` are command-line only.
+
 ### Test Execution Options
 
-Test execution options are nested under a `test` key and use snake_case. These override the in-mod [Lua config](Configuration.md):
+These are passed to the mod, and override the corresponding (snake_case) in-mod [Lua config](Configuration.md):
 
-| Config Key | CLI Flag | Description |
-|------------|----------|-------------|
-| `test_pattern` | `--test-pattern` | Filter tests by Lua pattern (or array of patterns, any must match) matched against the full test path. Combined with positional filter arguments |
-| `tag_whitelist` | `--tag-whitelist` | Only run tests with these tags |
-| `tag_blacklist` | `--tag-blacklist` | Skip tests with these tags |
-| `default_timeout` | `--default-timeout` | Async test timeout (ticks) |
-| `game_speed` | `--game-speed` | Game speed multiplier |
-| `bail` | `-b, --bail [count]` | Stop after n failures (flag alone: 1) |
-| `reorder_failed_first` | `--reorder-failed-first` | Run failed tests first |
-| `log_passed_tests` | `--log-passed-tests` | Log passed test names |
-| `log_skipped_tests` | `--log-skipped-tests` | Log skipped test names |
-| `step` | `--step` | Pause before each test and step ([Step Mode](Running-Tests.md#step-mode)); requires `--graphics` |
+| Config Key | CLI Flag | Lua Config | Description |
+|------------|----------|------------|-------------|
+| `testPattern` | `--test-pattern` | `test_pattern` | Filter tests by Lua pattern (or array of patterns, any must match) matched against the full test path. Combined with positional filter arguments |
+| `tagWhitelist` | `--tag-whitelist` | `tag_whitelist` | Only run tests with these tags |
+| `tagBlacklist` | `--tag-blacklist` | `tag_blacklist` | Skip tests with these tags |
+| `defaultTimeout` | `--default-timeout` | `default_timeout` | Async test timeout (ticks) |
+| `gameSpeed` | `--game-speed` | `game_speed` | Game speed multiplier |
+| `bail` | `-b, --bail [count]` | `bail` | Stop after n failures (flag alone: 1) |
+| `reorderFailedFirst` | `--[no-]reorder-failed-first` | `reorder_failed_first` | Run failed tests first |
+| `logPassedTests` | `--[no-]log-passed-tests` | `log_passed_tests` | Log passed test names |
+| `logSkippedTests` | `--log-skipped-tests` | `log_skipped_tests` | Log skipped test names |
+| `step` | `--step` | `step` | Pause before each test and step ([Step Mode](Running-Tests.md#step-mode)); requires `--graphics` |
 
 ### Example
 
@@ -67,9 +67,11 @@ Test execution options are nested under a `test` key and use snake_case. These o
   "modPath": "./my-mod",
   "dataDirectory": "./factorio-test-data",
   "mods": ["quality", "space-age"],
-  "test": {
-    "tag_blacklist": ["slow"],
-    "game_speed": 10
-  }
+  "tagBlacklist": ["slow"],
+  "gameSpeed": 10
 }
 ```
+
+### Deprecated: `test` key
+
+Previously, test execution options were nested under a `test` key in snake_case (`"test": { "game_speed": 10 }`). This is still accepted, with a deprecation warning. Setting an option both at the top level and under `test` is an error.

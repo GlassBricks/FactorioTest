@@ -4,7 +4,7 @@ import * as dgram from "dgram"
 import * as fsp from "fs/promises"
 import * as path from "path"
 import { CliError } from "./cli-error.js"
-import { registerAllCliOptions, resolveConfig, type ResolvedConfig } from "./config/index.js"
+import { registerAllCliOptions, resolveConfig, type ResolvedConfig, toModConfig } from "./config/index.js"
 import {
   autoDetectFactorioPath,
   FactorioTestResult,
@@ -46,12 +46,13 @@ JSON configuration:
   Instead of using command-line arguments, you can configure the test runner using a JSON file.
   By default, the CLI will look for a factorio-test.json file or a "factorio-test" key in
   package.json. You can specify a custom file using the --config option.
-  CLI arguments override file config.
-  Test execution options (options that can also be specified in the mod itself) go under the
-  "test" key using snake_case, overriding in-mod config.
+  Keys are the camelCase form of the long option names. CLI arguments override file config.
+  Test execution options also override the in-mod (Lua) config.
     {
       "modPath": "./my-mod",
-      "test": { "bail": 1, "game_speed": 100, "tag_blacklist": ["slow"] }
+      "bail": 1,
+      "gameSpeed": 100,
+      "tagBlacklist": ["slow"]
     }
 
 Test filter patterns:
@@ -137,14 +138,14 @@ async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions)
   const { config, factorioPath, dataDir, modsDir, modToTest, mode, savePath, factorioArgs } = ctx
   const { signal, skipResetAutorun, resolveOnResult } = execOptions ?? {}
 
-  const reorderEnabled = config.testConfig.reorder_failed_first ?? false
-  const lastFailedTests = reorderEnabled && config.outputFile ? await readPreviousFailedTests(config.outputFile) : []
+  const lastFailedTests =
+    config.reorderFailedFirst && config.outputFile ? await readPreviousFailedTests(config.outputFile) : []
 
   await setSettingsForAutorun(factorioPath, dataDir, modsDir, modToTest, mode, {
     verbose: config.verbose,
     lastFailedTests,
   })
-  await setTestConfigSetting(modsDir, config.testConfig)
+  await setTestConfigSetting(modsDir, toModConfig(config))
 
   let result: FactorioTestResult
   try {
@@ -176,7 +177,7 @@ async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions)
   }
 
   if (outcome.bailed) {
-    console.log(chalk.yellow(`Bailed out after ${config.testConfig.bail} failure(s)`))
+    console.log(chalk.yellow(`Bailed out after ${config.bail} failure(s)`))
   }
   if (result.data) {
     new OutputFormatter({ quiet: config.quiet }).formatSummary(result.data)
@@ -252,7 +253,7 @@ async function launchWithoutAutoStart(ctx: TestRunContext): Promise<void> {
 
   await ensureModSettingsDat(factorioPath, dataDir, modsDir, config.verbose)
   await setModToTestSetting(modsDir, modToTest)
-  await setTestConfigSetting(modsDir, config.testConfig)
+  await setTestConfigSetting(modsDir, toModConfig(config))
 
   await runFactorioTestsGraphics(factorioPath, dataDir, savePath, factorioArgs, {
     verbose: config.verbose,
@@ -263,7 +264,7 @@ async function launchWithoutAutoStart(ctx: TestRunContext): Promise<void> {
 async function runTests(patterns: string[], cliOptions: Record<string, unknown>): Promise<number> {
   const ctx = await setupTestRun(patterns, cliOptions)
 
-  if (ctx.config.noAutoStart) {
+  if (!ctx.config.autoStart) {
     await launchWithoutAutoStart(ctx)
     return 0
   }

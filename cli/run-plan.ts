@@ -10,7 +10,7 @@ import {
 } from "./mod-setup.js"
 
 export function validateRunConfig(
-  config: Pick<ResolvedConfig, "modPath" | "modName" | "noAutoStart" | "graphics" | "testConfig">,
+  config: Pick<ResolvedConfig, "modPath" | "modName" | "autoStart" | "graphics" | "step">,
 ): void {
   if (config.modPath !== undefined && config.modName !== undefined) {
     throw new CliError("Only one of --mod-path or --mod-name can be specified.")
@@ -18,10 +18,10 @@ export function validateRunConfig(
   if (config.modPath === undefined && config.modName === undefined) {
     throw new CliError("One of --mod-path or --mod-name must be specified.")
   }
-  if (config.noAutoStart && !config.graphics) {
+  if (!config.autoStart && !config.graphics) {
     throw new CliError("--no-auto-start requires --graphics.")
   }
-  if (config.testConfig.step && !config.graphics) {
+  if (config.step && !config.graphics) {
     throw new CliError("Step mode requires --graphics: there is no in-game GUI to continue from otherwise.")
   }
 }

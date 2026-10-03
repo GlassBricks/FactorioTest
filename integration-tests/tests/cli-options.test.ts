@@ -18,7 +18,7 @@ const testCases: TestCase[] = [
   {
     name: "Test config from file and CLI reaches the mod",
     args: ["--game-speed", "300", "--test-pattern", "Pass"],
-    configFile: { test: { game_speed: 200, default_timeout: 120 } },
+    configFile: { gameSpeed: 200, defaultTimeout: 120 },
     expectedOutput: [
       "CONFIG:game_speed=300",
       "CONFIG:default_timeout=120",

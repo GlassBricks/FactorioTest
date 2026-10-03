@@ -1,10 +1,5 @@
+import type { AutoStartConfig } from "../../../types/config"
 import { Settings } from "../../constants"
-
-export interface AutoStartConfig {
-  mod?: string
-  headless?: boolean
-  last_failed_tests?: string[]
-}
 
 function parseAutoStartConfig(): AutoStartConfig {
   const json = settings.startup[Settings.AutoStartConfig]?.value as string | undefined

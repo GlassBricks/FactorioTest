@@ -1,128 +1,141 @@
+import chalk from "chalk"
 import * as fs from "fs"
 import * as path from "path"
-import { ZodError } from "zod"
+import { z, ZodError } from "zod"
 import { CliError } from "../cli-error.js"
 import { getDefaultOutputPath } from "../test-results.js"
-import { DEFAULT_DATA_DIRECTORY, fileConfigFields, fileConfigSchema, type FileConfig } from "./cli-config.js"
-import { parseCliTestOptions, type TestRunnerConfig } from "./test-config.js"
+import {
+  cliOptionsSchema,
+  DEFAULT_DATA_DIRECTORY,
+  fileOptionsSchema,
+  type FileOptions,
+  longFlag,
+  modOptionKeys,
+  type ModOptionKey,
+  type OptionKey,
+  pathOptionKeys,
+  resolvedSchema,
+} from "./options.js"
 
-const DEFAULT_WATCH_PATTERNS = ["info.json", "**/*.lua"]
+type CliOptions = z.output<typeof cliOptionsSchema>
+export type ResolvedConfig = Omit<z.output<typeof resolvedSchema>, "outputFile"> & { outputFile?: string }
 
-export interface ResolvedConfig {
-  graphics?: true
-  watch?: true
-  noAutoStart?: true
+type CamelToSnake<S extends string> = S extends `${infer Head}${infer Tail}`
+  ? `${Head extends Lowercase<Head> ? Head : `_${Lowercase<Head>}`}${CamelToSnake<Tail>}`
+  : S
 
-  modPath?: string
-  modName?: string
-  factorioPath?: string
-  dataDirectory: string
-  save?: string
-  mods?: string[]
-  factorioArgs?: string[]
-  verbose?: boolean
-  quiet?: boolean
-  outputFile?: string
-  forbidOnly: boolean
-  watchPatterns: string[]
-  udpPort: number
-  outputTimeout: number
-
-  testConfig: TestRunnerConfig
-}
+export type ModConfig = { [K in ModOptionKey as CamelToSnake<K>]?: NonNullable<ResolvedConfig[K]> }
 
 export interface ResolveConfigInput {
   cliOptions: Record<string, unknown>
   patterns: string[]
 }
 
-function formatZodError(error: ZodError, filePath: string): string {
-  const issues = error.issues.map((issue) => {
-    const pathStr = issue.path.join(".")
-    return `  - ${pathStr ? `"${pathStr}": ` : ""}${issue.message}`
-  })
-  return `Invalid config in ${filePath}:\n${issues.join("\n")}`
+const camelToSnake = (key: string) => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
+const snakeToCamel = (key: string) => key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+
+const legacyTestSchema = z.strictObject(
+  Object.fromEntries(modOptionKeys.map((key) => [camelToSnake(key), fileOptionsSchema.shape[key]])),
+)
+const fileSchema = fileOptionsSchema.extend({ test: legacyTestSchema.optional() }).strict()
+
+function formatZodError(error: ZodError, source: string, describePath: (p: (string | number)[]) => string): string {
+  const issues = error.issues.map((issue) => `  - ${describePath(issue.path)}${issue.message}`)
+  return `Invalid ${source}:\n${issues.join("\n")}`
 }
 
-export function loadFileConfig(configPath?: string): FileConfig {
-  const paths = configPath
+function describeFilePath(issuePath: (string | number)[]): string {
+  return issuePath.length ? `"${issuePath.join(".")}": ` : ""
+}
+
+function describeCliPath([key]: (string | number)[]): string {
+  return `${longFlag(key as OptionKey)}: `
+}
+
+function findConfigFile(configPath: string | undefined): { filePath: string; raw: unknown } | undefined {
+  const candidates = configPath
     ? [path.resolve(configPath)]
     : [path.resolve("factorio-test.json"), path.resolve("package.json")]
-
-  for (const filePath of paths) {
+  for (const filePath of candidates) {
     if (!fs.existsSync(filePath)) continue
-
     const content = JSON.parse(fs.readFileSync(filePath, "utf8"))
-    const rawConfig = filePath.endsWith("package.json") ? content["factorio-test"] : content
+    const raw = filePath.endsWith("package.json") ? content["factorio-test"] : content
+    if (raw) return { filePath, raw }
+  }
+  return undefined
+}
 
-    if (!rawConfig) continue
+export function loadFileConfig(configPath?: string): FileOptions {
+  const found = findConfigFile(configPath)
+  if (!found) return {}
 
-    const result = fileConfigSchema.strict().safeParse(rawConfig)
-    if (!result.success) {
-      throw new CliError(formatZodError(result.error, filePath))
+  const result = fileSchema.safeParse(found.raw)
+  if (!result.success) {
+    throw new CliError(formatZodError(result.error, `config in ${found.filePath}`, describeFilePath))
+  }
+  const { test, ...options } = result.data
+  const merged = test ? mergeLegacyTestOptions(options, test, found.filePath) : options
+  return resolveConfigPaths(merged, path.dirname(found.filePath))
+}
+
+function mergeLegacyTestOptions(options: FileOptions, test: Record<string, unknown>, filePath: string): FileOptions {
+  console.warn(
+    chalk.yellow(
+      `${filePath}: the "test" key is deprecated. Move its options to the top level, in camelCase (e.g. "test.game_speed" -> "gameSpeed").`,
+    ),
+  )
+  const merged: Record<string, unknown> = { ...options }
+  for (const [snakeKey, value] of Object.entries(test)) {
+    const key = snakeToCamel(snakeKey)
+    if (key in options) {
+      throw new CliError(`Invalid config in ${filePath}: both "${key}" and "test.${snakeKey}" are set.`)
     }
-    return resolveConfigPaths(result.data, path.dirname(filePath))
+    merged[key] = value
   }
-
-  return {}
+  return merged as FileOptions
 }
 
-function resolveConfigPaths(config: FileConfig, configDir: string): FileConfig {
-  return {
+function resolveConfigPaths(config: FileOptions, configDir: string): FileOptions {
+  const resolved: Record<string, unknown> = {
     ...config,
-    modPath: config.modPath ? path.resolve(configDir, config.modPath) : undefined,
-    factorioPath: config.factorioPath ? path.resolve(configDir, config.factorioPath) : undefined,
-    dataDirectory: path.resolve(configDir, config.dataDirectory ?? DEFAULT_DATA_DIRECTORY),
-    save: config.save ? path.resolve(configDir, config.save) : undefined,
-    outputFile: config.outputFile ? path.resolve(configDir, config.outputFile) : undefined,
+    dataDirectory: config.dataDirectory ?? DEFAULT_DATA_DIRECTORY,
   }
+  for (const key of pathOptionKeys) {
+    const value = resolved[key]
+    if (typeof value === "string") resolved[key] = path.resolve(configDir, value)
+  }
+  return resolved as FileOptions
 }
 
-function mergeTestConfig(
-  fileConfig: TestRunnerConfig | undefined,
-  cliOptions: Partial<TestRunnerConfig>,
-): TestRunnerConfig {
-  const defined = Object.fromEntries(Object.entries(cliOptions).filter(([, v]) => v !== undefined))
-  return { ...fileConfig, ...defined } as TestRunnerConfig
+function combineTestPatterns(optionPattern: string | undefined, positional: string[]): string | string[] | undefined {
+  const all = optionPattern === undefined ? positional : [optionPattern, ...positional]
+  if (all.length <= 1) return all[0]
+  return all
 }
 
-function getBaseConfig(fileConfig: FileConfig, cliOptions: Record<string, unknown>): Omit<FileConfig, "test"> {
-  const raw: Record<string, unknown> = {}
-  for (const key of Object.keys(fileConfigFields)) {
-    raw[key] = cliOptions[key] ?? (fileConfig as Record<string, unknown>)[key]
+export function parseCliOptions(cliOptions: Record<string, unknown>, patterns: string[]): CliOptions {
+  const testPattern = combineTestPatterns(cliOptions.testPattern as string | undefined, patterns)
+  const result = cliOptionsSchema.safeParse({ ...cliOptions, testPattern })
+  if (!result.success) {
+    throw new CliError(formatZodError(result.error, "command line options", describeCliPath))
   }
-  return raw as Omit<FileConfig, "test">
+  return Object.fromEntries(Object.entries(result.data).filter(([, value]) => value !== undefined)) as CliOptions
 }
 
 export function resolveConfig({ cliOptions, patterns }: ResolveConfigInput): ResolvedConfig {
   const fileConfig = loadFileConfig(cliOptions.config as string | undefined)
-  const baseConfig = getBaseConfig(fileConfig, cliOptions)
-
-  const testConfig = mergeTestConfig(fileConfig.test, parseCliTestOptions(cliOptions, patterns))
-
+  const config = resolvedSchema.parse({ ...fileConfig, ...parseCliOptions(cliOptions, patterns) })
+  const dataDirectory = path.resolve(config.dataDirectory)
   return {
-    graphics: cliOptions.graphics as true | undefined,
-    watch: cliOptions.watch as true | undefined,
-    noAutoStart: cliOptions.autoStart === false ? true : undefined,
-
-    modPath: baseConfig.modPath,
-    modName: baseConfig.modName,
-    factorioPath: baseConfig.factorioPath,
-    dataDirectory: path.resolve(baseConfig.dataDirectory ?? DEFAULT_DATA_DIRECTORY),
-    save: baseConfig.save,
-    mods: baseConfig.mods,
-    factorioArgs: baseConfig.factorioArgs,
-    verbose: baseConfig.verbose,
-    quiet: baseConfig.quiet,
-    outputFile:
-      cliOptions.outputFile === false
-        ? undefined
-        : (baseConfig.outputFile ??
-          getDefaultOutputPath(path.resolve(baseConfig.dataDirectory ?? DEFAULT_DATA_DIRECTORY))),
-    forbidOnly: baseConfig.forbidOnly ?? true,
-    watchPatterns: baseConfig.watchPatterns ?? DEFAULT_WATCH_PATTERNS,
-    udpPort: baseConfig.udpPort ?? 14434,
-    outputTimeout: baseConfig.outputTimeout ?? 15,
-    testConfig,
+    ...config,
+    dataDirectory,
+    outputFile: config.outputFile === false ? undefined : (config.outputFile ?? getDefaultOutputPath(dataDirectory)),
   }
+}
+
+export function toModConfig(config: ResolvedConfig): ModConfig {
+  const entries = modOptionKeys
+    .filter((key) => config[key] !== undefined)
+    .map((key) => [camelToSnake(key), config[key]])
+  return Object.fromEntries(entries) as ModConfig
 }

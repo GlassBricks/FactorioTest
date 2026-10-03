@@ -5,19 +5,19 @@ describe("validateRunConfig", () => {
   it.each([
     [{ modPath: "a", modName: "b" }, "Only one of --mod-path or --mod-name"],
     [{}, "One of --mod-path or --mod-name must be specified"],
-    [{ modPath: "a", noAutoStart: true }, "--no-auto-start requires --graphics"],
-    [{ modPath: "a", testConfig: { step: true } }, "Step mode requires --graphics"],
+    [{ modPath: "a", autoStart: false }, "--no-auto-start requires --graphics"],
+    [{ modPath: "a", step: true }, "Step mode requires --graphics"],
   ] as const)("rejects %o", (config, message) => {
-    expect(() => validateRunConfig({ testConfig: {}, ...config })).toThrow(message)
+    expect(() => validateRunConfig({ autoStart: true, ...config })).toThrow(message)
   })
 
   it.each([
     { modPath: "a" },
     { modName: "b" },
-    { modPath: "a", noAutoStart: true, graphics: true },
-    { modPath: "a", graphics: true, testConfig: { step: true } },
+    { modPath: "a", autoStart: false, graphics: true },
+    { modPath: "a", graphics: true, step: true },
   ] as const)("accepts %o", (config) => {
-    expect(() => validateRunConfig({ testConfig: {}, ...config })).not.toThrow()
+    expect(() => validateRunConfig({ autoStart: true, ...config })).not.toThrow()
   })
 })
 

@@ -1,81 +1,45 @@
-import { describe, it, expect } from "vitest"
-import { testRunnerConfigSchema, fileConfigSchema, parseCliTestOptions } from "./config/index.js"
+import { Command } from "@commander-js/extra-typings"
+import { describe, expect, it } from "vitest"
+import { parseCliOptions, registerAllCliOptions } from "./config/index.js"
 
-describe("testRunnerConfigSchema", () => {
-  it("parses valid config with snake_case keys", () => {
-    const config = {
-      test_pattern: "foo",
-      game_speed: 100,
-      log_passed_tests: true,
-    }
-    expect(testRunnerConfigSchema.parse(config)).toEqual(config)
+function parseArgs(...args: string[]): Record<string, unknown> {
+  const command = new Command().exitOverride()
+  registerAllCliOptions(command)
+  return command.parse(args, { from: "user" }).opts()
+}
+
+describe("registerAllCliOptions", () => {
+  it.each<[string[], Record<string, unknown>]>([
+    [["--game-speed", "100"], { gameSpeed: 100 }],
+    [["--bail"], { bail: 1 }],
+    [["--bail", "3"], { bail: 3 }],
+    [["--no-forbid-only"], { forbidOnly: false }],
+    [["--no-log-passed-tests"], { logPassedTests: false }],
+    [["--no-output-file"], { outputFile: false }],
+    [["--no-auto-start"], { autoStart: false }],
+    [["--mods", "a", "b"], { mods: ["a", "b"] }],
+  ])("parses %j", (args, expected) => {
+    expect(parseArgs(...args)).toMatchObject(expected)
   })
 
-  it("rejects invalid types", () => {
-    expect(() => testRunnerConfigSchema.parse({ game_speed: "fast" })).toThrow()
-  })
-
-  it("allows empty config", () => {
-    expect(testRunnerConfigSchema.parse({})).toEqual({})
-  })
-
-  it("rejects unknown keys", () => {
-    expect(() => testRunnerConfigSchema.parse({ unknown_key: true })).toThrow()
-  })
-})
-
-describe("fileConfigSchema", () => {
-  it("parses config file with snake_case test keys", () => {
-    const config = {
-      modPath: "./my-mod",
-      test: { game_speed: 50, log_passed_tests: true },
-    }
-    expect(fileConfigSchema.parse(config)).toEqual(config)
-  })
-
-  it("rejects unknown keys in strict mode", () => {
-    expect(() => fileConfigSchema.strict().parse({ unknownKey: true })).toThrow()
-  })
-
-  it("accepts forbidOnly boolean", () => {
-    const config = { forbidOnly: false }
-    expect(fileConfigSchema.parse(config)).toEqual(config)
-  })
-
-  it("defaults forbidOnly to undefined", () => {
-    expect(fileConfigSchema.parse({}).forbidOnly).toBeUndefined()
+  it("does not set values for omitted options, so file config is not overridden", () => {
+    const opts = parseArgs()
+    expect(opts.forbidOnly).toBeUndefined()
+    expect(opts.udpPort).toBeUndefined()
   })
 })
 
-describe("parseCliTestOptions", () => {
-  it("converts Commander camelCase output to snake_case", () => {
-    const commanderOpts = {
-      testPattern: "foo",
-      gameSpeed: 100,
-      logPassedTests: true,
-    }
-    expect(parseCliTestOptions(commanderOpts, [])).toEqual({
-      test_pattern: "foo",
-      game_speed: 100,
-      log_passed_tests: true,
-    })
-  })
-
+describe("parseCliOptions", () => {
   it("omits undefined values", () => {
-    expect(parseCliTestOptions({ gameSpeed: 100 }, [])).toEqual({ game_speed: 100 })
+    expect(parseCliOptions({ gameSpeed: 100, verbose: undefined }, [])).toEqual({ gameSpeed: 100 })
   })
 
-  it("returns empty object for empty input", () => {
-    expect(parseCliTestOptions({}, [])).toEqual({})
-  })
-
-  it("passes through bail option", () => {
-    expect(parseCliTestOptions({ bail: 1 }, [])).toEqual({ bail: 1 })
-    expect(parseCliTestOptions({ bail: 3 }, [])).toEqual({ bail: 3 })
-  })
-
-  it("converts bail=true to bail=1 (commander behavior for --bail without value)", () => {
-    expect(parseCliTestOptions({ bail: true }, [])).toEqual({ bail: 1 })
+  it.each([
+    ["--udp-port", { udpPort: NaN }],
+    ["--game-speed", { gameSpeed: 1.5 }],
+    ["--output-timeout", { outputTimeout: -1 }],
+  ])("rejects invalid %s", (flag, opts) => {
+    expect(() => parseCliOptions(opts, [])).toThrow(flag)
   })
 
   it.each<[string, Record<string, unknown>, string[], string | string[] | undefined]>([
@@ -84,7 +48,7 @@ describe("parseCliTestOptions", () => {
     ["only --test-pattern", { testPattern: "cli" }, [], "cli"],
     ["multiple positional patterns", {}, ["foo", "bar"], ["foo", "bar"]],
     ["--test-pattern combined with positional patterns", { testPattern: "cli" }, ["pos"], ["cli", "pos"]],
-  ])("test_pattern from %s", (_, opts, patterns, expected) => {
-    expect(parseCliTestOptions(opts, patterns).test_pattern).toEqual(expected)
+  ])("testPattern from %s", (_, opts, patterns, expected) => {
+    expect(parseCliOptions(opts, patterns).testPattern).toEqual(expected)
   })
 })
