@@ -52,6 +52,23 @@ Test output is also printed to the Factorio log file.
 If [Factorio DebugAdapter](https://github.com/justarandomgeek/vscode-factoriomod-debug) is detected,
 output goes to the debug console with clickable links instead.
 
+## Step Mode
+
+Step mode pauses the run before each test and [steps](Writing-Tests.md#steps) within tests, with the game open.
+This can be useful for interactively stepping through and debugging tests in-game.
+
+Enable it with the `step` [config option](Configuration.md), or using `--step --graphics` from the cli.
+It needs the in-game GUI: run it in-game, or with `--graphics`.
+
+While paused, the test GUI caption shows what just ran (the world state you see is its result), and the step controls show what will run next, with buttons:
+
+- **Step**: run the next test or step.
+- **Skip test**: abandon the test, and report it as skipped. `after_test` and `after_each` hooks still run.
+- **Run to end**: stop pausing, run all remaining tests this run.
+
+While paused, the game speed is 1 (normal), while tests run, it is the configured `game_speed`.
+To watch tests in real time, set a lower `game_speed`, e.g. `--game-speed 1`.
+
 ## CLI Options
 
 ### Watch Mode

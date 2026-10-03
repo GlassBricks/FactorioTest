@@ -57,7 +57,8 @@ export interface TestState {
 export interface TestRun {
   readonly test: Test
   afterTestFuncs: HookFn[]
-  part: PartRun
+  /** Undefined between parts: after a part completes, until the next step part starts. */
+  part?: PartRun
 }
 
 /** One part of a test in flight; recreated per part. What async/done/on_tick mutate. */
@@ -67,7 +68,7 @@ export interface PartRun {
   explicitAsync?: boolean
   timeout: number
   asyncDone: boolean
-  tickStarted: number
+  ticksElapsed: number
   onTickFuncs: LuaSet<OnTickFn>
 }
 

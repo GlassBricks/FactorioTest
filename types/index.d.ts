@@ -33,6 +33,8 @@ declare namespace FactorioTest {
     after_test_run?(): void
     sound_effects: boolean
     load_luassert: boolean
+    /** Pause before each test and step, to watch the run in a window. Requires graphics mode. */
+    step: boolean
   }
 
   type TestFn = () => void
@@ -73,6 +75,9 @@ declare namespace FactorioTest {
   export interface TestBuilder<F extends (this: void, ...args: any) => void = TestFn> {
     after_reload_script(func: F): TestBuilder<F>
     after_reload_mods(func: F): TestBuilder<F>
+    /** Adds a part that runs after the previous parts complete. Each step starts on a new tick, with its own `async()` context. */
+    step(func: F): TestBuilder<F>
+    step(caption: string, func: F): TestBuilder<F>
   }
 
   /** @noSelf */

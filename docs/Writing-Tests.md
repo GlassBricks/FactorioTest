@@ -236,6 +236,33 @@ end)
 
 The default async timeout can be changed via [Configuration](Configuration.md).
 
+## Steps
+
+Chain `.step(fn)` or `.step(caption, fn)` after a test to split it into parts that run in sequence.
+
+Each step starts on a new tick, with its own `async()` context: it starts once the previous part
+completes, and `async`, `done`, `on_tick` and `after_ticks` apply to the part they are called in.
+
+Steps are also breakpoints where [step mode](Running-Tests.md#step-mode) will pause within a test,
+which can be useful for interactive in-game debugging.
+
+```lua
+test("connects an underground pipe", function()
+    place_underground()
+end)
+    .step("place the covering tile", function()
+        place_tile()
+    end)
+    .step(function()
+        assert_connected()
+    end)
+```
+
+- Use `.step`, not `:step`.
+- `on_tick` and `after_ticks` handlers stop when their part completes; register them in each part
+  that needs them.
+- Steps can be mixed with `after_reload_mods` and `after_reload_script`.
+
 ## Tags
 
 Tag a test or describe block by calling `tags` immediately before its definition:

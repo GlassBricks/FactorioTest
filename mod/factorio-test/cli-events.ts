@@ -36,6 +36,9 @@ export const cliEventEmitter: TestEventListener = (event, state) => {
     case "testStarted":
       emitEvent({ type: "testStarted", test: testToInfo(event.test) })
       break
+    case "stepStarted":
+      emitEvent({ type: "stepStarted", test: testToInfo(event.test), step: event.step })
+      break
     case "testPassed":
       emitEvent({ type: "testPassed", test: testToInfo(event.test) })
       break

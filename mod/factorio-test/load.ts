@@ -3,7 +3,7 @@ import * as util from "util"
 import { Remote, Settings, TestStage } from "../constants"
 import { gameEnvironmentListener, resultListener } from "./builtin-test-event-listeners"
 import { cliEventEmitter } from "./cli-events"
-import { resolveConfig } from "./config"
+import { disableStepIfHeadless, resolveConfig } from "./config"
 import { createLogListener, debugAdapterLogger, logLogger, MessageHandler } from "./output"
 import { TestRunner } from "./runner"
 import { createTestApi } from "./setup-globals"
@@ -11,8 +11,8 @@ import { getAutoStartConfig, getAutoStartMod, isHeadlessMode } from "./shared/au
 import { debugAdapterEnabled } from "./shared/util"
 import { RunStore, TestContext } from "./state"
 import { testStorage } from "./storage"
-import { TestEventListener } from "./test-events"
-import { progressGuiListener, progressGuiLogger } from "./test-gui"
+import { StepAction, TestEventListener } from "./test-events"
+import { hideStepControls, progressGuiListener, progressGuiLogger, showStepRunning } from "./test-gui"
 import Config = FactorioTest.Config
 
 declare const ____originalRequire: typeof require
@@ -43,6 +43,7 @@ export = function (files: string[], config: Partial<Config>): void {
   remote.add_interface(Remote.FactorioTest, {
     runTests,
     cancelTestRun,
+    stepAction,
     modName: () => script.mod_name,
     getTestStage: () => testContext.store.stage.get(),
     isRunning,
@@ -54,7 +55,8 @@ export = function (files: string[], config: Partial<Config>): void {
 }
 
 function loadTests(files: string[], partialConfig: Partial<Config>): TestContext {
-  const config = resolveConfig(partialConfig)
+  const { config, warning } = disableStepIfHeadless(resolveConfig(partialConfig), isHeadlessMode())
+  if (warning) log(warning)
 
   if (config.load_luassert) {
     debug.getmetatable = getmetatable
@@ -136,6 +138,16 @@ function cancelTestRun() {
   currentRunner?.requestCancel()
 }
 
+function stepAction(action: StepAction) {
+  if (currentRunner) {
+    currentRunner.stepAction(action)
+    return
+  }
+  // e.g. a save made while step-paused was loaded: there is no runner to resume
+  game.tick_paused = false
+  hideStepControls()
+}
+
 function doRunTests() {
   initializeFailedTestsFromConfig()
   if (game !== undefined) game.tick_paused = false
@@ -148,11 +160,12 @@ function doRunTests() {
     if (runner.isDone()) {
       currentRunner = undefined
       revertTappedEvents()
-    } else if (game !== undefined) {
+    } else if (game !== undefined && !runner.isStepPaused()) {
       // A test hook may have paused the game (e.g. entering the map editor pauses by default
       // since 2.1). The runner is driven by on_tick, which only fires while ticks advance, so
-      // keep the game unpaused for the duration of the run.
+      // keep the game unpaused for the duration of the run, except while paused for step mode.
       game.tick_paused = false
+      showStepRunning()
     }
   })
 }

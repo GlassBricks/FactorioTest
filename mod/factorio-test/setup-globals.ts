@@ -58,20 +58,39 @@ function createTest(context: TestContext, name: string, func: TestFn, mode: Test
   )
 }
 
+type PartKind = { reloadBefore: ReloadKind } | { step: { caption?: string } }
+
+function countStepParts(test: Test): number {
+  return test.parts.filter((part) => part.step !== undefined).length
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-function addPart(test: Test, func: TestFn, reloadBefore: ReloadKind, funcForSource: Function = func) {
+function addPart(test: Test, func: TestFn, kind: PartKind, funcForSource: Function = func) {
   const info = debug.getinfo(funcForSource, "Sl")
   const source = createSource(info.source, info.linedefined)
-  test.parts.push({ func, source, reloadBefore })
+  if ("step" in kind) {
+    test.parts.push({ func, source, step: { caption: kind.step.caption, index: countStepParts(test) + 1 } })
+  } else {
+    test.parts.push({ func, source, reloadBefore: kind.reloadBefore })
+  }
+}
+
+function parseStepArgs<F>(captionOrFunc: unknown, func: unknown, extra: unknown): { caption?: string; func: F } {
+  if (extra === undefined) {
+    if (typeof captionOrFunc === "function" && func === undefined) return { func: captionOrFunc as F }
+    if (typeof captionOrFunc === "string" && typeof func === "function")
+      return { caption: captionOrFunc, func: func as F }
+  }
+  error(`step() takes an optional caption and a function: test(...).step("caption", func) or test(...).step(func)`, 3)
 }
 
 function createTestBuilder<F extends () => void>(
-  addPart: (func: F, reloadBefore: ReloadKind) => void,
+  addPart: (func: F, kind: PartKind) => void,
   addTag: (tag: string) => void,
 ) {
   function reloadFunc(reloadBefore: ReloadKind, tag: string) {
     return (func: F) => {
-      addPart(func, reloadBefore)
+      addPart(func, { reloadBefore })
       addTag(tag)
       return result
     }
@@ -80,6 +99,11 @@ function createTestBuilder<F extends () => void>(
   const result: TestBuilder<F> = {
     after_reload_script: reloadFunc("script", "after_reload_script"),
     after_reload_mods: reloadFunc("mods", "after_reload_mods"),
+    step: (captionOrFunc: unknown, func?: unknown, extra?: unknown) => {
+      const step = parseStepArgs<F>(captionOrFunc, func, extra)
+      addPart(step.func, { step: { caption: step.caption } })
+      return result
+    },
   }
   return result
 }
@@ -115,7 +139,7 @@ function createTestEach(context: TestContext, mode: TestMode): TestCreatorBase {
   const result: TestCreatorBase = (name, func) => {
     const test = createTest(context, name, func, mode)
     return createTestBuilder(
-      (func1, reloadBefore) => addPart(test, func1, reloadBefore),
+      (func1, kind) => addPart(test, func1, kind),
       (tag) => test.tags.add(tag),
     )
   }
@@ -127,14 +151,14 @@ function createTestEach(context: TestContext, mode: TestMode): TestCreatorBase {
       return { test, row: item.row }
     })
     return createTestBuilder<(...args: unknown[]) => void>(
-      (func, reloadBefore) => {
+      (func, kind) => {
         for (const { test, row } of testBuilders) {
           addPart(
             test,
             () => {
               func(...row)
             },
-            reloadBefore,
+            kind,
             func,
           )
         }
@@ -198,12 +222,11 @@ function tags(context: TestContext, tags: string[]) {
   definition.currentTags = util.list_to_map(tags)
 }
 
-function getCurrentPart(context: TestContext): PartRun {
-  return getCurrentTestRun(context).part
+function getCurrentPart(context: TestContext, funcName: string): PartRun {
+  return getCurrentTestRun(context).part ?? error(`${funcName}() cannot be called between test parts`)
 }
 
-function implicitAsync(context: TestContext) {
-  const part = getCurrentPart(context)
+function implicitAsync(context: TestContext, part: PartRun) {
   part.async = true
   if (!part.explicitAsync) {
     part.timeout = context.testState().config.default_timeout
@@ -211,7 +234,7 @@ function implicitAsync(context: TestContext) {
 }
 
 function async(context: TestContext, timeout?: number) {
-  const part = getCurrentPart(context)
+  const part = getCurrentPart(context, "async")
   part.async = true
   part.explicitAsync = true
 
@@ -224,22 +247,26 @@ function async(context: TestContext, timeout?: number) {
 }
 
 function done(context: TestContext) {
-  const part = getCurrentPart(context)
+  const part = getCurrentPart(context, "done")
 
   if (!part.async) error(`"done" can only be used when test is async`)
   part.asyncDone = true
 }
 
+function addOnTick(context: TestContext, part: PartRun, func: OnTickFn) {
+  implicitAsync(context, part)
+  part.onTickFuncs.add(func)
+}
+
 function onTick(context: TestContext, func: OnTickFn) {
-  implicitAsync(context)
-  getCurrentPart(context).onTickFuncs.add(func)
+  addOnTick(context, getCurrentPart(context, "on_tick"), func)
 }
 
 function afterTicks(context: TestContext, ticks: number, func: TestFn) {
-  implicitAsync(context)
-  const finishTick = game.tick - getCurrentPart(context).tickStarted + ticks
+  const part = getCurrentPart(context, "after_ticks")
   if (ticks < 1) error("after_ticks amount must be positive")
-  onTick(context, (tick) => {
+  const finishTick = part.ticksElapsed + ticks
+  addOnTick(context, part, (tick) => {
     if (tick >= finishTick) {
       func()
       return false

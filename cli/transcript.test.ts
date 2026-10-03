@@ -30,7 +30,7 @@ function replay(options: FactorioTestOptions = {}): Replay {
   return { output: stripVTControlCharacters(printed.join("\n")), data, resultMessage: handler.getResultMessage() }
 }
 
-const summaryLine = "Tests: 1 failed, 2 errors, 1 todo, 2 skipped, 5 passed (9 total)"
+const summaryLine = "Tests: 1 failed, 2 errors, 1 todo, 2 skipped, 7 passed (11 total)"
 const perTestLines = ["PASS test1 > Pass", "FAIL test1 > each 2", "TODO test1 > TODO"]
 
 afterEach(() => {
@@ -39,12 +39,12 @@ afterEach(() => {
 
 describe("usage-test-mod transcript replay", () => {
   it.each<[string, FactorioTestOptions, string[], string[]]>([
-    ["default", {}, [...perTestLines, summaryLine], ["SKIP test1 > Skip"]],
-    ["quiet", { quiet: true }, [summaryLine], [...perTestLines, "SKIP test1 > Skip"]],
+    ["default", {}, [...perTestLines, summaryLine], ["SKIP test1 > Skip", "Step: "]],
+    ["quiet", { quiet: true }, [summaryLine], [...perTestLines, "SKIP test1 > Skip", "Step: "]],
     [
       "verbose",
       { verbose: true },
-      [...perTestLines, "Starting: test1 > Pass", summaryLine],
+      [...perTestLines, "Starting: test1 > Pass", "Step: test1 > Steps (captioned step)", summaryLine],
       ['"type":"testStarted"', "SKIP test1 > Skip"],
     ],
   ])("%s output", (_, options, expected, unexpected) => {
@@ -80,13 +80,13 @@ describe("usage-test-mod transcript replay", () => {
       const content = JSON.parse(await fsp.readFile(resultsPath, "utf8"))
       expect(content.summary).toMatchObject({
         failed: 1,
-        passed: 5,
+        passed: 7,
         skipped: 2,
         todo: 1,
         describeBlockErrors: 2,
         status: "failed",
       })
-      expect(content.tests).toHaveLength(11)
+      expect(content.tests).toHaveLength(13)
     } finally {
       await fsp.rm(dir, { recursive: true, force: true })
     }

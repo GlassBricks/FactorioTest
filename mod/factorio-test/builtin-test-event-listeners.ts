@@ -34,6 +34,14 @@ export const gameEnvironmentListener: TestEventListener = (event, state) => {
       game.speed = 1
       game.play_sound({ path: "utility/console_message" })
       break
+    case "stepPaused":
+      game.tick_paused = true
+      game.speed = 1
+      break
+    case "stepResumed":
+      game.tick_paused = false
+      game.speed = state.config.game_speed
+      break
   }
 }
 

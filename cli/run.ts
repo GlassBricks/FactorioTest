@@ -67,6 +67,7 @@ Examples:
   factorio-test run -p ./my-mod             Run all tests
   factorio-test run -p ./my-mod -v          Run with verbose output
   factorio-test run -p ./my-mod -gw         Run with graphics in watch mode
+  factorio-test run -p ./my-mod -g --step   Walk the run step by step, in a window
   factorio-test run -p ./my-mod -b          Bail on first failure
   factorio-test run -p ./my-mod "inventory" Run tests matching "inventory"
 `,

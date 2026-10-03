@@ -226,6 +226,11 @@ export function createLogListener(handlers: readonly MessageHandler[]): TestEven
         }
         break
       }
+      case "testSkippedByUser": {
+        const { test } = event
+        output(m`${yellow("SKIP")} ${test.path}`, test.source)
+        break
+      }
       case "describeBlockFailed": {
         const { block } = event
         output(m`${red("ERROR")} ${block.path}`, block.source)

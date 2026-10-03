@@ -14,13 +14,13 @@ test("Usage test mod runs correctly", async ({ dirs }) => {
 
   expect(stdout).toContain("Usage test mod result: passed")
   expect(stdout, "re-record cli transcript if mod output changed").toContain(
-    "Tests: 1 failed, 2 errors, 1 todo, 2 skipped, 5 passed (9 total)",
+    "Tests: 1 failed, 2 errors, 1 todo, 2 skipped, 7 passed (11 total)",
   )
   expect(code).toBe(1)
 
   const resultsPath = path.join(dirs.dataDir, "test-results.json")
   const results = JSON.parse(await fs.promises.readFile(resultsPath, "utf-8")) as ResultsFile
-  expect(results.tests).toHaveLength(11)
+  expect(results.tests).toHaveLength(13)
   expect(results.summary.status).toBe("failed")
 })
 

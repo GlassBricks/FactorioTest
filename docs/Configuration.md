@@ -30,6 +30,7 @@ require("__factorio-test__/init")(
 | `reorder_failed_first` | boolean | `false` | Run previously failed tests first |
 | `bail` | number | - | Stop after n failures |
 | `sound_effects` | boolean | `false` | Play sound effects on test completion |
+| `step` | boolean | `false` | Pause before each test and step ([Step Mode](Running-Tests.md#step-mode)). Ignored in headless mode |
 | `test_pattern` | string \| string[] | - | Only run tests whose full path (e.g. `block > test`) matches this Lua pattern, or any of these patterns |
 | `tag_whitelist` | string[] | - | Only run tests with all these tags |
 | `tag_blacklist` | string[] | - | Skip tests with any of these tags |

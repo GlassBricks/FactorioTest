@@ -49,6 +49,7 @@ function tags(...) end
 ---@field after_test_run fun() | nil
 ---@field sound_effects boolean | nil
 ---@field load_luassert boolean | nil
+---@field step boolean | nil
 
 ---@alias TestFn fun(): void
 ---@alias HookFn TestFn
@@ -86,6 +87,14 @@ function TestBuilder.after_reload_script(func) end
 ---@param func T
 ---@return TestBuilder<T>
 function TestBuilder.after_reload_mods(func) end
+
+--- Adds a part that runs after the previous parts complete.
+--- Each step starts on a new tick, with its own `async()` context.
+---@generic T
+---@param caption_or_func string|T
+---@param func T|nil
+---@return TestBuilder<T>
+function TestBuilder.step(caption_or_func, func) end
 
 ---@class DescribeCreatorBase
 ---@overload fun(name: string, func: TestFn): void

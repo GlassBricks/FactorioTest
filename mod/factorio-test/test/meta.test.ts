@@ -1,11 +1,12 @@
 import * as util from "util"
 import { TestStage } from "../../constants"
-import { withDefaultConfig } from "../config"
+import { disableStepIfHeadless, withDefaultConfig } from "../config"
+import { prepareReload } from "../reload-resume"
 import { TestRunner } from "../runner"
 import { createTestApi } from "../setup-globals"
 import { PersistedRunData, TestContext, TestState } from "../state"
-import { TestEvent, TestEventListener } from "../test-events"
-import { DescribeBlock, Test } from "../tests"
+import { StepAction, TestEvent, TestEventListener } from "../test-events"
+import { DescribeBlock, stepLabel, Test } from "../tests"
 import {
   assertDeepEquals,
   assertEqual,
@@ -14,6 +15,7 @@ import {
   assertNotDeepEquals,
   assertNotNil,
   assertThrows,
+  assertThrowsWith,
   assertTrue,
 } from "./test-util"
 import Config = FactorioTest.Config
@@ -1574,6 +1576,514 @@ describe("after_test", () => {
     })
     runTestSync()
     assertDeepEquals(["foo", "after_foo", "after_foo2"], actions)
+  })
+})
+
+describe("step mode", () => {
+  type LogTick = number | "sync"
+  type LogEntry = [tick: LogTick, what: string]
+
+  /** Events and test code, each with the runner tick that ran it; "sync" if from a step action. */
+  let log: LogEntry[]
+  let at: LogTick
+
+  before_each(() => {
+    log = []
+    at = 0
+  })
+
+  function code(what: string): void {
+    log.push([at, what])
+  }
+
+  function describeEvent(event: TestEvent): string | undefined {
+    switch (event.type) {
+      case "describeBlockEntered":
+      case "describeBlockFinished":
+      case "describeBlockFailed":
+        return undefined
+      case "stepPaused":
+        return event.step ? `stepPaused ${event.test.name} > ${event.step}` : `stepPaused ${event.test.name}`
+      case "stepResumed":
+        return `stepResumed ${event.action}`
+      case "stepStarted":
+        return `stepStarted ${event.test.name} > ${event.step}`
+      default:
+        return "test" in event ? `${event.type} ${event.test.name}` : event.type
+    }
+  }
+
+  const logEvent: TestEventListener = (event) => {
+    const what = describeEvent(event)
+    if (what) code(what)
+  }
+
+  function newLoggingRunner(state: TestState): TestRunner {
+    return new TestRunner(state, [logEvent])
+  }
+
+  function tickAt(runner: TestRunner, tick: number): void {
+    at = tick
+    runner.tick()
+  }
+
+  /** Ticks until done; `onPause` must act on the pause, or return false to stop. Ticks are numbered as runner ticks. */
+  function drive(runner: TestRunner, onPause: (runner: TestRunner) => boolean | void = continueAt): void {
+    let runnerTick = 0
+    while (!runner.isDone()) {
+      runnerTick++
+      if (runnerTick > 100) error("run did not finish")
+      tickAt(runner, runnerTick)
+      if (runner.isStepPaused()) {
+        at = "sync"
+        if (onPause(runner) === false) return
+      }
+    }
+  }
+
+  function continueAt(runner: TestRunner): void {
+    runner.stepAction("continue")
+  }
+
+  function tickWhilePaused(runner: TestRunner, ticks: number): void {
+    const logged = log.length
+    for (let i = 0; i < ticks; i++) runner.tick()
+    assertEqual(logged, log.length, "paused ticks must not emit events or run test code")
+  }
+
+  function isPauseOrResume([, what]: LogEntry): boolean {
+    return what.startsWith("stepPaused") || what.startsWith("stepResumed")
+  }
+
+  function indexOfEntry(what: string): number {
+    const index = log.findIndex(([, entry]) => entry === what)
+    if (index === -1) error(`"${what}" not logged`)
+    return index
+  }
+
+  function defineTimeline(ticksBetweenTests: number): void {
+    api.ticks_between_tests(ticksBetweenTests)
+    api.before_each(() => code("before_each"))
+    api
+      .test("A", () => {
+        code("A body")
+        api.after_test(() => code("A after_test"))
+      })
+      .step("place", () => code("A place"))
+      .step(() => {
+        code("A step 2")
+        api.async(2)
+        api.after_ticks(2, () => {
+          code("A step 2 done")
+          api.done()
+        })
+      })
+    api.test("B", () => code("B body"))
+  }
+
+  const timelineLog: LogEntry[] = [
+    [1, "testRunStarted"],
+    [1, "testEntered A"],
+    [2, "testStarted A"],
+    [2, "before_each"],
+    [2, "A body"],
+    [3, "stepStarted A > place"],
+    [3, "A place"],
+    [4, "stepStarted A > step 2"],
+    [4, "A step 2"],
+    [6, "A step 2 done"],
+    [6, "A after_test"],
+    [6, "testPassed A"],
+    [6, "testEntered B"],
+    [7, "testStarted B"],
+    [7, "before_each"],
+    [7, "B body"],
+    [7, "testPassed B"],
+    [7, "testRunFinished"],
+  ]
+
+  test("step mode off: each step part starts on the tick after the previous part completes", () => {
+    defineTimeline(1)
+    drive(newLoggingRunner(finishDefining()))
+    assertDeepEquals(timelineLog, log)
+  })
+
+  // ticks_between_tests(0) gains one tick before each test, which makes it match ticks_between_tests(1)
+  test.each([
+    [1, 0],
+    [1, 5],
+    [0, 0],
+    [0, 5],
+  ])("step mode on: pauses, then runs as with step mode off (ticks_between_tests %d, %d paused ticks)", (n, paused) => {
+    useMockConfig({ step: true })
+    defineTimeline(n)
+    drive(newLoggingRunner(finishDefining()), (runner) => {
+      tickWhilePaused(runner, paused)
+      runner.stepAction("continue")
+    })
+    assertDeepEquals(
+      [
+        [1, "stepPaused A"],
+        ["sync", "stepResumed continue"],
+        [2, "stepPaused A > place"],
+        ["sync", "stepResumed continue"],
+        [3, "stepPaused A > step 2"],
+        ["sync", "stepResumed continue"],
+        [6, "stepPaused B"],
+        ["sync", "stepResumed continue"],
+      ],
+      log.filter((entry) => isPauseOrResume(entry)),
+    )
+    assertDeepEquals(
+      timelineLog,
+      log.filter((entry) => !isPauseOrResume(entry)),
+    )
+  })
+
+  describe("step actions", () => {
+    let afterEachThrows = false
+
+    function defineActionsFixture(): void {
+      useMockConfig({ step: true })
+      api.ticks_between_tests(1)
+      api.after_each(() => {
+        code("after_each")
+        if (afterEachThrows) error("after_each error")
+      })
+      api
+        .test("A", () => {
+          code("A body")
+          api.after_test(() => code("A after_test"))
+        })
+        .step("place", () => code("A place"))
+      api.test("B", () => code("B body"))
+    }
+
+    // pauses: 1 before A, 2 before A > place, 3 before B
+    test.each<[string, number, StepAction | "cancel", boolean, LogEntry[], { ran: number; skipped: number }]>([
+      [
+        "before test, Skip test",
+        1,
+        "skipTest",
+        false,
+        [
+          ["sync", "stepResumed skipTest"],
+          [2, "testSkippedByUser A"],
+          [2, "testEntered B"],
+          [2, "stepPaused B"],
+        ],
+        { ran: 0, skipped: 1 },
+      ],
+      [
+        "before step part, Skip test",
+        2,
+        "skipTest",
+        true,
+        [
+          ["sync", "stepResumed skipTest"],
+          [3, "A after_test"],
+          [3, "after_each"],
+          [3, "testSkippedByUser A"],
+          [3, "testEntered B"],
+          [3, "stepPaused B"],
+        ],
+        { ran: 0, skipped: 1 },
+      ],
+      [
+        "Run to end",
+        1,
+        "runRest",
+        false,
+        [
+          ["sync", "stepResumed runRest"],
+          [2, "testStarted A"],
+          [2, "A body"],
+          [3, "stepStarted A > place"],
+          [3, "A place"],
+          [3, "A after_test"],
+          [3, "after_each"],
+          [3, "testPassed A"],
+          [3, "testEntered B"],
+          [4, "testStarted B"],
+          [4, "B body"],
+          [4, "after_each"],
+          [4, "testPassed B"],
+          [4, "testRunFinished"],
+        ],
+        { ran: 2, skipped: 0 },
+      ],
+      [
+        "Cancel",
+        2,
+        "cancel",
+        false,
+        [
+          ["sync", "stepResumed cancel"],
+          [3, "A after_test"],
+          [3, "after_each"],
+          [3, "testRunCancelled"],
+        ],
+        { ran: 0, skipped: 0 },
+      ],
+    ])("%s at pause %d", (_, pauseNumber, action, throws, expectedLog, expectedResults) => {
+      afterEachThrows = throws
+      defineActionsFixture()
+      let pauses = 0
+      let actionLogIndex = -1
+      drive(newLoggingRunner(finishDefining()), (runner) => {
+        pauses++
+        if (pauses > pauseNumber) return false
+        if (pauses < pauseNumber) return runner.stepAction("continue")
+        actionLogIndex = log.length
+        if (action === "cancel") {
+          runner.requestCancel()
+        } else {
+          runner.stepAction(action)
+        }
+      })
+      assertDeepEquals(expectedLog, log.slice(actionLogIndex))
+      const { results } = mockContext.testState().report
+      assertDeepEquals(expectedResults, { ran: results.ran, skipped: results.skipped })
+      assertDeepEquals([], getFirst().errors)
+    })
+
+    test("Run to end lasts only for the current run", () => {
+      afterEachThrows = false
+      defineActionsFixture()
+      const state = finishDefining()
+      drive(newLoggingRunner(state), (runner) => runner.stepAction("runRest"))
+      assertEqual(1, log.filter(([, what]) => what.startsWith("stepPaused")).length)
+
+      const rerun = newLoggingRunner(state)
+      rerun.tick()
+      assertTrue(rerun.isStepPaused())
+    })
+
+    test("step actions and cancel while not paused have no step effect", () => {
+      useMockConfig({ step: true })
+      api.test("A", () => api.after_ticks(2, () => code("A done")))
+      api.test("B", () => api.after_ticks(2, () => code("B done")))
+      const runner = newLoggingRunner(finishDefining())
+      const staleActions: StepAction[] = ["skipTest", "runRest", "continue"]
+
+      for (const action of staleActions) runner.stepAction(action)
+      tickAt(runner, 1)
+      runner.stepAction("continue")
+      tickAt(runner, 2)
+      assertFalse(runner.isStepPaused())
+      for (const action of staleActions) runner.stepAction(action)
+      tickAt(runner, 3)
+      tickAt(runner, 4)
+      runner.stepAction("continue")
+      tickAt(runner, 5)
+      at = "sync"
+      runner.requestCancel()
+      tickAt(runner, 6)
+
+      assertDeepEquals(
+        [
+          [1, "testRunStarted"],
+          [1, "testEntered A"],
+          [1, "stepPaused A"],
+          [1, "stepResumed continue"],
+          [2, "testStarted A"],
+          [4, "A done"],
+          [4, "testPassed A"],
+          [4, "testEntered B"],
+          [4, "stepPaused B"],
+          [4, "stepResumed continue"],
+          [5, "testStarted B"],
+          [6, "testRunCancelled"],
+        ],
+        log,
+      )
+    })
+  })
+
+  test("does not pause before skipped tests or after errors; step errors name the step", () => {
+    useMockConfig({ step: true })
+    api.after_each(() => code("after_each"))
+    api.test.skip("skipped", () => {})
+    api
+      .test("captioned", () => api.after_test(() => code("captioned after_test")))
+      .step("explodes", () => {
+        code("explodes")
+        error("boom")
+      })
+      .step("never", () => code("never"))
+    api
+      .test("late", () => {})
+      .step(() =>
+        api.after_ticks(1, () => {
+          code("late boom")
+          error("late boom")
+        }),
+      )
+    api.test("slow", () => {}).step(() => api.async(1))
+    const state = finishDefining()
+    drive(newLoggingRunner(state))
+
+    assertDeepEquals(
+      [
+        "stepPaused captioned",
+        "stepPaused captioned > explodes",
+        "stepPaused late",
+        "stepPaused late > step 1",
+        "stepPaused slow",
+        "stepPaused slow > step 1",
+      ],
+      log.filter(([, what]) => what.startsWith("stepPaused")).map(([, what]) => what),
+    )
+    assertFalse(log.some(([, what]) => what === "never"))
+
+    const explodedAt = indexOfEntry("explodes")
+    const tick = log[explodedAt]![0]
+    assertDeepEquals(
+      [
+        [tick, "explodes"],
+        [tick, "captioned after_test"],
+        [tick, "after_each"],
+        [tick, "testFailed captioned"],
+      ],
+      log.slice(explodedAt, explodedAt + 4),
+    )
+    const lateAt = indexOfEntry("late boom")
+    const lateTick = log[lateAt]![0]
+    assertDeepEquals(
+      [
+        [lateTick, "late boom"],
+        [lateTick, "after_each"],
+        [lateTick, "testFailed late"],
+      ],
+      log.slice(lateAt, lateAt + 3),
+    )
+
+    const [, captioned, late, slow] = state.suite.rootBlock.children as Test[]
+    assertEqual(1, captioned!.errors.length)
+    assertTrue(captioned!.errors[0]!.startsWith('In step "explodes": '), captioned!.errors[0])
+    assertMatches(captioned!.errors[0]!, "boom")
+    assertTrue(late!.errors[0]!.startsWith("In step 1: "), late!.errors[0])
+    assertMatches(late!.errors[0]!, "late boom")
+    assertTrue(slow!.errors[0]!.startsWith("In step 1: Test timed out"), slow!.errors[0])
+  })
+
+  test("step parts are declared in order, with step labels and each-row args", () => {
+    api.test
+      .each([[1, 2]])("each", () => {})
+      .step("a", (a, b) => code(`a ${a} ${b}`))
+      .after_reload_mods(() => {})
+      .step((a, b) => code(`step ${a} ${b}`))
+    finishDefining()
+
+    const { parts } = getFirst()
+    assertEqual(4, parts.length)
+    assertEqual("mods", parts[2]!.reloadBefore)
+    assertEqual(undefined, parts[2]!.step)
+    assertDeepEquals(["a", "step 2"], [stepLabel(parts[1]!.step!), stepLabel(parts[3]!.step!)])
+    parts[1]!.func()
+    parts[3]!.func()
+    assertDeepEquals(
+      [
+        [0, "a 1 2"],
+        [0, "step 1 2"],
+      ],
+      log,
+    )
+  })
+
+  test("step() accepts an optional caption and a function, and rejects anything else", () => {
+    const message = `step() takes an optional caption and a function: test(...).step("caption", func) or test(...).step(func)`
+    const builder = api.test("test", () => {})
+    builder.step(() => {})
+    builder.step("caption", () => {})
+    const looseStep = builder.step as unknown as (this: void, ...args: unknown[]) => void
+    const func = () => {}
+    // a Lua `:step(...)` call passes the builder first
+    assertThrowsWith(() => looseStep(builder, func), message)
+    assertThrowsWith(() => looseStep(builder, "caption", func), message)
+    assertThrowsWith(() => looseStep(1, func), message)
+    assertThrowsWith(() => looseStep("caption", "not a function"), message)
+    assertThrowsWith(() => looseStep(func, func), message)
+    finishDefining()
+    assertEqual(3, getFirst().parts.length)
+  })
+
+  test.each([
+    [true, true, false, true],
+    [true, false, false, false],
+    [false, true, true, false],
+  ])("headless %s, step %s: step becomes %s, warns %s", (headless, step, expectedStep, warns) => {
+    const { config, warning } = disableStepIfHeadless(mockConfig({ step }), headless)
+    assertEqual(expectedStep, config.step)
+    assertEqual(warns, warning !== undefined)
+  })
+
+  test("async scoping: a part's on_tick handlers stop when the next step starts", () => {
+    api
+      .test("A", () => {
+        api.async()
+        api.on_tick((tick) => code(`body tick ${tick}`))
+        api.after_ticks(3, () => api.done())
+      })
+      .step(() => {
+        api.async(1)
+        api.after_ticks(1, () => api.done())
+      })
+    const state = finishDefining()
+    drive(newLoggingRunner(state))
+    assertDeepEquals(
+      [
+        [2, "body tick 1"],
+        [3, "body tick 2"],
+        [4, "body tick 3"],
+      ],
+      log.filter(([, what]) => what.startsWith("body tick")),
+    )
+    assertDeepEquals([], getFirst().errors)
+  })
+
+  const betweenPartsCalls: Record<string, () => void> = {
+    async: () => api.async(),
+    done: () => api.done(),
+    on_tick: () => api.on_tick(() => {}),
+    after_ticks: () => api.after_ticks(1, () => {}),
+  }
+  test.each(Object.keys(betweenPartsCalls).flatMap((name) => [[name, false] as const, [name, true] as const]))(
+    "%s() between parts throws (step mode %s)",
+    (name, stepping) => {
+      useMockConfig({ step: stepping })
+      api.test("A", () => {}).step(() => {})
+      const runner = newLoggingRunner(finishDefining())
+      runner.tick()
+      if (stepping) {
+        runner.stepAction("continue")
+        runner.tick()
+        assertTrue(runner.isStepPaused())
+      }
+      assertThrowsWith(betweenPartsCalls[name]!, `${name}() cannot be called between test parts`)
+      drive(runner)
+    },
+  )
+
+  test.each([
+    [true, false],
+    [false, true],
+  ])("a reload carries stepping (%s), not config.step (%s)", (stepping, configStep) => {
+    function defineReloadingTest() {
+      api
+        .test("A", () => {})
+        .after_reload_mods(() => {})
+        .step(() => {})
+    }
+    defineReloadingTest()
+    prepareReload(finishDefining(), { test: getFirst(), partIndex: 1, stepping })
+
+    mockContext.beginDefinition(mockConfig({ step: configStep }))
+    defineReloadingTest()
+    const runner = newLoggingRunner(finishDefining())
+    runner.tick()
+    assertEqual(stepping, runner.isStepPaused())
+    drive(runner)
   })
 })
 

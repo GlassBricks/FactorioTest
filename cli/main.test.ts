@@ -37,8 +37,14 @@ describe("main", () => {
     ],
     ["neither --mod-path nor --mod-name", [], "One of --mod-path or --mod-name must be specified"],
     ["both --mod-path and --mod-name", ["--mod-path", "a", "--mod-name", "b"], "Only one of --mod-path or --mod-name"],
+    ["--step without --graphics", ["--mod-path", "mod", "--step"], "Step mode requires --graphics"],
+    [
+      "config file test.step without --graphics",
+      () => ["--mod-path", "mod", "--config", writeConfig({ test: { step: true } })],
+      "Step mode requires --graphics",
+    ],
   ])("reports %s as an error", async (_, args, message) => {
-    expect(await run(...args)).toBe(1)
+    expect(await run(...(typeof args === "function" ? args() : args))).toBe(1)
     expect(stderr.join("\n")).toContain(message)
   })
 
