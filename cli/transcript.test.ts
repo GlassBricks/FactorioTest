@@ -30,7 +30,7 @@ function replay(options: FactorioTestOptions = {}): Replay {
   return { output: stripVTControlCharacters(printed.join("\n")), data, resultMessage: handler.getResultMessage() }
 }
 
-const summaryLine = "Tests: 1 failed, 2 errors, 1 todo, 2 skipped, 6 passed (10 total)"
+const summaryLine = "Tests: 1 failed, 2 errors, 1 todo, 2 skipped, 7 passed (11 total)"
 const perTestLines = ["PASS test1 > Pass", "FAIL test1 > each 2", "TODO test1 > TODO"]
 
 afterEach(() => {
@@ -80,13 +80,13 @@ describe("usage-test-mod transcript replay", () => {
       const content = JSON.parse(await fsp.readFile(resultsPath, "utf8"))
       expect(content.summary).toMatchObject({
         failed: 1,
-        passed: 6,
+        passed: 7,
         skipped: 2,
         todo: 1,
         describeBlockErrors: 2,
         status: "failed",
       })
-      expect(content.tests).toHaveLength(12)
+      expect(content.tests).toHaveLength(13)
     } finally {
       await fsp.rm(dir, { recursive: true, force: true })
     }

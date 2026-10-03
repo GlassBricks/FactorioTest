@@ -23,6 +23,24 @@ test("Steps", () => {
     assert(partsRun.join() === "body,captioned step", `unexpected parts run: ${partsRun.join()}`)
   })
 
+const ticksPerStep = 60
+let multiTickStart = 0
+test("Multi-tick steps", () => {
+  multiTickStart = game.tick
+  after_ticks(ticksPerStep, () => {})
+})
+  .step("on_tick", () => {
+    on_tick((tick) => tick < ticksPerStep)
+  })
+  .step("async and done", () => {
+    async()
+    after_ticks(ticksPerStep, done)
+  })
+  .step(() => {
+    const elapsed = game.tick - multiTickStart
+    assert(elapsed >= 3 * ticksPerStep, `expected each step to take ${ticksPerStep} ticks, took ${elapsed} in total`)
+  })
+
 describe("fail in describe block", () => {
   error("Oh no")
 })

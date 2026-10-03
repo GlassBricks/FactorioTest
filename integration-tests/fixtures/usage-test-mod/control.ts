@@ -17,7 +17,7 @@ if ("factorio-test" in script.active_mods) {
 
       const expected = {
         failed: 1,
-        passed: 6,
+        passed: 7,
         skipped: 2,
         todo: 1,
         describeBlockErrors: 2,
