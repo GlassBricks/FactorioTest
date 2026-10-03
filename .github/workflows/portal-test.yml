@@ -38,4 +38,8 @@ jobs:
           mkdir -p ~/.factorio
           jq -n --arg u "$FACTORIO_USERNAME" --arg t "$FACTORIO_TOKEN" '{"service-username": $u, "service-token": $t}' > ~/.factorio/player-data.json
 
-      - run: npx --yes factorio-test-cli run --mod-path example-mod --data-directory "$RUNNER_TEMP/factorio-test-data" < /dev/null
+      - name: Run tests
+        run: |
+          cp -r example-mod "$RUNNER_TEMP/example-mod"
+          cd "$RUNNER_TEMP"
+          npx --yes factorio-test-cli run --mod-path example-mod < /dev/null
