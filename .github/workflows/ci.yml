@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run prettier:check
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Resolve Factorio version
+        id: factorio
+        run: echo "version=$(curl -fsSL https://factorio.com/api/latest-releases | jq -r .experimental.headless)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: factorio-cache
+        with:
+          path: ~/factorio
+          key: factorio-headless-${{ steps.factorio.outputs.version }}
+      - name: Download Factorio headless
+        if: steps.factorio-cache.outputs.cache-hit != 'true'
+        run: curl -fsSL "https://factorio.com/get-download/${{ steps.factorio.outputs.version }}/headless/linux64" | tar -xJ -C ~
+      - run: echo ~/factorio/bin/x64 >> "$GITHUB_PATH"
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:integration
