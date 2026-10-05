@@ -33,7 +33,7 @@ Messages logged via `print` or `localised_print` are captured and shown with fai
 
 Use `--graphics` to launch the game in graphical mode instead, with the same setup.
 
-See [CLI Reference](CLI-Reference.md) for all available options.
+See [CLI Reference](CLI-Reference.md) for all available options, and [CI](CI.md) for running tests in CI.
 
 ## Running In-Game
 

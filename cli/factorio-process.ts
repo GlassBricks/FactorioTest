@@ -1,14 +1,15 @@
+import { execFile, spawn, spawnSync } from "child_process"
 import { EventEmitter } from "events"
-import { spawn, spawnSync } from "child_process"
 import * as fs from "fs"
 import * as os from "os"
 import * as path from "path"
 import { Readable } from "stream"
 import { fileURLToPath } from "url"
+import { promisify } from "util"
+import { CliError } from "./cli-error.js"
 import { BAILED_PREFIX, FactorioOutputHandler, FOCUSED_SUFFIX } from "./factorio-output-parser.js"
 import { OutputPrinter, ProgressRenderer } from "./test-output.js"
 import { TestRunCollector, TestRunData } from "./test-results.js"
-import { CliError } from "./cli-error.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -37,15 +38,16 @@ export class BufferLineSplitter extends EventEmitter<{ line: [string] }> {
   }
 }
 
-export function getFactorioPlayerDataPath(): string {
-  const platform = os.platform()
-  if (platform === "win32") {
-    return path.join(process.env.APPDATA!, "Factorio", "player-data.json")
+/** Real path (symlinks followed) of an executable path or a command on PATH; undefined if not found. */
+export async function findExecutableRealPath(executable: string): Promise<string | undefined> {
+  const candidates = executable.includes(path.sep)
+    ? [executable]
+    : (process.env.PATH ?? "").split(path.delimiter).map((dir) => path.join(dir, executable))
+  for (const candidate of candidates) {
+    const realPath = await fs.promises.realpath(candidate).catch(() => undefined)
+    if (realPath) return realPath
   }
-  if (platform === "darwin") {
-    return path.join(os.homedir(), "Library", "Application Support", "factorio", "player-data.json")
-  }
-  return path.join(os.homedir(), ".factorio", "player-data.json")
+  return undefined
 }
 
 function factorioIsInPath(): boolean {
@@ -90,6 +92,21 @@ export function autoDetectFactorioPath(): string {
     `Could not auto-detect factorio executable. Tried: ${pathsToTry.join(", ")}. ` +
       "Either add the factorio bin to your path, or specify the path with --factorio-path",
   )
+}
+
+const VERSION_PATTERN = /Version: (\d+\.\d+\.\d+)/
+
+export function parseFactorioVersion(output: string): string | undefined {
+  return VERSION_PATTERN.exec(output)?.[1]
+}
+
+export async function getFactorioVersion(factorioPath: string): Promise<string> {
+  const { stdout } = await promisify(execFile)(factorioPath, ["--version"]).catch((e: unknown) => {
+    throw new CliError(`Could not run "${factorioPath} --version".`, { cause: e })
+  })
+  const version = parseFactorioVersion(stdout)
+  if (!version) throw new CliError(`Could not read the Factorio version from "${factorioPath} --version".`)
+  return version
 }
 
 export interface FactorioTestOptions {

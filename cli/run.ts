@@ -1,36 +1,30 @@
 import type { Command } from "@commander-js/extra-typings"
 import chalk from "chalk"
 import * as dgram from "dgram"
-import * as fsp from "fs/promises"
-import * as path from "path"
 import { CliError } from "./cli-error.js"
 import { registerAllCliOptions, resolveConfig, type ResolvedConfig, toModConfig } from "./config/index.js"
 import {
-  autoDetectFactorioPath,
   FactorioTestResult,
   getHeadlessSavePath,
   runFactorioTestsGraphics,
   runFactorioTestsHeadless,
 } from "./factorio-process.js"
-import { watchDirectory, watchFile } from "./file-watcher.js"
 import {
-  adjustEnabledMods,
-  configureModToTest,
   ensureConfigIni,
   ensureModSettingsDat,
-  installFactorioTest,
-  installModDependencies,
-  installMods,
   resetAutorunSettings,
   resolveModWatchTarget,
   type RunMode,
   setModToTestSetting,
   setSettingsForAutorun,
   setTestConfigSetting,
-} from "./mod-setup.js"
+} from "./factorio-setup.js"
+import { watchDirectory, watchFile } from "./file-watcher.js"
+import { modSetupInput } from "./mods-command.js"
+import { enableMods, installMods } from "./mods/install.js"
 import { setVerbose } from "./process-utils.js"
 import { createRerunLoop } from "./rerun-loop.js"
-import { planModSetup, resolveRunOutcome, type RunOutcome, validateRunConfig } from "./run-plan.js"
+import { resolveRunOutcome, type RunOutcome, validateRunConfig } from "./run-plan.js"
 import { OutputFormatter } from "./test-output.js"
 import { readPreviousFailedTests, writeResultsFile } from "./test-results.js"
 
@@ -99,22 +93,12 @@ async function setupTestRun(patterns: string[], cliOptions: Record<string, unkno
   setVerbose(!!config.verbose)
   validateRunConfig(config)
 
-  const factorioPath = config.factorioPath ?? autoDetectFactorioPath()
+  const modSetup = modSetupInput(config, cliOptions)
+  const { factorioPath, modsDir } = modSetup
   const dataDir = config.dataDirectory
-  const modsDir = path.join(dataDir, "mods")
-  await fsp.mkdir(modsDir, { recursive: true })
-
-  const modToTest = await configureModToTest(modsDir, config.modPath, config.modName, config.verbose)
-  const modDependencies = config.modPath ? await installModDependencies(modsDir, path.resolve(config.modPath)) : []
-  await installFactorioTest(modsDir)
-
-  const { toInstall, enableArgs } = planModSetup({ modToTest, modDependencies, configMods: config.mods })
-  if (toInstall.length > 0) {
-    await installMods(modsDir, toInstall)
-  }
-
-  if (config.verbose) console.log("Adjusting mods")
-  await adjustEnabledMods(modsDir, enableArgs)
+  const installedMods = await installMods(modSetup)
+  const { modToTest } = installedMods
+  await enableMods(modsDir, installedMods)
   await ensureConfigIni(dataDir)
 
   const mode = config.graphics ? "graphics" : "headless"

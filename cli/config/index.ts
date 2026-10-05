@@ -1,4 +1,4 @@
-export { registerAllCliOptions } from "./options.js"
+export { registerAllCliOptions, registerModSetupCliOptions } from "./options.js"
 export type { FileOptions } from "./options.js"
 
 export { loadFileConfig, parseCliOptions, resolveConfig, toModConfig } from "./loader.js"

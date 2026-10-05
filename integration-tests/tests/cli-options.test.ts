@@ -3,6 +3,7 @@ import * as path from "path"
 import { expect } from "vitest"
 import { test } from "../test-fixture.js"
 import { runCli, runCliWithTimeout } from "../test-utils.js"
+import { writeModZip } from "../../cli/mods/test-helpers.js"
 
 interface TestCase {
   name: string
@@ -96,6 +97,39 @@ test("DLC mod enabled via --mods, with its dependencies", async ({ dirs }) => {
 
   expect(await readDlcModStates(dirs.dataDir)).toEqual(allDlcModsEnabled(true))
   expect(stdout).toContain("Usage test mod result: passed")
+})
+
+// Factorio rewrites mod-list.json on exit, keeping a pinned version only if it is not the highest installed one
+test("enables exactly the resolved mods, pinned to the chosen versions", async ({ dirs }) => {
+  const modsDir = path.join(dirs.dataDir, "mods")
+  const dataLua = { "data.lua": "" }
+  await writeModZip(modsDir, { name: "__ft-dep", version: "1.0.0" }, dataLua)
+  await writeModZip(modsDir, { name: "__ft-dep", version: "1.1.0" }, dataLua)
+  await writeModZip(modsDir, { name: "__ft-unused", version: "1.0.0" }, dataLua)
+
+  const { stdout } = await runCli({
+    dataDir: dirs.dataDir,
+    extraArgs: ["--mods", "__ft-dep < 1.1", "space-age", "!quality"],
+  })
+
+  expect(stdout).toContain("Usage test mod result: passed")
+  const { mods } = JSON.parse(await fs.promises.readFile(path.join(modsDir, "mod-list.json"), "utf-8")) as {
+    mods: (ModListEntry & { version?: string })[]
+  }
+  expect(mods).toEqual(
+    expect.arrayContaining([
+      { name: "__ft-dep", enabled: true, version: "1.0.0" },
+      { name: "__ft-unused", enabled: false },
+      { name: "space-age", enabled: true },
+      { name: "quality", enabled: false },
+    ]),
+  )
+  const lock = JSON.parse(await fs.promises.readFile(path.join(dirs.tempDir, "factorio-test.lock.json"), "utf-8"))
+  expect(lock).toEqual({ lockVersion: 1, mods: { "__ft-dep": "1.0.0", "factorio-test": "3.1.1" } })
+  const log = await fs.promises.readFile(path.join(dirs.dataDir, "factorio-current.log"), "utf-8")
+  expect(log).toContain("Loading mod __ft-dep 1.0.0 (data.lua)")
+  expect(log).toContain("Loading mod space-age ")
+  expect(log).not.toMatch(/Loading mod (quality|__ft-unused) /)
 })
 
 test("--output-timeout kills stuck process", async ({ dirs }) => {

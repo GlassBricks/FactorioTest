@@ -34,12 +34,10 @@ Compiles Typescript code to Lua, for Factorio runtime. Only used in `mod/`.
 
 The CLI spawns Factorio, and parses messages from the mod from stdout (lua `print` calls), messages are marked with `FACTORIO-TEST-*:`.
 
-Uses `fmtk` (from npm package `factorio-debugadapter`) for settings and mod dependency management, outside of launching factorio.
+Uses the `fmtk` bin (from npm package `factoriomod-debug`) for mod settings management (`mod-settings.dat`).
 
 ## Notes
 
 - You can run factorio tests, since they are run in headless mode
 - For vitest, use parameterized tests where applicable
-
-- Integration/e2e tests launch Factorio and are expensive: reserve them for real seams (CLI → mod settings, mod →
-  stdout protocol, process lifecycle). Prefer testing with vitest at module boundaries instead.
+- Integration/e2e tests launch Factorio and are expensive, reserve them for when real Factorio is needed.

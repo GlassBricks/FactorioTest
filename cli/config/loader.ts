@@ -18,7 +18,13 @@ import {
 } from "./options.js"
 
 type CliOptions = z.output<typeof cliOptionsSchema>
-export type ResolvedConfig = Omit<z.output<typeof resolvedSchema>, "outputFile"> & { outputFile?: string }
+export type ResolvedConfig = Omit<z.output<typeof resolvedSchema>, "outputFile"> & {
+  outputFile?: string
+  /** Config file in use, if any. */
+  configFile?: string
+  /** Directory of the config file in use, else the current directory. */
+  configDir: string
+}
 
 type CamelToSnake<S extends string> = S extends `${infer Head}${infer Tail}`
   ? `${Head extends Lowercase<Head> ? Head : `_${Lowercase<Head>}`}${CamelToSnake<Tail>}`
@@ -52,7 +58,12 @@ function describeCliPath([key]: (string | number)[]): string {
   return `${longFlag(key as OptionKey)}: `
 }
 
-function findConfigFile(configPath: string | undefined): { filePath: string; raw: unknown } | undefined {
+interface FoundConfigFile {
+  filePath: string
+  raw: unknown
+}
+
+function findConfigFile(configPath: string | undefined): FoundConfigFile | undefined {
   const candidates = configPath
     ? [path.resolve(configPath)]
     : [path.resolve("factorio-test.json"), path.resolve("package.json")]
@@ -66,7 +77,10 @@ function findConfigFile(configPath: string | undefined): { filePath: string; raw
 }
 
 export function loadFileConfig(configPath?: string): FileOptions {
-  const found = findConfigFile(configPath)
+  return parseFileConfig(findConfigFile(configPath))
+}
+
+function parseFileConfig(found: FoundConfigFile | undefined): FileOptions {
   if (!found) return {}
 
   const result = fileSchema.safeParse(found.raw)
@@ -123,12 +137,15 @@ export function parseCliOptions(cliOptions: Record<string, unknown>, patterns: s
 }
 
 export function resolveConfig({ cliOptions, patterns }: ResolveConfigInput): ResolvedConfig {
-  const fileConfig = loadFileConfig(cliOptions.config as string | undefined)
+  const found = findConfigFile(cliOptions.config as string | undefined)
+  const fileConfig = parseFileConfig(found)
   const config = resolvedSchema.parse({ ...fileConfig, ...parseCliOptions(cliOptions, patterns) })
   const dataDirectory = path.resolve(config.dataDirectory)
   return {
     ...config,
     dataDirectory,
+    configFile: found?.filePath,
+    configDir: found ? path.dirname(found.filePath) : process.cwd(),
     outputFile: config.outputFile === false ? undefined : (config.outputFile ?? getDefaultOutputPath(dataDirectory)),
   }
 }

@@ -12,6 +12,8 @@ interface OptionDef {
   negation?: string
   isPath?: true
   forMod?: true
+  /** Used by `mods install` / `mods update`, besides `run`. */
+  forModSetup?: true
   cliOnly?: true
 }
 
@@ -40,23 +42,27 @@ export const optionDefs = {
       "[one required] Path to the mod folder (containing info.json). Will create a symlink from mods folder to here.",
     schema: z.string().optional(),
     isPath: true,
+    forModSetup: true,
   },
   modName: {
     flags: "--mod-name <name>",
     description: "[one required] Name of a mod already in the configured data directory.",
     schema: z.string().optional(),
+    forModSetup: true,
   },
   factorioPath: {
     flags: "--factorio-path <path>",
     description: "Path to the Factorio binary. If not specified, will attempt to be auto-detected.",
     schema: z.string().optional(),
     isPath: true,
+    forModSetup: true,
   },
   dataDirectory: {
     flags: "-d --data-directory <path>",
     description: "Factorio data directory, where mods, saves, config etc. will be.",
     schema: z.string().default(DEFAULT_DATA_DIRECTORY),
     isPath: true,
+    forModSetup: true,
   },
   save: {
     flags: "--save <path>",
@@ -66,8 +72,18 @@ export const optionDefs = {
   },
   mods: {
     flags: "--mods <mods...>",
-    description: "Additional mods to enable besides the mod under test (e.g., --mods mod1 mod2=1.2.3).",
+    description:
+      'Mods to enable besides the mod under test and its dependencies, in info.json dependency format; "!name" leaves out a recommended dependency (e.g., --mods space-age "flib >= 0.16" "!quality").',
     schema: z.array(z.string()).optional(),
+    forModSetup: true,
+  },
+  frozenLockfile: {
+    flags: "--frozen-lockfile",
+    description:
+      "Fail if factorio-test.lock.json is missing or out of date, instead of updating it (default: enabled if the CI environment variable is set).",
+    schema: z.boolean().optional(),
+    negation: "Update factorio-test.lock.json if needed, even in CI.",
+    forModSetup: true,
   },
   factorioArgs: {
     flags: "--factorio-args <args...>",
@@ -144,6 +160,7 @@ export const optionDefs = {
     flags: "-v --verbose",
     description: "Enable verbose logging; pipe Factorio output to stdout.",
     schema: z.boolean().optional(),
+    forModSetup: true,
   },
   quiet: {
     flags: "-q --quiet",
@@ -229,11 +246,28 @@ function helpDescription(def: OptionDef): string {
 }
 
 export function registerAllCliOptions(command: Command<unknown[], Record<string, unknown>>): void {
+  registerCliOptions(command, defEntries)
+}
+
+export function registerModSetupCliOptions(
+  command: Command<unknown[], Record<string, unknown>>,
+  omit: OptionKey[] = [],
+): void {
+  registerCliOptions(
+    command,
+    defEntries.filter(([key, def]) => def.forModSetup && !omit.includes(key)),
+  )
+}
+
+function registerCliOptions(
+  command: Command<unknown[], Record<string, unknown>>,
+  entries: [OptionKey, OptionDef][],
+): void {
   command.option(
     "-c --config <path>",
     "Path to config file (default: factorio-test.json, or 'factorio-test' key in package.json).",
   )
-  for (const [key, def] of defEntries) {
+  for (const [key, def] of entries) {
     const option = command.createOption(def.flags, helpDescription(def))
     if (def.parseArg) option.argParser(def.parseArg)
     if (def.preset !== undefined) option.preset(def.preset)

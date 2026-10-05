@@ -7,6 +7,7 @@ New here? Start with [Getting Started](Getting-Started.md).
 - [Writing Tests](Writing-Tests.md)
 - [Running Tests](Running-Tests.md)
 - [CLI Reference](CLI-Reference.md)
+- [GitHub Actions](GitHub-Actions.md)
 - [Development Tools](Development-Tools.md)
 - [Remote Interface](Remote-Interface.md)
 

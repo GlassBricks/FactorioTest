@@ -4,7 +4,7 @@ import { PassThrough } from "stream"
 import { finished } from "stream/promises"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { FactorioOutputHandler } from "./factorio-output-parser.js"
-import { parseResultMessage, type HeadlessSuperviseOptions } from "./factorio-process.js"
+import { parseFactorioVersion, parseResultMessage, type HeadlessSuperviseOptions } from "./factorio-process.js"
 
 vi.mock("child_process", async (importOriginal) => {
   const original = await importOriginal<typeof import("child_process")>()
@@ -20,6 +20,16 @@ vi.mock("fs", async (importOriginal) => {
     ...original,
     statSync: vi.fn(original.statSync),
   }
+})
+
+describe("parseFactorioVersion", () => {
+  it.each([
+    ["Version: 2.1.20 (build 87512, linux64, headless, space-age)\nBinary version: 64", "2.1.20"],
+    ["some wrapper noise\nVersion: 2.0.77 (build 1, linux64, full)", "2.0.77"],
+    ["no version here", undefined],
+  ])("%j => %s", (output, expected) => {
+    expect(parseFactorioVersion(output)).toBe(expected)
+  })
 })
 
 describe("parseResultMessage", () => {

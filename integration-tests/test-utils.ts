@@ -40,19 +40,20 @@ export interface RunCliOptions {
 }
 
 const defaultModPath = "../integration-tests/fixtures/usage-test-mod"
+const tsxPath = path.join(root, "node_modules", ".bin", "tsx")
+const cliPath = path.join(root, "cli", "cli.ts")
 
 function buildCliArgs(options: RunCliOptions): string[] {
-  const modPath = options.modPath ?? defaultModPath
-  return [
-    "run",
-    "cli",
-    "--workspace=cli",
-    "--",
-    "run",
-    `--mod-path=${modPath}`,
-    `--data-directory=${options.dataDir}`,
-    ...(options.extraArgs ?? []),
-  ]
+  // mod paths are given relative to cli/
+  const modPath = path.resolve(root, "cli", options.modPath ?? defaultModPath)
+  return [cliPath, "run", `--mod-path=${modPath}`, `--data-directory=${options.dataDir}`, ...(options.extraArgs ?? [])]
+}
+
+// Run in the test's temp dir, so the lock file is written there; without CI, so the lock isn't frozen
+function cliSpawnOptions(options: RunCliOptions): child_process.SpawnOptions {
+  const env = { ...process.env }
+  delete env.CI
+  return { cwd: path.dirname(options.dataDir), env }
 }
 
 const collectedStdio: child_process.StdioOptions = ["inherit", "pipe", "pipe"]
@@ -62,7 +63,7 @@ export function spawnCli(
   stdio: child_process.StdioOptions = collectedStdio,
   timeoutMs?: number,
 ): child_process.ChildProcess {
-  return child_process.spawn("npm", buildCliArgs(options), { stdio, cwd: root, timeout: timeoutMs })
+  return child_process.spawn(tsxPath, buildCliArgs(options), { ...cliSpawnOptions(options), stdio, timeout: timeoutMs })
 }
 
 interface CliOutput {
