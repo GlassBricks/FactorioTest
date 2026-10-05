@@ -2,8 +2,12 @@ import * as fs from "fs"
 import * as path from "path"
 import { expect } from "vitest"
 import { test } from "../test-fixture.js"
-import { runCli, runCliWithTimeout } from "../test-utils.js"
+import { root, runCli, runCliWithTimeout } from "../test-utils.js"
 import { writeModZip } from "../../cli/mods/test-helpers.js"
+
+const { version: modVersion } = JSON.parse(fs.readFileSync(path.join(root, "mod", "info.json"), "utf-8")) as {
+  version: string
+}
 
 interface TestCase {
   name: string
@@ -125,7 +129,7 @@ test("enables exactly the resolved mods, pinned to the chosen versions", async (
     ]),
   )
   const lock = JSON.parse(await fs.promises.readFile(path.join(dirs.tempDir, "factorio-test.lock.json"), "utf-8"))
-  expect(lock).toEqual({ lockVersion: 1, mods: { "__ft-dep": "1.0.0", "factorio-test": "3.1.1" } })
+  expect(lock).toEqual({ lockVersion: 1, mods: { "__ft-dep": "1.0.0", "factorio-test": modVersion } })
   const log = await fs.promises.readFile(path.join(dirs.dataDir, "factorio-current.log"), "utf-8")
   expect(log).toContain("Loading mod __ft-dep 1.0.0 (data.lua)")
   expect(log).toContain("Loading mod space-age ")
