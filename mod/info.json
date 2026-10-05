@@ -11,7 +11,7 @@
       "prepublish": "npm run test"
     },
     "git_publish_branch": "main",
-    "ignore": ["**/tsconfig*.json", "**/package*.json", "**/*.ts", "**/*.xcf"],
+    "ignore": ["node_modules/**", "**/tsconfig*.json", "**/package*.json", "**/*.ts", "**/*.xcf"],
     "no_git_tag": true,
     "removeZipAfterPackage": true
   }
