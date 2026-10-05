@@ -17,6 +17,7 @@
     "eslint-plugin-prettier": "^5.5.5",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
+    "typed-factorio": "^3.36.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.22.0",
     "typescript-to-lua": "^1.33.2",

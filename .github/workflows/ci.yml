@@ -31,9 +31,10 @@ jobs:
           node-version: 22
           cache: npm
 
+      # This branch is for Factorio 2.0; pinned to the latest 2.0 release
       - name: Resolve Factorio version
         id: factorio
-        run: echo "version=$(curl -fsSL https://factorio.com/api/latest-releases | jq -r .experimental.headless)" >> "$GITHUB_OUTPUT"
+        run: echo "version=2.0.77" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v6
         id: factorio-cache
         with:
