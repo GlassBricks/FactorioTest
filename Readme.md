@@ -22,3 +22,4 @@ end)
 
 For setting up your mod, see [getting started](docs/Getting-Started.md).
 Full documentation is in [docs](docs/README.md).
+`main` documents unreleased changes; for the current release see the [stable docs](https://github.com/GlassBricks/FactorioTest/tree/stable/docs).

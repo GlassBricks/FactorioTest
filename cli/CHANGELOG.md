@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Supports both Factorio 2.0 (with factorio-test mod 3.0.x) and 2.1 (mod 3.1.x).
+
 ### Features
 
 - Added `.step()` test api: allows breaking up a test into multiple independent optionally named "steps". Can be used for interactively stepping through a test (see step mode), or having multiple distinct "async" contexts.
@@ -28,7 +30,6 @@ This also enables easier CI setups; see docs on how to configure CI.
 - Config file options are now all top-level camelCase. Test execution options previously under `"test"` in snake_case (e.g. `"test": { "game_speed": 10 }`) are now e.g. `"gameSpeed": 10`. The `test` key is still accepted, with a deprecation warning.
 - `"outputFile": false` in a config file disables writing the results file, like `--no-output-file`.
 - The bundled default saves used for tests (one for Factorio 2.0, one for 2.1) now have only the `base` mod. This should remove migration notifications when run in graphics mode.
-- Supports both Factorio 2.0 (factorio-test mod 3.0.x) and 2.1 (factorio-test mod 3.1.x); the required mod version, builtin mods and default save are chosen by the Factorio version found.
 
 ### Fixes
 

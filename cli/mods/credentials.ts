@@ -1,8 +1,9 @@
 import * as path from "path"
 import { CliError } from "../cli-error.js"
+import { cliVersion } from "../version.js"
 import type { PortalCredentials } from "./portal.js"
 
-export const CI_DOCS_URL = "https://github.com/GlassBricks/FactorioTest/blob/main/docs/CI.md"
+export const CI_DOCS_URL = `https://github.com/GlassBricks/FactorioTest/blob/cli-v${cliVersion}/docs/CI.md`
 const PROFILE_URL = "https://factorio.com/profile"
 
 export type CredentialsSource = { kind: "env" } | { kind: "player-data"; dir: string }

@@ -1,20 +1,16 @@
 import type { Command } from "@commander-js/extra-typings"
 import chalk from "chalk"
 import { Command as RuntimeCommand } from "commander"
-import { readFileSync } from "fs"
 import { CliError } from "./cli-error.js"
 import { registerModsCommand } from "./mods-command.js"
 import { registerRunCommand } from "./run.js"
-
-const { version } = JSON.parse(readFileSync(new URL("package.json", import.meta.url), "utf8")) as {
-  version: string
-}
+import { cliVersion } from "./version.js"
 
 export async function main(argv: string[]): Promise<number> {
   let exitCode = 0
   const program = (new RuntimeCommand() as unknown as Command)
     .name("factorio-test")
-    .version(version)
+    .version(cliVersion)
     .description("cli for factorio testing")
     .helpCommand(true)
     .showHelpAfterError()
