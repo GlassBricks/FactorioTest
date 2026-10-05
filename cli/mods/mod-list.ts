@@ -1,7 +1,7 @@
 import * as fsp from "fs/promises"
 import * as path from "path"
 import { CliError } from "../cli-error.js"
-import { BUILTIN_MODS } from "./builtin.js"
+import { builtinMods } from "./builtin.js"
 import type { Candidate } from "./resolve.js"
 import type { InstalledMod } from "./source.js"
 
@@ -18,8 +18,13 @@ export interface ModListEntry {
 export function buildModList(
   enabled: ReadonlyMap<string, Candidate>,
   installed: readonly InstalledMod[],
+  gameVersion: string,
 ): ModListEntry[] {
-  const names = new Set([...Object.keys(BUILTIN_MODS), ...installed.map((mod) => mod.name), ...enabled.keys()])
+  const names = new Set([
+    ...Object.keys(builtinMods(gameVersion)),
+    ...installed.map((mod) => mod.name),
+    ...enabled.keys(),
+  ])
   return [...names].map((name) => {
     const candidate = enabled.get(name)
     if (!candidate) return { name, enabled: false }

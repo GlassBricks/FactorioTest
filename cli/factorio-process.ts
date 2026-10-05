@@ -8,6 +8,7 @@ import { fileURLToPath } from "url"
 import { promisify } from "util"
 import { CliError } from "./cli-error.js"
 import { BAILED_PREFIX, FactorioOutputHandler, FOCUSED_SUFFIX } from "./factorio-output-parser.js"
+import { majorMinor } from "./mods/dependency.js"
 import { OutputPrinter, ProgressRenderer } from "./test-output.js"
 import { TestRunCollector, TestRunData } from "./test-results.js"
 
@@ -123,11 +124,13 @@ export interface FactorioTestResult {
   data?: TestRunData
 }
 
-export function getHeadlessSavePath(overridePath?: string): string {
+/** Saves can't be loaded by an older Factorio, so there's one per supported version. */
+export function getHeadlessSavePath(gameVersion: string, overridePath?: string): string {
   if (overridePath) {
     return path.resolve(overridePath)
   }
-  return path.join(__dirname, "headless-save.zip")
+  const fileName = majorMinor(gameVersion) === "2.0" ? "headless-save-2.0.zip" : "headless-save.zip"
+  return path.join(__dirname, fileName)
 }
 
 export function parseResultMessage(message: string): Pick<FactorioTestResult, "status" | "hasFocusedTests"> {

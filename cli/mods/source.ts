@@ -2,7 +2,7 @@ import * as fsp from "fs/promises"
 import * as path from "path"
 import { z } from "zod"
 import { CliError } from "../cli-error.js"
-import { BUILTIN_MODS, isBuiltinMod } from "./builtin.js"
+import { builtinMods, isBuiltinMod } from "./builtin.js"
 import { compareVersions, majorMinor, parseDependencies, parseDependency } from "./dependency.js"
 import type { LockedMods } from "./lock.js"
 import { type ModPortal, type PortalRelease, PortalUnreachableError } from "./portal.js"
@@ -75,7 +75,7 @@ function builtinCandidate(name: string, gameVersion: string): Candidate {
     name,
     version: gameVersion,
     factorioVersion: majorMinor(gameVersion),
-    dependencies: BUILTIN_MODS[name]!.map((spec) => parseDependency(spec)!),
+    dependencies: builtinMods(gameVersion)[name]!.map((spec) => parseDependency(spec)!),
     origin: "builtin",
     installed: true,
   }
@@ -119,7 +119,7 @@ export class ModCandidateSource implements CandidateSource {
   }
 
   async *candidates(name: string): AsyncIterable<Candidate> {
-    if (isBuiltinMod(name)) {
+    if (isBuiltinMod(name, this.options.gameVersion)) {
       yield builtinCandidate(name, this.options.gameVersion)
       return
     }

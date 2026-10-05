@@ -41,3 +41,9 @@ Uses the `fmtk` bin (from npm package `factoriomod-debug`) for mod settings mana
 - You can run factorio tests, since they are run in headless mode
 - For vitest, use parameterized tests where applicable
 - Integration/e2e tests launch Factorio and are expensive, reserve them for when real Factorio is needed.
+
+## Factorio versions
+
+- `main`: Factorio 2.1, factorio-test mod 3.1.x. The CLI (published from `main`) supports both 2.0 and 2.1: the required mod version, builtin mods and default save are chosen by the Factorio version found (`factorioTestConstraints()`, `builtinMods()`, `getHeadlessSavePath()`).
+- `backport-2.0`: `main` plus one commit with only the mod changes for Factorio 2.0 (mod 3.0.x, published from that branch). Rebase it onto `main` to backport. Its integration tests and CI run on Factorio 2.0, covering the CLI against 2.0.
+- CLI unit tests cover both versions with fakes; integration tests run on the branch's Factorio version only.

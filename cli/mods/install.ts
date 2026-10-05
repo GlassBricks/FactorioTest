@@ -4,7 +4,7 @@ import * as path from "path"
 import { CliError } from "../cli-error.js"
 import { findExecutableRealPath, getFactorioVersion } from "../factorio-process.js"
 import { type Credentials, findCredentials, noCredentialsError, rejectedCredentialsError } from "./credentials.js"
-import { type Dependency, parseListedMod } from "./dependency.js"
+import { type Dependency, majorMinor, parseListedMod, type VersionConstraint } from "./dependency.js"
 import { checkFrozenLock, type LockedMods, lockFilePath, planLock, readLock, writeLockIfChanged } from "./lock.js"
 import { buildModList, checkPinnedInstalled, writeModList } from "./mod-list.js"
 import { createModPortal, CredentialsRejectedError, type ModPortal, PortalUnreachableError } from "./portal.js"
@@ -18,7 +18,17 @@ import {
 } from "./resolve.js"
 import { type InstalledMod, ModCandidateSource, scanModsDir } from "./source.js"
 
-export const MIN_FACTORIO_TEST_VERSION = "3.1.1"
+/** factorio-test versions this CLI works with: 3.0.x is for Factorio 2.0, 3.1.x+ for 2.1. */
+export function factorioTestConstraints(gameVersion: string): VersionConstraint[] {
+  if (majorMinor(gameVersion) === "2.0") {
+    return [
+      { op: ">=", version: "3.0.2" },
+      { op: "<", version: "3.1" },
+    ]
+  }
+  return [{ op: ">=", version: "3.1.1" }]
+}
+
 const CLI_SOURCE = "factorio-test-cli"
 
 export interface ModSetupInput {
@@ -75,15 +85,21 @@ export async function linkModUnderTest(modsDir: string, modPath: string): Promis
 }
 
 /** The mod under test's dependencies follow from choosing it. */
-function buildRequirements(modToTest: string, listed: Dependency[], modsSource: string): Requirement[] {
-  const factorioTest: Dependency = {
-    kind: "required",
-    name: "factorio-test",
-    constraint: { op: ">=", version: MIN_FACTORIO_TEST_VERSION },
-  }
+function buildRequirements(
+  modToTest: string,
+  listed: Dependency[],
+  modsSource: string,
+  gameVersion: string,
+): Requirement[] {
+  const factorioTest = factorioTestConstraints(gameVersion).map(
+    (constraint): Requirement => ({
+      dependency: { kind: "required", name: "factorio-test", constraint },
+      from: CLI_SOURCE,
+    }),
+  )
   return [
     { dependency: { kind: "required", name: "base" }, from: CLI_SOURCE },
-    { dependency: factorioTest, from: CLI_SOURCE },
+    ...factorioTest,
     { dependency: { kind: "required", name: modToTest }, from: "mod under test" },
     ...listed.map((dependency) => ({ dependency, from: modsSource })),
   ]
@@ -160,7 +176,7 @@ export async function installMods(input: ModSetupInput): Promise<InstalledMods> 
     portal,
     update,
   })
-  const resolution = await resolve(buildRequirements(modToTest, listed, modsSource), source, game)
+  const resolution = await resolve(buildRequirements(modToTest, listed, modsSource, game.version), source, game)
   if (update instanceof Set) checkUpdatedModsUsed(update, resolution)
 
   const plannedLock = planLock(resolution.enabled.values())
@@ -187,8 +203,8 @@ function checkUpdatedModsUsed(names: ReadonlySet<string>, { enabled }: Resolutio
 }
 
 /** Enables exactly the enabled set, pinned to the chosen versions. */
-export async function enableMods(modsDir: string, { resolution, installed }: InstalledMods): Promise<void> {
-  const entries = buildModList(resolution.enabled, installed)
+export async function enableMods(modsDir: string, { resolution, installed, game }: InstalledMods): Promise<void> {
+  const entries = buildModList(resolution.enabled, installed, game.version)
   checkPinnedInstalled(entries, installed, modsDir)
   await writeModList(modsDir, entries)
 }

@@ -102,7 +102,7 @@ async function setupTestRun(patterns: string[], cliOptions: Record<string, unkno
   await ensureConfigIni(dataDir)
 
   const mode = config.graphics ? "graphics" : "headless"
-  const savePath = getHeadlessSavePath(config.save)
+  const savePath = getHeadlessSavePath(installedMods.game.version, config.save)
 
   const factorioArgs = [...(config.factorioArgs ?? [])]
   if (config.watch && config.graphics) {

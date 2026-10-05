@@ -2,6 +2,7 @@ import * as fsp from "fs/promises"
 import * as os from "os"
 import * as path from "path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { majorMinor } from "./dependency.js"
 import { enableMods, installMods, type ModSetupInput } from "./install.js"
 import { LOCK_FILE_NAME } from "./lock.js"
 import { ModPortal } from "./portal.js"
@@ -17,9 +18,7 @@ const credentialsEnv = { FACTORIO_USERNAME: FAKE_USERNAME, FACTORIO_TOKEN: FAKE_
 beforeEach(async () => {
   tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "factorio-test-install-"))
   modsDir = path.join(tempDir, "data", "mods")
-  const factorioPath = path.join(tempDir, "factorio", "bin", "x64", "factorio")
-  await fsp.mkdir(path.dirname(factorioPath), { recursive: true })
-  await fsp.writeFile(factorioPath, '#!/bin/sh\necho "Version: 2.1.20 (build 1, linux64, headless)"\n', { mode: 0o755 })
+  await writeFakeFactorio("2.1.20")
   await writeModDir(path.join(tempDir, "my-mod"), { name: "my-mod", version: "1.0.0", dependencies: ["flib >= 0.16"] })
 
   fake = await new FakePortal().start()
@@ -31,6 +30,14 @@ beforeEach(async () => {
   output = []
   vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => void output.push(args.join(" ")))
 })
+
+async function writeFakeFactorio(version: string): Promise<void> {
+  const factorioPath = path.join(tempDir, "factorio", "bin", "x64", "factorio")
+  await fsp.mkdir(path.dirname(factorioPath), { recursive: true })
+  await fsp.writeFile(factorioPath, `#!/bin/sh\necho "Version: ${version} (build 1, linux64, headless)"\n`, {
+    mode: 0o755,
+  })
+}
 
 afterEach(async () => {
   vi.restoreAllMocks()
@@ -143,5 +150,31 @@ describe("installMods", () => {
         { name: "quality", enabled: false },
       ]),
     )
+  })
+})
+
+describe("factorio-test version", () => {
+  it.each([
+    ["2.0.77", "3.0.3"],
+    ["2.1.20", "3.1.2"],
+  ])("Factorio %s uses factorio-test %s", async (gameVersion, expected) => {
+    await writeFakeFactorio(gameVersion)
+    await writeModDir(path.join(tempDir, "my-mod"), {
+      name: "my-mod",
+      version: "1.0.0",
+      factorio_version: majorMinor(gameVersion),
+    })
+    for (const [version, factorioVersion] of [
+      ["3.0.1", "2.0"],
+      ["3.0.3", "2.0"],
+      ["3.1.5", "2.0"],
+      ["3.1.2", "2.1"],
+    ] as const) {
+      await fake.addRelease({ name: "factorio-test", version, factorio_version: factorioVersion })
+    }
+
+    await installMods(input())
+
+    expect(await readLockFile()).toEqual({ lockVersion: 1, mods: { "factorio-test": expected } })
   })
 })

@@ -164,14 +164,18 @@ describe("ModCandidateSource", () => {
     ])
   })
 
-  it("builtin dependencies come from the snapshot", async () => {
-    const candidate = await firstCandidate(await createSource(), "space-age")
-    expect(candidate.dependencies.map(({ kind, name }) => `${kind} ${name}`)).toEqual([
-      "required base",
-      "required elevated-rails",
-      "required recycler",
-      "recommended quality",
-    ])
+  it.each<[string, string[]]>([
+    ["2.1.20", ["required base", "required elevated-rails", "required recycler", "recommended quality"]],
+    ["2.0.77", ["required base", "required elevated-rails", "required quality"]],
+  ])("builtin dependencies come from the Factorio %s snapshot", async (gameVersion, expected) => {
+    const source = new ModCandidateSource({ modsDir, installed: [], modToTest: "my-mod", gameVersion })
+    const candidate = await firstCandidate(source, "space-age")
+    expect(candidate.dependencies.map(({ kind, name }) => `${kind} ${name}`)).toEqual(expected)
+  })
+
+  it("recycler is not builtin in Factorio 2.0", async () => {
+    const source = new ModCandidateSource({ modsDir, installed: [], modToTest: "my-mod", gameVersion: "2.0.77" })
+    expect(await collect(source, "recycler")).toEqual([])
   })
 
   describe("with portal", () => {
