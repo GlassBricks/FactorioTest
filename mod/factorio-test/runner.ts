@@ -211,7 +211,7 @@ export class TestRunner {
     state.isRerun = isRerun
     this.stepping = state.config.step
     state.report = createRunReport()
-    state.report.profiler = helpers.create_profiler()
+    state.report.profiler = game.create_profiler()
     state.store.stage.set(TestStage.Running)
     const { lastFailedTests } = state.store.persisted()
     if (shouldReorderFailedFirst(state.config, lastFailedTests)) {
@@ -363,7 +363,7 @@ export class TestRunner {
 
   /** Returns true if the runner suspended on an async part. */
   private startAndRunTest(test: Test): boolean {
-    test.profiler = helpers.create_profiler()
+    test.profiler = game.create_profiler()
     const part = newPartRun(0)
     const testRun: TestRun = { test, afterTestFuncs: [], part }
     this.state.currentTestRun = testRun

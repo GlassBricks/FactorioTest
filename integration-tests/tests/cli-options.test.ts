@@ -74,7 +74,7 @@ interface ModListEntry {
   enabled: boolean
 }
 
-const dlcMods = ["space-age", "quality", "elevated-rails", "recycler"]
+const dlcMods = ["space-age", "quality", "elevated-rails"]
 
 async function readDlcModStates(dataDir: string): Promise<Record<string, boolean | undefined>> {
   const modListPath = path.join(dataDir, "mods", "mod-list.json")
@@ -103,13 +103,13 @@ test("DLC mod enabled via --mods, with its dependencies", async ({ dirs }) => {
 test("enables exactly the resolved mods, pinned to the chosen versions", async ({ dirs }) => {
   const modsDir = path.join(dirs.dataDir, "mods")
   const dataLua = { "data.lua": "" }
-  await writeModZip(modsDir, { name: "__ft-dep", version: "1.0.0" }, dataLua)
-  await writeModZip(modsDir, { name: "__ft-dep", version: "1.1.0" }, dataLua)
-  await writeModZip(modsDir, { name: "__ft-unused", version: "1.0.0" }, dataLua)
+  await writeModZip(modsDir, { name: "__ft-dep", version: "1.0.0", factorio_version: "2.0" }, dataLua)
+  await writeModZip(modsDir, { name: "__ft-dep", version: "1.1.0", factorio_version: "2.0" }, dataLua)
+  await writeModZip(modsDir, { name: "__ft-unused", version: "1.0.0", factorio_version: "2.0" }, dataLua)
 
   const { stdout } = await runCli({
     dataDir: dirs.dataDir,
-    extraArgs: ["--mods", "__ft-dep < 1.1", "space-age", "!quality"],
+    extraArgs: ["--mods", "__ft-dep < 1.1", "quality", "!elevated-rails"],
   })
 
   expect(stdout).toContain("Usage test mod result: passed")
@@ -120,16 +120,16 @@ test("enables exactly the resolved mods, pinned to the chosen versions", async (
     expect.arrayContaining([
       { name: "__ft-dep", enabled: true, version: "1.0.0" },
       { name: "__ft-unused", enabled: false },
-      { name: "space-age", enabled: true },
-      { name: "quality", enabled: false },
+      { name: "quality", enabled: true },
+      { name: "elevated-rails", enabled: false },
     ]),
   )
   const lock = JSON.parse(await fs.promises.readFile(path.join(dirs.tempDir, "factorio-test.lock.json"), "utf-8"))
   expect(lock).toEqual({ lockVersion: 1, mods: { "__ft-dep": "1.0.0" } })
   const log = await fs.promises.readFile(path.join(dirs.dataDir, "factorio-current.log"), "utf-8")
   expect(log).toContain("Loading mod __ft-dep 1.0.0 (data.lua)")
-  expect(log).toContain("Loading mod space-age ")
-  expect(log).not.toMatch(/Loading mod (quality|__ft-unused) /)
+  expect(log).toContain("Loading mod quality ")
+  expect(log).not.toMatch(/Loading mod (elevated-rails|__ft-unused) /)
 })
 
 test("--output-timeout kills stuck process", async ({ dirs }) => {
