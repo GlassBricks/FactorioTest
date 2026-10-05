@@ -1,4 +1,4 @@
-## Unreleased
+## v3.7.0
 
 - Supports both Factorio 2.0 (with factorio-test mod 3.0.x) and 2.1 (mod 3.1.x).
 
