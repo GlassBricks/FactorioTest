@@ -139,10 +139,12 @@ publish_cli() {
     return
   fi
 
+  # Publish before committing, so a failed publish (e.g. a missing OTP) can simply be rerun.
+  # The changelog is not part of the npm package.
+  npm publish -w cli || fail "npm publish failed"
   sed -i "s/^## Unreleased$/## v$CLI_VERSION/" cli/CHANGELOG.md
   git add cli/CHANGELOG.md
   git commit -m "Release CLI v$CLI_VERSION"
-  npm publish -w cli || fail "npm publish failed"
   git tag "$CLI_TAG"
   echo "==> Push the release commit and tag: git push origin $BRANCH $CLI_TAG"
 }
