@@ -1,5 +1,11 @@
 ## Unreleased
 
+### Features
+
+- Test scenarios: `--scenario-path <dir>` (standalone scenario) or `--scenario [mod/]name`; tests run in a new game created from the scenario. `--mod-path` with `--scenario <that mod>/<name>` tests a scenario shipped in a mod. Requires factorio-test mod v3.1.2 (Factorio 2.1) or v3.0.3 (Factorio 2.0).
+- `--start-scenario [mod/]name`: run a mod's tests in a new game from a scenario (e.g. `base/freeplay`), instead of the bundled save.
+- `mods install` / `mods update` no longer require `--mod-path` or `--mod-name`.
+
 ### Changes
 
 - No lock file is created when a mod has no dependencies besides base-game mods.

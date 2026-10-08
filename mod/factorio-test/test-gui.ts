@@ -187,11 +187,12 @@ function createTestProgressGui(state: TestEventContext): TestGui {
   const style = titleBar.style
   style.horizontal_spacing = 8
   style.height = 28
+  const targetName = script.mod_name === "level" ? script.level.level_name : script.mod_name
   titleBar.add({
     type: "label",
     caption: state.suite.hasFocusedTests
-      ? ["", [ProgressGui.Title, script.mod_name], " (.only)"]
-      : [ProgressGui.Title, script.mod_name],
+      ? ["", [ProgressGui.Title, targetName], " (.only)"]
+      : [ProgressGui.Title, targetName],
     style: "frame_title",
     ignored_by_interaction: true,
   })

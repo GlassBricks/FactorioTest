@@ -37,6 +37,7 @@ export namespace Locale {
     LoadTestsFor = "factorio-test.config-gui.load-tests-for",
     NoMod = "factorio-test.config-gui.none",
     OtherMod = "factorio-test.config-gui.other",
+    Scenario = "factorio-test.config-gui.scenario",
     ReloadMods = "factorio-test.config-gui.reload-mods",
     ModNotRegisteredTests = "factorio-test.config-gui.mod-not-registered",
     RunTests = "factorio-test.config-gui.run-tests",

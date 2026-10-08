@@ -23,7 +23,11 @@ function armAutoStart() {
       if (headless) error(Protocol.Exit)
     }
 
-    if (!(modToTest in script.active_mods)) {
+    if (modToTest === "level") {
+      if (!remote.interfaces[Remote.TestsAvailableFor + "level"]) {
+        return autoStartError("Cannot auto-start tests: the scenario is not registered with Factorio Test.")
+      }
+    } else if (!(modToTest in script.active_mods)) {
       return autoStartError(`Cannot auto-start tests: mod ${modToTest} is not active.`)
     }
 

@@ -2,7 +2,7 @@
 
 ## Registering Tests
 
-To register your mod with Factorio Test, add this to the end of your `control.lua`:
+To register your mod or scenario with Factorio Test, add this to the end of its `control.lua`:
 
 ```lua
 if script.active_mods["factorio-test"] then
@@ -15,16 +15,20 @@ end
 
 You do _not_ have to add Factorio Test as a dependency of your mod.
 
-Tests are only loaded if both the Factorio Test mod is active _and_ your mod is selected for testing.
+In a scenario, test files are required relative to the scenario folder.
+
+Tests are only loaded if both the Factorio Test mod is active _and_ your mod or scenario is selected for testing.
 Avoid requiring test files from regular code, as Factorio Test may not be active.
 
 ## Running from the CLI (Recommended)
 
-For CI/CD and command-line testing, use the CLI:
+For CI/CD and command-line testing, use the CLI. To test a mod:
 
 ```bash
 npx factorio-test run -p ./my-mod
 ```
+
+To test a scenario, use `--scenario-path` or `--scenario` instead; see [CLI Reference](CLI-Reference.md#test-target).
 
 The CLI auto-detects your Factorio installation, sets up an isolated data directory (mods, saves, config), downloads mods if needed, then runs tests in headless mode.
 By default it uses a bundled save: an empty lab-tile world with one player named `""` (empty string).
@@ -41,9 +45,9 @@ This requires manually setting up the environment:
 
 1. Open Factorio
 2. Make sure both Factorio Test and your mod are enabled
-3. Open or create a save
+3. Open or create a save (for a scenario: start a new game from it)
 4. Click the "Tests" button in the upper left corner
-5. Select your mod from the list (if not listed, verify your `control.lua` setup)
+5. Select your mod or scenario from the list (if not listed, verify your `control.lua` setup)
 6. Click "Reload mods and run tests"
 
 An in-game GUI displays test progress and results.

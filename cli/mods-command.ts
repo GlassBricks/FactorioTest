@@ -8,7 +8,6 @@ import { type InstalledMods, installMods, type ModSetupInput } from "./mods/inst
 import { FACTORIO_TEST, type LockedMods } from "./mods/lock.js"
 import { createModPortal, type ModPortal } from "./mods/portal.js"
 import { setVerbose } from "./process-utils.js"
-import { validateModSource } from "./run-plan.js"
 
 /** Mod setup input shared by `run` and the `mods` commands. */
 export function modSetupInput(config: ResolvedConfig, cliOptions: Record<string, unknown>): ModSetupInput {
@@ -27,7 +26,6 @@ export function modSetupInput(config: ResolvedConfig, cliOptions: Record<string,
 function resolveModSetupConfig(cliOptions: Record<string, unknown>): ResolvedConfig {
   const config = resolveConfig({ cliOptions, patterns: [] })
   setVerbose(!!config.verbose)
-  validateModSource(config)
   return config
 }
 
@@ -36,6 +34,10 @@ async function installCommand(args: string[], cliOptions: Record<string, unknown
   if (args.length > 0) {
     const configFile = config.configFile ? path.basename(config.configFile) : "factorio-test.json"
     throw new CliError(`To add a mod, list it in "mods" in ${configFile}.`)
+  }
+  if (config.modPath === undefined && config.modName === undefined && !config.mods?.length) {
+    console.log('No mod under test or "mods" given: no dependencies to install.')
+    return
   }
   await installMods(modSetupInput(config, cliOptions))
 }

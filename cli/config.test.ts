@@ -32,7 +32,7 @@ describe("loadFileConfig", () => {
     })
   })
 
-  it.each(["modPath", "factorioPath", "dataDirectory", "save", "outputFile"])(
+  it.each(["modPath", "scenarioPath", "factorioPath", "dataDirectory", "save", "outputFile"])(
     "resolves %s relative to the config file",
     (key) => {
       expect(loadFileConfig(writeConfig({ [key]: "./some/path" }))).toMatchObject({
@@ -40,6 +40,13 @@ describe("loadFileConfig", () => {
       })
     },
   )
+
+  it("accepts scenario refs as is", () => {
+    expect(loadFileConfig(writeConfig({ scenario: "my-mod/s1", startScenario: "base/freeplay" }))).toMatchObject({
+      scenario: "my-mod/s1",
+      startScenario: "base/freeplay",
+    })
+  })
 
   it("accepts outputFile: false", () => {
     expect(loadFileConfig(writeConfig({ outputFile: false })).outputFile).toBe(false)

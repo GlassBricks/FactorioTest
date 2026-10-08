@@ -28,12 +28,17 @@ async function main() {
   const dataDir = path.join(root, "factorio-test-data-dir-fixtures", fixture)
   await symlinkLocalFactorioTest(path.join(dataDir, "mods"))
 
+  // a fixture without info.json is a scenario
+  const fixturePath = path.join(fixturesDir, fixture)
+  const isScenario = !fs.existsSync(path.join(fixturePath, "info.json"))
+  const targetArgs = isScenario ? ["--scenario-path", fixturePath] : []
+
   console.log(`Running fixture ${fixture} with graphics, data directory ${dataDir}`)
   const child = spawnCli(
     {
-      modPath: path.join(fixturesDir, fixture),
+      modPath: isScenario ? null : fixturePath,
       dataDir,
-      extraArgs: ["--graphics", ...extraArgs],
+      extraArgs: [...targetArgs, "--graphics", ...extraArgs],
     },
     "inherit",
   )

@@ -124,6 +124,10 @@ dist
 
 **/*.lua
 !**/*.def.lua
+# plain-Lua fixtures
+!integration-tests/fixtures/test-scenario/**/*.lua
+!integration-tests/fixtures/scenario-mod/**/*.lua
+!integration-tests/fixtures/error-scenario/**/*.lua
 
 mod/luassert/
 mod/say-LICENSE

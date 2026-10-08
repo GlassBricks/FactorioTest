@@ -61,7 +61,7 @@ export async function scanModsDir(modsDir: string): Promise<InstalledMod[]> {
 export interface CandidateSourceOptions {
   modsDir: string
   installed: InstalledMod[]
-  modToTest: string
+  modToTest?: string
   gameVersion: string
   locked?: LockedMods
   /** Without a portal, only installed mods are candidates. */

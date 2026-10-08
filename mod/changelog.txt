@@ -1,6 +1,8 @@
 ---------------------------------------------------------------------------------------------------
 Version: 3.1.2
 Date: ????
+  Features:
+    - Scenarios can register tests, the same way as mods. A registered scenario is listed in the mod selection as "Scenario: <name>", and can be auto-started by the CLI.
   Changes:
 ---------------------------------------------------------------------------------------------------
 Version: 3.1.1

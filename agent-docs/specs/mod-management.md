@@ -121,6 +121,9 @@ CI:
   config. Positional args are an error: `To add a mod, list it in "mods" in <config file>.`
   > Inputs: config (`modPath` | `modName`, `mods`, `dataDirectory`, `factorioPath`), MUT
   > `info.json`, lock.
+  - The MUT is optional (e.g. testing a scenario, [scenario-support](scenario-support.md)).
+    With neither a MUT nor listed mods, it prints (not an error or warning):
+    `No mod under test or "mods" given: no dependencies to install.`
 - **CMD-2** `factorio-test mods update [names...]`: like `mods install`, but RES-7 steps 1–2 are
   skipped for the named mods (all if none named).
   - A name not in the enabled set is an error: `"foo" is not used by this test run.`
@@ -148,8 +151,8 @@ CI:
 
 ### Resolution
 
-- **RES-1** Requirements: `base`, `factorio-test = <PINNED>`, the MUT, the MUT's `info.json`
-  dependencies, the listed mods.
+- **RES-1** Requirements: `base`, `factorio-test = <PINNED>`, the MUT and its `info.json`
+  dependencies (if any MUT), the listed mods.
   - `<PINNED>`: one version per Factorio major.minor, hardcoded in the CLI release, so the CLI
     version fixes the factorio-test version.
   - A listed `factorio-test` entry replaces the default requirement.

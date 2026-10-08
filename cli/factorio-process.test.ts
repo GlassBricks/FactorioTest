@@ -4,7 +4,15 @@ import { PassThrough } from "stream"
 import { finished } from "stream/promises"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { FactorioOutputHandler } from "./factorio-output-parser.js"
-import { parseFactorioVersion, parseResultMessage, type HeadlessSuperviseOptions } from "./factorio-process.js"
+import {
+  buildLaunchSteps,
+  type HeadlessSuperviseOptions,
+  type LaunchSteps,
+  parseFactorioVersion,
+  parseResultMessage,
+} from "./factorio-process.js"
+import type { RunMode } from "./factorio-setup.js"
+import type { RunPlan } from "./run-plan.js"
 
 vi.mock("child_process", async (importOriginal) => {
   const original = await importOriginal<typeof import("child_process")>()
@@ -29,6 +37,63 @@ describe("parseFactorioVersion", () => {
     ["no version here", undefined],
   ])("%j => %s", (output, expected) => {
     expect(parseFactorioVersion(output)).toBe(expected)
+  })
+})
+
+describe("buildLaunchSteps", () => {
+  const dataDir = path.resolve("/data")
+  const common = ["--mod-directory", path.join(dataDir, "mods"), "-c", path.join(dataDir, "config.ini"), "--x"]
+  const options = { dataDir, bundledSave: "/bundled.zip", factorioArgs: ["--x"], testArgs: ["--udp"] }
+  const headless = (save: string) => ["--benchmark", save, "--benchmark-ticks", "1000000000", ...common, "--udp"]
+  const graphics = (save: string) => ["--load-game", save, ...common, "--udp"]
+  const scenarioSave = path.join(dataDir, "saves", "my-mod", "s1.zip")
+  const scenario2map = {
+    ref: "my-mod/s1",
+    args: ["--scenario2map", "my-mod/s1", ...common],
+    savePath: scenarioSave,
+  }
+  const modTarget = { kind: "mod", modName: "my-mod" } as const
+  const scenarioTarget = { kind: "scenario", ref: "my-mod/s1" } as const
+
+  it.each<[string, RunPlan, RunMode, LaunchSteps]>([
+    [
+      "mod, bundled, headless",
+      { target: modTarget, world: { kind: "bundled" } },
+      "headless",
+      { test: { args: headless("/bundled.zip") } },
+    ],
+    [
+      "mod, bundled, graphics",
+      { target: modTarget, world: { kind: "bundled" } },
+      "graphics",
+      { test: { args: graphics("/bundled.zip") } },
+    ],
+    [
+      "mod, save, headless",
+      { target: modTarget, world: { kind: "save", path: "/my-save.zip" } },
+      "headless",
+      { test: { args: headless(path.resolve("/my-save.zip")) } },
+    ],
+    [
+      "mod, start scenario, graphics",
+      { target: modTarget, world: { kind: "scenario", ref: "my-mod/s1" } },
+      "graphics",
+      { scenario2map, test: { args: graphics(scenarioSave) } },
+    ],
+    [
+      "scenario, headless",
+      { target: scenarioTarget, world: { kind: "scenario", ref: "my-mod/s1" } },
+      "headless",
+      { scenario2map, test: { args: headless(scenarioSave) } },
+    ],
+    [
+      "scenario, graphics",
+      { target: scenarioTarget, world: { kind: "scenario", ref: "my-mod/s1" } },
+      "graphics",
+      { scenario2map, test: { args: graphics(scenarioSave) } },
+    ],
+  ])("%s", (_, plan, mode, expected) => {
+    expect(buildLaunchSteps(plan, mode, options)).toEqual(expected)
   })
 })
 

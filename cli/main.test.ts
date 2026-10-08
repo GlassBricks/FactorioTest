@@ -1,8 +1,11 @@
 import * as fs from "fs"
 import * as os from "os"
 import * as path from "path"
+import { Command, type CommandUnknownOpts } from "@commander-js/extra-typings"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { main } from "./main.js"
+import { registerModsCommand } from "./mods-command.js"
+import { registerRunCommand } from "./run.js"
 
 describe("main", () => {
   let tempDir: string
@@ -35,8 +38,12 @@ describe("main", () => {
       ["--mod-path", "mod", "--no-auto-start"],
       "--no-auto-start requires --graphics",
     ],
-    ["neither --mod-path nor --mod-name", [], "One of --mod-path or --mod-name must be specified"],
-    ["both --mod-path and --mod-name", ["--mod-path", "a", "--mod-name", "b"], "Only one of --mod-path or --mod-name"],
+    ["no target", [], "One of --mod-path, --mod-name, --scenario-path or --scenario must be specified"],
+    [
+      "both --mod-path and --mod-name",
+      ["--mod-path", "a", "--mod-name", "b"],
+      "Specify one of --mod-path, --mod-name, --scenario-path or --scenario",
+    ],
     ["--step without --graphics", ["--mod-path", "mod", "--step"], "Step mode requires --graphics"],
     [
       "config file step without --graphics",
@@ -57,5 +64,44 @@ describe("main", () => {
     const output = stderr.join("\n")
     expect(output).toContain(key)
     expect(output).not.toContain("CliError")
+  })
+})
+
+describe("help", () => {
+  const targetFlags = ["--mod-path", "--mod-name", "--scenario-path", "--scenario"]
+
+  /** Long flag and description of each option, in help order. */
+  function helpOptions(...commandPath: string[]): [flag: string, description: string][] {
+    const program = new Command()
+    registerRunCommand(program, () => {})
+    registerModsCommand(program)
+    const command = commandPath.reduce<CommandUnknownOpts>(
+      (parent, name) => parent.commands.find((child) => child.name() === name)!,
+      program,
+    )
+    const optionLine = /^ {2}(?:-\w,? )?(--[\w-]+)(?: <[^>]+>| \[[^\]]+\])? +(\S.*)$/gm
+    return [...command.helpInformation().matchAll(optionLine)].map((match) => [match[1]!, match[2]!])
+  }
+
+  it("run: lists the target options first, each required", () => {
+    const options = helpOptions("run")
+    expect(options.slice(0, 4).map(([flag]) => flag)).toEqual(targetFlags)
+    for (const [, description] of options.slice(0, 4)) expect(description).toMatch(/^\[one required\]/)
+    expect(options.filter(([, description]) => description.startsWith("[one required]"))).toHaveLength(4)
+  })
+
+  it("run: lists --start-scenario after --save", () => {
+    const flags = helpOptions("run").map(([flag]) => flag)
+    expect(flags[flags.indexOf("--save") + 1]).toBe("--start-scenario")
+  })
+
+  it.each(["install", "update"])("mods %s: mod options are optional, scenario options absent", (name) => {
+    const options = helpOptions("mods", name)
+    const flags = options.map(([flag]) => flag)
+    expect(flags.slice(0, 2)).toEqual(["--mod-path", "--mod-name"])
+    expect(flags).not.toContain("--scenario")
+    expect(flags).not.toContain("--scenario-path")
+    expect(flags).not.toContain("--start-scenario")
+    expect(options.some(([, description]) => description.includes("[one required]"))).toBe(false)
   })
 })

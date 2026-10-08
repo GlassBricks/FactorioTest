@@ -3,6 +3,7 @@ import * as os from "os"
 import * as path from "path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { main } from "./main.js"
+import { factorioTestVersion } from "./mods/install.js"
 import { LOCK_FILE_NAME } from "./mods/lock.js"
 import { FAKE_TOKEN, FAKE_USERNAME, FakePortal, writeModDir } from "./mods/test-helpers.js"
 
@@ -10,6 +11,8 @@ let tempDir: string
 let fake: FakePortal
 let stdout: string[]
 let stderr: string[]
+
+const pinned = factorioTestVersion("2.1.20")
 
 beforeEach(async () => {
   tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "factorio-test-mods-command-"))
@@ -19,7 +22,7 @@ beforeEach(async () => {
   await writeModDir(path.join(tempDir, "my-mod"), { name: "my-mod", version: "1.0.0", dependencies: ["flib"] })
 
   fake = await new FakePortal().start()
-  await fake.addRelease({ name: "factorio-test", version: "3.1.1" })
+  await fake.addRelease({ name: "factorio-test", version: pinned })
   await fake.addRelease({ name: "flib", version: "0.16.0" })
 
   vi.stubEnv("FACTORIO_TEST_MOD_PORTAL_URL", fake.url)
@@ -39,7 +42,7 @@ afterEach(async () => {
   await fsp.rm(tempDir, { recursive: true, force: true })
 })
 
-async function writeConfig(mods: string[] = []): Promise<string> {
+async function writeConfig(mods: string[] = [], overrides: object = {}): Promise<string> {
   const configPath = path.join(tempDir, "factorio-test.json")
   const config = {
     modPath: "my-mod",
@@ -47,6 +50,7 @@ async function writeConfig(mods: string[] = []): Promise<string> {
     factorioPath: "factorio/bin/x64/factorio",
     mods,
     gameSpeed: 10,
+    ...overrides,
   }
   await fsp.writeFile(configPath, JSON.stringify(config))
   return configPath
@@ -67,13 +71,29 @@ describe("mods install", () => {
     expect(await mods("install")).toBe(0)
     expect(await readLockFile()).toEqual({ flib: "0.16.0" })
     const modsDir = path.join(tempDir, "data", "mods")
-    expect((await fsp.readdir(modsDir)).sort()).toEqual(["factorio-test_3.1.1.zip", "flib_0.16.0.zip", "my-mod"])
-    expect(stdout).toContain("Mods: factorio-test 3.1.1 (downloaded), flib 0.16.0 (downloaded)")
+    expect((await fsp.readdir(modsDir)).sort()).toEqual([`factorio-test_${pinned}.zip`, "flib_0.16.0.zip", "my-mod"])
+    expect(stdout).toContain(`Mods: factorio-test ${pinned} (downloaded), flib 0.16.0 (downloaded)`)
   })
 
   it("rejects positional arguments", async () => {
     expect(await mods("install", "flib")).toBe(1)
     expect(stderr.join("\n")).toContain('To add a mod, list it in "mods" in factorio-test.json.')
+  })
+
+  it("without a mod under test or mods, has nothing to install", async () => {
+    const config = await writeConfig([], { modPath: undefined })
+    expect(await main(["node", "factorio-test", "mods", "install", "--config", config])).toBe(0)
+    expect(stdout).toContain('No mod under test or "mods" given: no dependencies to install.')
+  })
+
+  it("installs listed mods without a mod under test", async () => {
+    const config = await writeConfig(["flib"], { modPath: undefined })
+    expect(await main(["node", "factorio-test", "mods", "install", "--config", config])).toBe(0)
+    expect(await readLockFile()).toEqual({ flib: "0.16.0" })
+    expect((await fsp.readdir(path.join(tempDir, "data", "mods"))).sort()).toEqual([
+      `factorio-test_${pinned}.zip`,
+      "flib_0.16.0.zip",
+    ])
   })
 
   it("is frozen in CI", async () => {
@@ -95,7 +115,7 @@ describe("mods update", () => {
     vi.stubEnv("CI", "true")
     expect(await mods("update")).toBe(0)
     expect(await readLockFile()).toEqual({ flib: "0.17.0" })
-    expect(stdout).toContain("Mods: factorio-test 3.1.1, flib 0.17.0 (downloaded)")
+    expect(stdout).toContain(`Mods: factorio-test ${pinned}, flib 0.17.0 (downloaded)`)
     expect(stdout.at(-1)).toBe("flib 0.16.0 → 0.17.0")
   })
 

@@ -28,6 +28,8 @@ declare const storage: {
     player: LuaPlayer
     mainFrame: FrameGuiElement
     modSelect: DropDownGuiElement
+    /** The mod to test for each `modSelect` item; "" for none, and for other (the last item). */
+    modSelectValues: string[]
     refreshButton: SpriteButtonGuiElement
     modTextField: TextFieldGuiElement | undefined
     runButton: ButtonGuiElement
@@ -38,9 +40,24 @@ function modSelectGuiValid(): boolean {
   return storage.modSelectGui?.mainFrame?.valid ?? false
 }
 
-function getModDropdownItems(): LocalisedString[] {
+const LevelId = "level"
+
+interface ModDropdownItems {
+  labels: LocalisedString[]
+  values: string[]
+}
+
+function getModDropdownItems(): ModDropdownItems {
   const mods = Object.keys(script.active_mods).filter((mod) => remote.interfaces[Remote.TestsAvailableFor + mod])
-  return [[ConfigGui.NoMod], ...mods, [ConfigGui.OtherMod]]
+  const labels: LocalisedString[] = [[ConfigGui.NoMod], ...mods]
+  const values = ["", ...mods]
+  if (remote.interfaces[Remote.TestsAvailableFor + LevelId]) {
+    labels.push([ConfigGui.Scenario, script.level.level_name])
+    values.push(LevelId)
+  }
+  labels.push([ConfigGui.OtherMod])
+  values.push("")
+  return { labels, values }
 }
 
 function TitleBar(parent: FrameGuiElement, title: LocalisedString) {
@@ -114,11 +131,11 @@ function ModSelect(parent: LuaGuiElement) {
     direction: "vertical",
   })
 
-  const modSelectItems = getModDropdownItems()
+  const { labels, values } = getModDropdownItems()
 
   const modSelect = selectFlow.add({
     type: "drop-down",
-    items: modSelectItems,
+    items: labels,
     tags: {
       modName: thisModName,
       on_gui_selection_state_changed: OnModSelectionChanged,
@@ -128,6 +145,7 @@ function ModSelect(parent: LuaGuiElement) {
 
   const configGui = storage.modSelectGui!
   configGui.modSelect = modSelect
+  configGui.modSelectValues = values
 
   configGui.refreshButton = mainFlow.add({
     type: "sprite-button",
@@ -140,50 +158,25 @@ function ModSelect(parent: LuaGuiElement) {
     },
   })
 
-  let modSelectedIndex: number
   const testMod = getTestMod()
-  if (testMod === "") {
-    modSelectedIndex = 1
-  } else {
-    const foundIndex = modSelectItems.indexOf(testMod)
-    if (foundIndex !== -1) {
-      modSelectedIndex = foundIndex + 1
-    } else {
-      modSelectedIndex = modSelectItems.length
-    }
-  }
-  modSelect.items = modSelectItems
+  const foundIndex = values.indexOf(testMod)
+  const otherIndex = values.length
+  const modSelectedIndex = testMod === "" ? 1 : foundIndex !== -1 ? foundIndex + 1 : otherIndex
   modSelect.selected_index = modSelectedIndex
-  let modTextField: TextFieldGuiElement | undefined
-  if (modSelectedIndex === modSelectItems.length) {
-    modTextField = createModTextField()
-    modTextField.text = testMod
+  if (modSelectedIndex === otherIndex) {
+    createModTextField().text = testMod
   }
 }
 
 const OnModSelectionChanged = guiAction("OnModSelectionChanged", () => {
-  const { modSelect } = storage.modSelectGui!
-  const modSelectItems = modSelect.items
-
+  const { modSelect, modSelectValues } = storage.modSelectGui!
   const selectedIndex = modSelect.selected_index
-  const selected = modSelectItems[selectedIndex - 1]
-
-  let selectedMod: string
-  let isOther = false
-  if (typeof selected === "string") {
-    selectedMod = selected
-  } else if (selectedIndex === 1) {
-    selectedMod = ""
-  } else {
-    isOther = true
-    selectedMod = ""
-  }
-  if (isOther) {
+  if (selectedIndex === modSelectValues.length) {
     createModTextField()
   } else {
     destroyModTextField()
   }
-  setTestMod(selectedMod)
+  setTestMod(modSelectValues[selectedIndex - 1] ?? "")
 })
 
 function createModTextField(): TextFieldGuiElement {

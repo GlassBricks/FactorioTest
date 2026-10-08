@@ -11,6 +11,7 @@ if ("factorio-test" in script.active_mods) {
       print("FACTORIO-TEST-MESSAGE-START")
       log(`CONFIG:game_speed=${config.game_speed}`)
       log(`CONFIG:default_timeout=${config.default_timeout}`)
+      log(`CONFIG:level_name=${script.level.level_name}`)
       if (config.test_pattern) {
         log(`CONFIG:test_pattern=${config.test_pattern}`)
       }

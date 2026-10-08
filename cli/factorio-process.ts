@@ -1,5 +1,5 @@
 import { execFile, spawn, spawnSync } from "child_process"
-import { EventEmitter } from "events"
+import { EventEmitter, once } from "events"
 import * as fs from "fs"
 import * as os from "os"
 import * as path from "path"
@@ -8,7 +8,9 @@ import { fileURLToPath } from "url"
 import { promisify } from "util"
 import { CliError } from "./cli-error.js"
 import { BAILED_PREFIX, FactorioOutputHandler, FOCUSED_SUFFIX } from "./factorio-output-parser.js"
+import type { RunMode } from "./factorio-setup.js"
 import { majorMinor } from "./mods/dependency.js"
+import type { RunPlan, World } from "./run-plan.js"
 import { OutputPrinter, ProgressRenderer } from "./test-output.js"
 import { TestRunCollector, TestRunData } from "./test-results.js"
 
@@ -110,6 +112,77 @@ export async function getFactorioVersion(factorioPath: string): Promise<string> 
   return version
 }
 
+export interface LaunchOptions {
+  dataDir: string
+  /** The bundled save for this Factorio version. */
+  bundledSave: string
+  /** `--factorio-args`, passed to every launch. */
+  factorioArgs: readonly string[]
+  /** Only for the test launch. */
+  testArgs?: readonly string[]
+}
+
+export interface Scenario2MapStep {
+  ref: string
+  args: string[]
+  savePath: string
+}
+
+export interface LaunchSteps {
+  /** Creates the save for a scenario world, before every test launch (LAUNCH-1). */
+  scenario2map?: Scenario2MapStep
+  test: { args: string[] }
+}
+
+function worldSavePath(world: World, { dataDir, bundledSave }: LaunchOptions): string {
+  switch (world.kind) {
+    case "bundled":
+      return bundledSave
+    case "save":
+      return path.resolve(world.path)
+    case "scenario":
+      return scenarioSavePath(dataDir, world.ref)
+  }
+}
+
+/** Where `--scenario2map [MOD/]NAME` writes its save. */
+export function scenarioSavePath(dataDir: string, ref: string): string {
+  return path.join(dataDir, "saves", `${ref}.zip`)
+}
+
+export function buildLaunchSteps({ world }: RunPlan, mode: RunMode, options: LaunchOptions): LaunchSteps {
+  const { dataDir, factorioArgs, testArgs = [] } = options
+  const common = [
+    "--mod-directory",
+    path.join(dataDir, "mods"),
+    "-c",
+    path.join(dataDir, "config.ini"),
+    ...factorioArgs,
+  ]
+  const savePath = worldSavePath(world, options)
+  const load =
+    mode === "headless" ? ["--benchmark", savePath, "--benchmark-ticks", "1000000000"] : ["--load-game", savePath]
+  const test = { args: [...load, ...common, ...testArgs] }
+  if (world.kind !== "scenario") return { test }
+  return { scenario2map: { ref: world.ref, args: ["--scenario2map", world.ref, ...common], savePath }, test }
+}
+
+/** Creates a scenario world's save; a failure fails the run, with Factorio's output (LAUNCH-2). */
+export async function runScenario2Map(factorioPath: string, step: Scenario2MapStep, verbose?: boolean): Promise<void> {
+  await fs.promises.rm(step.savePath, { force: true })
+  console.log(`Creating a game from scenario "${step.ref}"...`)
+  if (verbose) console.log("Running:", factorioPath, ...step.args)
+  const proc = spawn(factorioPath, step.args, { stdio: ["inherit", "pipe", "pipe"] })
+  const lines: string[] = []
+  forEachLine(proc, (line) => {
+    lines.push(line)
+    if (verbose) console.log(line)
+  })
+  const [code] = (await once(proc, "exit")) as [number | null, NodeJS.Signals | null]
+  if (code === 0) return
+  throw new CliError(`Creating a game from scenario "${step.ref}" failed (exit code ${code}):\n${lines.join("\n")}`)
+}
+
 export interface FactorioTestOptions {
   verbose?: boolean
   quiet?: boolean
@@ -125,10 +198,7 @@ export interface FactorioTestResult {
 }
 
 /** Saves can't be loaded by an older Factorio, so there's one per supported version. */
-export function getHeadlessSavePath(gameVersion: string, overridePath?: string): string {
-  if (overridePath) {
-    return path.resolve(overridePath)
-  }
+export function getHeadlessSavePath(gameVersion: string): string {
   const fileName = majorMinor(gameVersion) === "2.0" ? "headless-save-2.0.zip" : "headless-save.zip"
   return path.join(__dirname, fileName)
 }
@@ -333,22 +403,9 @@ function completedResult(handler: FactorioOutputHandler, collector: TestRunColle
 export async function runFactorioTestsHeadless(
   factorioPath: string,
   dataDir: string,
-  savePath: string,
-  additionalArgs: string[],
+  args: string[],
   options: FactorioTestOptions,
 ): Promise<FactorioTestResult> {
-  const args = [
-    "--benchmark",
-    savePath,
-    "--benchmark-ticks",
-    "1000000000",
-    "--mod-directory",
-    path.join(dataDir, "mods"),
-    "-c",
-    path.join(dataDir, "config.ini"),
-    ...additionalArgs,
-  ]
-
   console.log("Running tests (headless)...")
   const factorioProcess = spawn(factorioPath, args, {
     stdio: ["inherit", "pipe", "pipe"],
@@ -374,20 +431,9 @@ export interface GraphicsTestOptions extends FactorioTestOptions {
 export async function runFactorioTestsGraphics(
   factorioPath: string,
   dataDir: string,
-  savePath: string,
-  additionalArgs: string[],
+  args: string[],
   options: GraphicsTestOptions,
 ): Promise<FactorioTestResult> {
-  const args = [
-    "--load-game",
-    savePath,
-    "--mod-directory",
-    path.join(dataDir, "mods"),
-    "-c",
-    path.join(dataDir, "config.ini"),
-    ...additionalArgs,
-  ]
-
   console.log("Running tests (graphics)...")
   const factorioProcess = spawn(factorioPath, args, {
     stdio: ["inherit", "pipe", "inherit"],

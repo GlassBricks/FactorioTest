@@ -54,6 +54,7 @@ jobs:
 Common adjustments:
 
 - Mod not at the repository root: change `--mod-path`. With a [config file](CLI-Reference.md#config-file), the options can go there instead.
+- Testing a scenario: use `--scenario-path` instead of `--mod-path` (for `mods install`, list the scenario's mods in `mods`, or drop the step if there are none).
 - `factorio-test-cli` already a dev dependency: replace the `npm install` line with `npm ci`.
 - Mod targets an experimental Factorio release, or you want to pin a version: use `.experimental.headless`. To pin a version, replace the "Resolve Factorio version" step with a fixed version (e.g. `2.0.77`).
 

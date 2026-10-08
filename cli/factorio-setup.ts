@@ -6,6 +6,7 @@ import { runFmtk, runProcess } from "./process-utils.js"
 import type { AutoStartConfig } from "../types/config.js"
 import { CliError } from "./cli-error.js"
 import type { ModConfig } from "./config/index.js"
+import { type RunPlan, scenarioRefMod } from "./run-plan.js"
 
 export function readDataPath(platform: NodeJS.Platform = os.platform()): string {
   return platform === "darwin" ? "__PATH__executable__/../data" : "__PATH__executable__/../../data"
@@ -123,20 +124,27 @@ export async function resetAutorunSettings(modsDir: string, verbose?: boolean): 
   await setModSetting(modsDir, "runtime-global", TEST_CONFIG_SETTING, "{}")
 }
 
-export interface ModWatchTarget {
+export interface WatchTarget {
   type: "directory" | "file"
   path: string
 }
 
-export async function resolveModWatchTarget(
-  modsDir: string,
-  modPath?: string,
-  modName?: string,
-): Promise<ModWatchTarget> {
-  if (modPath) {
-    return { type: "directory", path: path.resolve(modPath) }
+/** WATCH-1: the one path watched for the test target. */
+export async function resolveWatchTarget({ target }: RunPlan, dataDir: string, modsDir: string): Promise<WatchTarget> {
+  if (target.kind === "mod") {
+    if (target.modPath !== undefined) return { type: "directory", path: path.resolve(target.modPath) }
+    return findModWatchTarget(modsDir, target.modName!)
   }
+  if (target.providingModPath !== undefined) return { type: "directory", path: path.resolve(target.providingModPath) }
+  if (target.scenarioPath !== undefined) return { type: "directory", path: path.resolve(target.scenarioPath) }
+  const refMod = scenarioRefMod(target.ref)
+  const dirPath = refMod === undefined ? path.join(dataDir, "scenarios", target.ref) : path.join(modsDir, refMod)
+  const realPath = await fsp.realpath(dirPath).catch(() => undefined)
+  if (realPath && (await fsp.stat(realPath)).isDirectory()) return { type: "directory", path: realPath }
+  throw new CliError(`Cannot watch --scenario ${target.ref}: ${dirPath} is not a directory.`)
+}
 
+async function findModWatchTarget(modsDir: string, modName: string): Promise<WatchTarget> {
   const files = await fsp.readdir(modsDir)
   for (const file of files) {
     const fullPath = path.join(modsDir, file)

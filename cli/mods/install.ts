@@ -2,6 +2,7 @@ import * as fsp from "fs/promises"
 import * as os from "os"
 import * as path from "path"
 import { CliError } from "../cli-error.js"
+import { linkIntoDir } from "../link.js"
 import { findExecutableRealPath, getFactorioVersion } from "../factorio-process.js"
 import { type Credentials, findCredentials, noCredentialsError, rejectedCredentialsError } from "./credentials.js"
 import { type Dependency, majorMinor, parseListedMod } from "./dependency.js"
@@ -26,8 +27,9 @@ import {
 } from "./resolve.js"
 import { type InstalledMod, ModCandidateSource, scanModsDir } from "./source.js"
 
-function factorioTestVersion(gameVersion: string): string {
-  return majorMinor(gameVersion) === "2.0" ? "3.0.2" : "3.1.1"
+/** The factorio-test mod version this CLI uses, per Factorio version. */
+export function factorioTestVersion(gameVersion: string): string {
+  return majorMinor(gameVersion) === "2.0" ? "3.0.3" : "3.1.2"
 }
 
 const CLI_SOURCE = "factorio-test-cli"
@@ -53,7 +55,8 @@ export interface ModSetupInput {
 }
 
 export interface InstalledMods {
-  modToTest: string
+  /** Undefined when testing a scenario, without a `--mod-path` mod to provide it. */
+  modToTest: string | undefined
   game: GameInfo
   resolution: Resolution
   installed: InstalledMod[]
@@ -61,27 +64,25 @@ export interface InstalledMods {
   plannedLock: LockedMods
 }
 
-/** Symlinks `--mod-path` into the mods dir. Only an existing symlink is replaced. */
-export async function linkModUnderTest(modsDir: string, modPath: string): Promise<string> {
-  modPath = path.resolve(modPath)
-  const infoJsonFile = path.join(modPath, "info.json")
+/** The `name` in a mod folder's info.json. */
+export async function readModName(modPath: string): Promise<string> {
+  const infoJsonFile = path.join(path.resolve(modPath), "info.json")
   let infoJson: { name: unknown }
   try {
     infoJson = JSON.parse(await fsp.readFile(infoJsonFile, "utf8")) as { name: unknown }
   } catch (e) {
-    throw new CliError(`Could not read info.json file from ${modPath}`, { cause: e })
+    throw new CliError(`Could not read info.json file from ${path.resolve(modPath)}`, { cause: e })
   }
-  const modName = infoJson.name
-  if (typeof modName !== "string") {
+  if (typeof infoJson.name !== "string") {
     throw new CliError(`info.json file at ${infoJsonFile} does not contain a string property "name".`)
   }
-  const linkPath = path.join(modsDir, modName)
-  const stat = await fsp.lstat(linkPath).catch(() => undefined)
-  if (stat && !stat.isSymbolicLink()) {
-    throw new CliError(`${linkPath} already exists and is not a symlink. Remove it, or use --mod-name ${modName}.`)
-  }
-  if (stat) await fsp.rm(linkPath)
-  await fsp.symlink(modPath, linkPath, "junction")
+  return infoJson.name
+}
+
+/** Symlinks `--mod-path` into the mods dir. Only an existing symlink is replaced. */
+export async function linkModUnderTest(modsDir: string, modPath: string): Promise<string> {
+  const modName = await readModName(modPath)
+  await linkIntoDir(modsDir, modPath, modName, `Remove it, or use --mod-name ${modName}.`)
   return modName
 }
 
@@ -106,16 +107,18 @@ function factorioTestRequirements(gameVersion: string, listed: Dependency[], ins
 
 /** The mod under test's dependencies follow from choosing it. */
 function buildRequirements(
-  modToTest: string,
+  modToTest: string | undefined,
   listed: Dependency[],
   modsSource: string,
   gameVersion: string,
   installed: InstalledMod[],
 ): Requirement[] {
+  const modUnderTest: Requirement[] =
+    modToTest === undefined ? [] : [{ dependency: { kind: "required", name: modToTest }, from: "mod under test" }]
   return [
     { dependency: { kind: "required", name: "base" }, from: CLI_SOURCE },
     ...factorioTestRequirements(gameVersion, listed, installed),
-    { dependency: { kind: "required", name: modToTest }, from: "mod under test" },
+    ...modUnderTest,
     ...listed.map((dependency) => ({ dependency, from: modsSource })),
   ]
 }
@@ -174,11 +177,11 @@ export async function installMods(input: ModSetupInput): Promise<InstalledMods> 
   const portal = input.portal ?? createModPortal(env)
   const listed = mods.map((spec) => parseListedMod(spec, modsSource))
   await fsp.mkdir(modsDir, { recursive: true })
-  const modToTest = modPath ? await linkModUnderTest(modsDir, modPath) : modName!
+  const modToTest = modPath ? await linkModUnderTest(modsDir, modPath) : modName
   const game: GameInfo = { version: await getFactorioVersion(factorioPath), executable: factorioPath }
 
   const installedBefore = await scanModsDir(modsDir)
-  if (!installedBefore.some((mod) => mod.name === modToTest)) {
+  if (modToTest !== undefined && !installedBefore.some((mod) => mod.name === modToTest)) {
     throw new CliError(`Mod ${modToTest} not found in ${modsDir}.`)
   }
   const locked = await readLock(lockDir)
@@ -217,9 +220,15 @@ function checkUpdatedModsUsed(names: ReadonlySet<string>, { enabled }: Resolutio
   }
 }
 
-/** Enables exactly the enabled set, pinned to the chosen versions. */
-export async function enableMods(modsDir: string, { resolution, installed, game }: InstalledMods): Promise<void> {
-  const entries = buildModList(resolution.enabled, installed, game.version)
+/** Enables exactly the enabled set, pinned to the chosen versions, except `disabled`. */
+export async function enableMods(
+  modsDir: string,
+  { resolution, installed, game }: InstalledMods,
+  disabled: readonly string[] = [],
+): Promise<void> {
+  const entries = buildModList(resolution.enabled, installed, game.version).map((entry) =>
+    disabled.includes(entry.name) ? { name: entry.name, enabled: false } : entry,
+  )
   checkPinnedInstalled(entries, installed, modsDir)
   await writeModList(modsDir, entries)
 }

@@ -3,7 +3,7 @@ import * as os from "os"
 import * as path from "path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { majorMinor } from "./dependency.js"
-import { enableMods, installMods, type ModSetupInput } from "./install.js"
+import { enableMods, factorioTestVersion, installMods, linkModUnderTest, type ModSetupInput } from "./install.js"
 import { LOCK_FILE_NAME } from "./lock.js"
 import { ModPortal } from "./portal.js"
 import { FAKE_TOKEN, FAKE_USERNAME, FakePortal, writeModDir, writeModZip } from "./test-helpers.js"
@@ -12,6 +12,8 @@ let tempDir: string
 let modsDir: string
 let fake: FakePortal
 let output: string[]
+
+const pinned = factorioTestVersion("2.1.20")
 
 const credentialsEnv = { FACTORIO_USERNAME: FAKE_USERNAME, FACTORIO_TOKEN: FAKE_TOKEN }
 
@@ -22,7 +24,7 @@ beforeEach(async () => {
   await writeModDir(path.join(tempDir, "my-mod"), { name: "my-mod", version: "1.0.0", dependencies: ["flib >= 0.16"] })
 
   fake = await new FakePortal().start()
-  await fake.addRelease({ name: "factorio-test", version: "3.1.1" })
+  await fake.addRelease({ name: "factorio-test", version: pinned })
   await fake.addRelease({ name: "flib", version: "0.16.0" })
   await fake.addRelease({ name: "flib", version: "0.17.0", dependencies: ["helper"] })
   await fake.addRelease({ name: "helper", version: "1.0.0" })
@@ -69,7 +71,7 @@ describe("installMods", () => {
     await installMods(input())
 
     expect((await fsp.readdir(modsDir)).sort()).toEqual([
-      "factorio-test_3.1.1.zip",
+      `factorio-test_${pinned}.zip`,
       "flib_0.17.0.zip",
       "helper_1.0.0.zip",
       "my-mod",
@@ -79,7 +81,7 @@ describe("installMods", () => {
       mods: { flib: "0.17.0", helper: "1.0.0" },
     })
     expect(output).toContain(
-      "Mods: factorio-test 3.1.1 (downloaded), flib 0.17.0 (downloaded), helper 1.0.0 (downloaded)",
+      `Mods: factorio-test ${pinned} (downloaded), flib 0.17.0 (downloaded), helper 1.0.0 (downloaded)`,
     )
   })
 
@@ -88,7 +90,7 @@ describe("installMods", () => {
     fake.requests.length = 0
     await installMods(input({ env: {} }))
     expect(fake.requests).toEqual([])
-    expect(output).toContain("Mods: factorio-test 3.1.1, flib 0.17.0, helper 1.0.0")
+    expect(output).toContain(`Mods: factorio-test ${pinned}, flib 0.17.0, helper 1.0.0`)
   })
 
   it("keeps the locked version, even if a newer one is installed", async () => {
@@ -127,7 +129,7 @@ describe("installMods", () => {
 
   it("without credentials, lists what needs downloading", async () => {
     await expect(installMods(input({ env: {} }))).rejects.toThrow(
-      "These mods need to be downloaded from the Factorio mod portal:\n  factorio-test 3.1.1, flib 0.17.0, helper 1.0.0",
+      `These mods need to be downloaded from the Factorio mod portal:\n  factorio-test ${pinned}, flib 0.17.0, helper 1.0.0`,
     )
     await expect(fsp.stat(path.join(tempDir, LOCK_FILE_NAME))).rejects.toThrow()
   })
@@ -159,6 +161,41 @@ describe("installMods", () => {
       ]),
     )
   })
+
+  it("enableMods leaves out disabled mods", async () => {
+    await enableMods(modsDir, await installMods(input()), ["factorio-test"])
+    const { mods } = JSON.parse(await fsp.readFile(path.join(modsDir, "mod-list.json"), "utf8")) as {
+      mods: unknown[]
+    }
+    expect(mods).toEqual(
+      expect.arrayContaining([
+        { name: "factorio-test", enabled: false },
+        { name: "my-mod", enabled: true, version: "1.0.0" },
+      ]),
+    )
+  })
+
+  it("resolves only listed mods without a mod under test", async () => {
+    const result = await installMods(input({ modPath: undefined, mods: ["helper"] }))
+    expect(result.modToTest).toBeUndefined()
+    expect([...result.resolution.enabled.keys()].sort()).toEqual(["base", "factorio-test", "helper"])
+  })
+})
+
+describe("linkModUnderTest", () => {
+  it("links the mod by its info.json name, replacing an existing symlink", async () => {
+    await fsp.mkdir(modsDir, { recursive: true })
+    await fsp.symlink(tempDir, path.join(modsDir, "my-mod"))
+    expect(await linkModUnderTest(modsDir, path.join(tempDir, "my-mod"))).toBe("my-mod")
+    expect(await fsp.realpath(path.join(modsDir, "my-mod"))).toBe(await fsp.realpath(path.join(tempDir, "my-mod")))
+  })
+
+  it("rejects an existing path that is not a symlink", async () => {
+    await writeModDir(path.join(modsDir, "my-mod"), { name: "my-mod", version: "1.0.0" })
+    await expect(linkModUnderTest(modsDir, path.join(tempDir, "my-mod"))).rejects.toThrow(
+      "already exists and is not a symlink. Remove it, or use --mod-name my-mod.",
+    )
+  })
 })
 
 describe("factorio-test version", () => {
@@ -167,32 +204,39 @@ describe("factorio-test version", () => {
   })
 
   async function addFactorioTestReleases(): Promise<void> {
+    // the pinned versions, and an unpinned one per Factorio version
     for (const [version, factorioVersion] of [
-      ["3.0.1", "2.0"],
-      ["3.0.2", "2.0"],
-      ["3.0.3", "2.0"],
-      ["3.1.2", "2.1"],
+      [factorioTestVersion("2.0.0"), "2.0"],
+      ["3.0.0", "2.0"],
+      [pinned, "2.1"],
+      ["3.1.0", "2.1"],
     ] as const) {
       await fake.addRelease({ name: "factorio-test", version, factorio_version: factorioVersion })
     }
   }
 
-  it.each([
-    ["2.0.77", "3.0.2"],
-    ["2.1.20", "3.1.1"],
-  ])("Factorio %s uses the pinned factorio-test %s, and needs no lock file", async (gameVersion, expected) => {
-    await writeFakeFactorio(gameVersion)
-    await writeModDir(path.join(tempDir, "my-mod"), {
-      name: "my-mod",
-      version: "1.0.0",
-      factorio_version: majorMinor(gameVersion),
-    })
-    await addFactorioTestReleases()
+  it.each(["2.0.77", "2.1.20"])(
+    "Factorio %s uses the pinned factorio-test, and needs no lock file",
+    async (gameVersion) => {
+      await writeFakeFactorio(gameVersion)
+      await writeModDir(path.join(tempDir, "my-mod"), {
+        name: "my-mod",
+        version: "1.0.0",
+        factorio_version: majorMinor(gameVersion),
+      })
+      await addFactorioTestReleases()
 
-    const result = await installMods(input())
+      const result = await installMods(input())
 
-    expect(result.resolution.enabled.get("factorio-test")?.version).toBe(expected)
-    await expect(fsp.stat(path.join(tempDir, LOCK_FILE_NAME))).rejects.toThrow()
+      expect(result.resolution.enabled.get("factorio-test")?.version).toBe(factorioTestVersion(gameVersion))
+      await expect(fsp.stat(path.join(tempDir, LOCK_FILE_NAME))).rejects.toThrow()
+    },
+  )
+
+  it("pins this repository's factorio-test version", async () => {
+    const infoJsonPath = path.join(import.meta.dirname, "..", "..", "mod", "info.json")
+    const info = JSON.parse(await fsp.readFile(infoJsonPath, "utf8")) as { version: string; factorio_version: string }
+    expect(factorioTestVersion(`${info.factorio_version}.0`)).toBe(info.version)
   })
 
   it("uses a user-managed factorio-test at any version, with a warning", async () => {
@@ -203,12 +247,12 @@ describe("factorio-test version", () => {
     const result = await installMods(input())
 
     expect(result.resolution.enabled.get("factorio-test")?.version).toBe("3.1.5")
-    expect(warnings).toEqual(["Using user-managed factorio-test 3.1.5; this CLI version uses 3.1.1."])
+    expect(warnings).toEqual([`Using user-managed factorio-test 3.1.5; this CLI version uses ${pinned}.`])
   })
 
   it("a mods entry for factorio-test replaces the pinned version", async () => {
     await addFactorioTestReleases()
-    const result = await installMods(input({ mods: ["factorio-test = 3.1.2"] }))
-    expect(result.resolution.enabled.get("factorio-test")?.version).toBe("3.1.2")
+    const result = await installMods(input({ mods: ["factorio-test = 3.1.0"] }))
+    expect(result.resolution.enabled.get("factorio-test")?.version).toBe("3.1.0")
   })
 })

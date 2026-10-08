@@ -34,7 +34,8 @@ export async function removeTestDirs(dirs: TestDirs): Promise<void> {
 }
 
 export interface RunCliOptions {
-  modPath?: string
+  /** Relative to cli/; null for no `--mod-path`. */
+  modPath?: string | null
   dataDir: string
   extraArgs?: string[]
 }
@@ -43,10 +44,12 @@ const defaultModPath = "../integration-tests/fixtures/usage-test-mod"
 const tsxPath = path.join(root, "node_modules", ".bin", "tsx")
 const cliPath = path.join(root, "cli", "cli.ts")
 
+export const fixturePath = (name: string): string => path.join(root, "integration-tests", "fixtures", name)
+
 function buildCliArgs(options: RunCliOptions): string[] {
-  // mod paths are given relative to cli/
-  const modPath = path.resolve(root, "cli", options.modPath ?? defaultModPath)
-  return [cliPath, "run", `--mod-path=${modPath}`, `--data-directory=${options.dataDir}`, ...(options.extraArgs ?? [])]
+  const modPath = options.modPath === null ? undefined : path.resolve(root, "cli", options.modPath ?? defaultModPath)
+  const modPathArgs = modPath === undefined ? [] : [`--mod-path=${modPath}`]
+  return [cliPath, "run", ...modPathArgs, `--data-directory=${options.dataDir}`, ...(options.extraArgs ?? [])]
 }
 
 // Run in the test's temp dir, so the lock file is written there; without CI, so the lock isn't frozen

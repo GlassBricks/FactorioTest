@@ -4,6 +4,22 @@ The Factorio Test CLI runs tests from the command line, suitable for CI/CD pipel
 
 Run `npx factorio-test run --help` for usage info and examples.
 
+## Test target
+
+Specify exactly one of these, as what is tested:
+
+| Config Key     | CLI Flag          | Description                                                                      |
+| -------------- | ----------------- | -------------------------------------------------------------------------------- |
+| `modPath`      | `-p, --mod-path`  | Path to mod folder; symlinked into the mods folder                               |
+| `modName`      | `--mod-name`      | Name of mod in data directory                                                    |
+| `scenarioPath` | `--scenario-path` | Path to scenario folder; symlinked into `<data directory>/scenarios`             |
+| `scenario`     | `--scenario`      | Scenario as `[mod/]name`: from `<data directory>/scenarios`, or shipped in a mod |
+
+Exception: `--mod-path` with `--scenario <mod>/<name>` tests that mod's scenario. The mod is enabled with its dependencies, but its own tests are not run.
+A scenario from another mod needs that mod enabled, e.g. with `--mods`.
+
+A scenario's tests run in a new game created from it (`--scenario2map`), so `--save` and `--start-scenario` can't be used with a scenario target.
+
 ## Installation
 
 ```bash
@@ -24,11 +40,10 @@ Keys are the camelCase form of the long CLI flag (`--game-speed` → `gameSpeed`
 
 | Config Key       | CLI Flag                            | Description                                                                                                                                      |
 | ---------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `modPath`        | `-p, --mod-path`                    | Path to mod folder                                                                                                                               |
-| `modName`        | `--mod-name`                        | Name of mod in data directory                                                                                                                    |
 | `factorioPath`   | `--factorio-path`                   | Path to Factorio binary                                                                                                                          |
 | `dataDirectory`  | `-d, --data-directory`              | Factorio data directory (default: `./factorio-test-data-dir`)                                                                                    |
 | `save`           | `--save`                            | Path to save file                                                                                                                                |
+| `startScenario`  | `--start-scenario`                  | Testing a mod: start in a new game from this scenario (`[mod/]name`, e.g. `base/freeplay`), instead of the default save                          |
 | `mods`           | `--mods`                            | Additional mods to enable, e.g. `["space-age", "flib >= 0.16", "!quality"]` (array)                                                              |
 | `frozenLockfile` | `--[no-]frozen-lockfile`            | Fail if the lock file is missing or out of date, instead of updating it (default: on if the `CI` environment variable is set). See [Mods](#mods) |
 | `factorioArgs`   | `--factorio-args`                   | Extra Factorio arguments (array)                                                                                                                 |
@@ -40,7 +55,7 @@ Keys are the camelCase form of the long CLI flag (`--game-speed` → `gameSpeed`
 | `watchPatterns`  | `--watch-patterns`                  | Glob patterns to watch (array)                                                                                                                   |
 | `udpPort`        | `--udp-port`                        | UDP port for graphics watch mode (default: `14434`)                                                                                              |
 
-`modPath`, `factorioPath`, `dataDirectory`, `save`, and `outputFile` are resolved relative to the config file.
+`modPath`, `scenarioPath`, `factorioPath`, `dataDirectory`, `save`, and `outputFile` are resolved relative to the config file.
 
 `--graphics`, `--watch`, and `--no-auto-start` are command-line only.
 
@@ -131,4 +146,4 @@ Downloading from the mod portal requires a Factorio account. Credentials can be 
 
 `factorio-test run` does `mods install`, then enables the mods and runs the tests.
 
-These take the same `--config`, `--mod-path` / `--mod-name`, `--mods`, `--data-directory` and `--factorio-path` options.
+These take the same `--config`, `--mod-path` / `--mod-name`, `--mods`, `--data-directory` and `--factorio-path` options. `--mod-path` / `--mod-name` are optional here.

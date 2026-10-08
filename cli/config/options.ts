@@ -6,6 +6,8 @@ export const DEFAULT_DATA_DIRECTORY = "./factorio-test-data-dir"
 interface OptionDef {
   flags: string
   description: string
+  /** Description for `mods install` / `mods update`, if different. */
+  modSetupDescription?: string
   schema: z.ZodTypeAny
   parseArg?: (value: string) => unknown
   preset?: unknown
@@ -18,6 +20,38 @@ interface OptionDef {
 }
 
 export const optionDefs = {
+  modPath: {
+    flags: "-p --mod-path <path>",
+    description:
+      "[one required] Path to the mod to test (folder containing info.json). Will create a symlink from mods folder to here.",
+    modSetupDescription:
+      "Path to the mod to test (folder containing info.json). Will create a symlink from mods folder to here.",
+    schema: z.string().optional(),
+    isPath: true,
+    forModSetup: true,
+  },
+  modName: {
+    flags: "--mod-name <name>",
+    description: "[one required] Name of the mod to test, already configured in the data directory.",
+    modSetupDescription: "Name of the mod to test, already in the configured data directory.",
+    schema: z.string().optional(),
+    forModSetup: true,
+  },
+  scenarioPath: {
+    flags: "--scenario-path <path>",
+    description:
+      "[one required] Path to the scenario folder to test. Will create a symlink from the scenarios folder to here.",
+    schema: z.string().optional(),
+    isPath: true,
+  },
+  scenario: {
+    flags: "--scenario <ref>",
+    description:
+      "[one required] Scenario to test, as [mod/]name. Expected to be already installed. Can be combined " +
+      "with --mod-path, if the scenario is part of a local mod; in which case the mod will be installed, " +
+      "but the scenario will be tested.",
+    schema: z.string().optional(),
+  },
   graphics: {
     flags: "-g --graphics",
     description: "Launch Factorio with graphics (interactive mode) instead of headless.",
@@ -35,20 +69,6 @@ export const optionDefs = {
     description: "Configure tests but do not auto-start them (requires --graphics).",
     schema: z.boolean().default(true),
     cliOnly: true,
-  },
-  modPath: {
-    flags: "-p --mod-path <path>",
-    description:
-      "[one required] Path to the mod folder (containing info.json). Will create a symlink from mods folder to here.",
-    schema: z.string().optional(),
-    isPath: true,
-    forModSetup: true,
-  },
-  modName: {
-    flags: "--mod-name <name>",
-    description: "[one required] Name of a mod already in the configured data directory.",
-    schema: z.string().optional(),
-    forModSetup: true,
   },
   factorioPath: {
     flags: "--factorio-path <path>",
@@ -69,6 +89,12 @@ export const optionDefs = {
     description: "Path to save file. Default: uses a bundled save with empty lab-tile world.",
     schema: z.string().optional(),
     isPath: true,
+  },
+  startScenario: {
+    flags: "--start-scenario <ref>",
+    description:
+      "May be used when testing a mod, not a scenario. Starts a new game from this scenario ([mod/]name) instead of the default save. To test a scenario, not a mod, use --scenario.",
+    schema: z.string().optional(),
   },
   mods: {
     flags: "--mods <mods...>",
@@ -240,13 +266,13 @@ function formatDefault(value: unknown): string {
   return JSON.stringify(value)
 }
 
-function helpDescription(def: OptionDef): string {
-  if (!(def.schema instanceof z.ZodDefault) || def.flags.startsWith("--no-")) return def.description
-  return `${def.description} (default: ${formatDefault(def.schema._def.defaultValue())})`
+function helpDescription(def: OptionDef, description: string): string {
+  if (!(def.schema instanceof z.ZodDefault) || def.flags.startsWith("--no-")) return description
+  return `${description} (default: ${formatDefault(def.schema._def.defaultValue())})`
 }
 
 export function registerAllCliOptions(command: Command<unknown[], Record<string, unknown>>): void {
-  registerCliOptions(command, defEntries)
+  registerCliOptions(command, defEntries, (def) => def.description)
 }
 
 export function registerModSetupCliOptions(
@@ -256,22 +282,24 @@ export function registerModSetupCliOptions(
   registerCliOptions(
     command,
     defEntries.filter(([key, def]) => def.forModSetup && !omit.includes(key)),
+    (def) => def.modSetupDescription ?? def.description,
   )
 }
 
 function registerCliOptions(
   command: Command<unknown[], Record<string, unknown>>,
   entries: [OptionKey, OptionDef][],
+  description: (def: OptionDef) => string,
 ): void {
-  command.option(
-    "-c --config <path>",
-    "Path to config file (default: factorio-test.json, or 'factorio-test' key in package.json).",
-  )
   for (const [key, def] of entries) {
-    const option = command.createOption(def.flags, helpDescription(def))
+    const option = command.createOption(def.flags, helpDescription(def, description(def)))
     if (def.parseArg) option.argParser(def.parseArg)
     if (def.preset !== undefined) option.preset(def.preset)
     command.addOption(option)
     if (def.negation) command.option(`--no-${longFlag(key).slice(2)}`, def.negation)
   }
+  command.option(
+    "-c --config <path>",
+    "Path to config file (default: factorio-test.json, or 'factorio-test' key in package.json).",
+  )
 }

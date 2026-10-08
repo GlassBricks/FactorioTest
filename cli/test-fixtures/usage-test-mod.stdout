@@ -30,16 +30,17 @@ FACTORIO-TEST-EVENT:{"type":"describeBlockFailed","block":{"path":"test1 > Faili
 FACTORIO-TEST-EVENT:{"type":"describeBlockFinished","block":{"path":"test1","source":{"file":"load.ts","line":81}}}
 FACTORIO-TEST-EVENT:{"type":"describeBlockEntered","block":{"path":"folder/test2","source":{"file":"load.ts","line":81}}}
 FACTORIO-TEST-EVENT:{"type":"testStarted","test":{"path":"folder/test2 > Reload","source":{"file":"____factorio-usage-test-mod__/folder/test2.ts","line":2}}}
-   0.342 Checksum for script __factorio-test__/control.lua: 2505321362
-   0.357 Checksum for script ____factorio-usage-test-mod__/control.lua: 3697578511
+   0.334 Checksum for script __factorio-test__/control.lua: 3254525026
+   0.348 Checksum for script ____factorio-usage-test-mod__/control.lua: 3259443735
 FACTORIO-TEST-EVENT:{"type":"testPassed","test":{"path":"folder/test2 > Reload","source":{"file":"____factorio-usage-test-mod__/folder/test2.ts","line":2}}}
 FACTORIO-TEST-EVENT:{"type":"testSkipped","test":{"path":"folder/test2 > Skip due to tag","source":{"file":"____factorio-usage-test-mod__/folder/test2.ts","line":9}}}
 FACTORIO-TEST-EVENT:{"type":"describeBlockFinished","block":{"path":"folder/test2","source":{"file":"load.ts","line":81}}}
 FACTORIO-TEST-EVENT:{"type":"describeBlockFinished","block":{"path":""}}
 FACTORIO-TEST-EVENT:{"type":"testRunFinished","results":{"failed":1,"passed":7,"ran":8,"skipped":2,"todo":1,"describeBlockErrors":2,"status":"failed"}}
 FACTORIO-TEST-MESSAGE-START
-   0.358 Script @____factorio-usage-test-mod__/control.lua:16: CONFIG:game_speed=1000
-   0.358 Script @____factorio-usage-test-mod__/control.lua:17: CONFIG:default_timeout=3600
-   0.358 Script @____factorio-usage-test-mod__/control.lua:37: Usage test mod result: passed
+   0.349 Script @____factorio-usage-test-mod__/control.lua:16: CONFIG:game_speed=1000
+   0.349 Script @____factorio-usage-test-mod__/control.lua:17: CONFIG:default_timeout=3600
+   0.349 Script @____factorio-usage-test-mod__/control.lua:18: CONFIG:level_name=Test
+   0.349 Script @____factorio-usage-test-mod__/control.lua:38: Usage test mod result: passed
 FACTORIO-TEST-MESSAGE-END
 FACTORIO-TEST-RESULT:failed
