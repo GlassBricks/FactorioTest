@@ -6,6 +6,8 @@ import type { Candidate } from "./resolve.js"
 
 export const LOCK_FILE_NAME = "factorio-test.lock.json"
 
+export const FACTORIO_TEST = "factorio-test"
+
 /** Mod name -> locked version. */
 export type LockedMods = Record<string, string>
 
@@ -18,7 +20,7 @@ export function lockFilePath(dir: string): string {
   return path.join(dir, LOCK_FILE_NAME)
 }
 
-/** Reads the lock file; undefined if it doesn't exist. */
+/** Reads the lock file; undefined if it doesn't exist or is empty. */
 export async function readLock(dir: string): Promise<LockedMods | undefined> {
   const filePath = lockFilePath(dir)
   const content = await fsp.readFile(filePath, "utf8").catch((e: NodeJS.ErrnoException) => {
@@ -26,17 +28,27 @@ export async function readLock(dir: string): Promise<LockedMods | undefined> {
     throw e
   })
   if (content === undefined) return undefined
+  let mods: LockedMods
   try {
-    return lockFileSchema.parse(JSON.parse(content)).mods
+    mods = lockFileSchema.parse(JSON.parse(content)).mods
   } catch (e) {
     throw new CliError(`Invalid lock file ${filePath}. Delete it to recreate it.`, { cause: e })
   }
+  return isEmpty(mods) ? undefined : mods
 }
 
-/** Every enabled mod except the mod under test and builtins, sorted by name. */
+function isEmpty(mods: LockedMods): boolean {
+  return Object.keys(mods).length === 0
+}
+
+function withoutFactorioTest(mods: LockedMods): LockedMods {
+  return Object.fromEntries(Object.entries(mods).filter(([name]) => name !== FACTORIO_TEST))
+}
+
+/** Every enabled mod except the mod under test, builtins and factorio-test, sorted by name. */
 export function planLock(enabled: Iterable<Candidate>): LockedMods {
   const locked = [...enabled]
-    .filter(({ origin }) => origin !== "mut" && origin !== "builtin")
+    .filter(({ name, origin }) => origin !== "mut" && origin !== "builtin" && name !== FACTORIO_TEST)
     .map(({ name, version }) => [name, version] as const)
     .sort(([a], [b]) => a.localeCompare(b))
   return Object.fromEntries(locked)
@@ -55,9 +67,13 @@ export function diffLock(existing: LockedMods, planned: LockedMods): string[] {
   })
 }
 
-/** Frozen mode: the planned lock must equal the lock file. */
-export function checkFrozenLock(dir: string, existing: LockedMods | undefined, planned: LockedMods): void {
-  if (existing === undefined && Object.keys(planned).length > 0) {
+/**
+ * Frozen mode: the planned lock must equal the lock file.
+ * factorio-test entries (written by older CLI versions) are ignored.
+ */
+export function checkFrozenLock(dir: string, lockFile: LockedMods | undefined, planned: LockedMods): void {
+  const existing = lockFile && withoutFactorioTest(lockFile)
+  if ((existing === undefined || isEmpty(existing)) && !isEmpty(planned)) {
     throw new CliError(`No ${LOCK_FILE_NAME} found in ${dir}. Run the tests locally once, then commit the lock file.`)
   }
   const diff = diffLock(existing ?? {}, planned)
@@ -68,14 +84,30 @@ export function checkFrozenLock(dir: string, existing: LockedMods | undefined, p
   )
 }
 
-/** Writes the lock iff it changed. A missing lock file counts as empty: nothing to lock, no file. */
-export async function writeLockIfChanged(
+export type LockFileChange = "updated" | "removed"
+
+/**
+ * Writes the lock iff it changed. Nothing to lock means no file: an existing one is removed.
+ */
+export async function syncLockFile(
   dir: string,
   existing: LockedMods | undefined,
   planned: LockedMods,
-): Promise<boolean> {
-  if (diffLock(existing ?? {}, planned).length === 0) return false
+): Promise<LockFileChange | undefined> {
+  const filePath = lockFilePath(dir)
+  if (isEmpty(planned)) return removeLockFile(filePath)
+  if (diffLock(existing ?? {}, planned).length === 0) return undefined
   const content = JSON.stringify({ lockVersion: 1, mods: planned }, null, 2) + "\n"
-  await fsp.writeFile(lockFilePath(dir), content)
-  return true
+  await fsp.writeFile(filePath, content)
+  return "updated"
+}
+
+async function removeLockFile(filePath: string): Promise<"removed" | undefined> {
+  try {
+    await fsp.rm(filePath)
+    return "removed"
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return undefined
+    throw e
+  }
 }

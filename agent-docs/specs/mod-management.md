@@ -124,6 +124,7 @@ CI:
 - **CMD-2** `factorio-test mods update [names...]`: like `mods install`, but RES-7 steps 1–2 are
   skipped for the named mods (all if none named).
   - A name not in the enabled set is an error: `"foo" is not used by this test run.`
+  - `factorio-test` is an error: its version is set by the CLI version.
   - Prints changes (`flib 0.16.2 → 0.17.0`), or `All mods up to date.`
   - Config constraints still apply; a mod held back by one says so.
 - **CMD-3** `factorio-test run` does `mods install`, then enables the enabled set (ENABLE), then
@@ -147,8 +148,12 @@ CI:
 
 ### Resolution
 
-- **RES-1** Requirements: `base`, `factorio-test >= <MIN>`, the MUT, the MUT's `info.json`
+- **RES-1** Requirements: `base`, `factorio-test = <PINNED>`, the MUT, the MUT's `info.json`
   dependencies, the listed mods.
+  - `<PINNED>`: one version per Factorio major.minor, hardcoded in the CLI release, so the CLI
+    version fixes the factorio-test version.
+  - A listed `factorio-test` entry replaces the default requirement.
+  - A user-managed factorio-test is allowed (warning if it differs from the pin).
 - **RES-2** The enabled set is the closure of the requirements over required (none, `~`) and
   recommended (`+`) dependencies, except mods listed with `!`.
 - **RES-3** Constraints on a mod: version constraints and `!` from the listed mods, and from the
@@ -226,12 +231,13 @@ CI:
   (`factorio-test.json` or `package.json`), else the current directory. Meant to be committed.
 
   ```jsonc
-  { "lockVersion": 1, "mods": { "factorio-test": "3.1.1", "flib": "0.16.2" } }
+  { "lockVersion": 1, "mods": { "flib": "0.16.2" } }
   ```
 
-- **LOCK-2** After resolution, the lock is written iff it changed (a missing file counts as empty,
-  so nothing to lock writes no file). It contains every enabled mod
-  except the MUT and builtins; entries for mods no longer enabled are removed.
+- **LOCK-2** After resolution, the lock is written iff it changed (a missing or empty file counts
+  as empty). Nothing to lock means no file: an existing one is removed. It contains every enabled
+  mod except the MUT, builtins and factorio-test (pinned by RES-1); entries for mods no longer
+  enabled are removed.
 - **LOCK-3** User-managed mods are locked at their `info.json` version, like any other mod. Where
   the mod isn't user-managed (e.g. CI), the locked version is used from the mods dir or downloaded.
   > Caveat (documented): CI tests the portal release of that version unless it provides the mod
@@ -239,7 +245,8 @@ CI:
   > A version not on the portal fails the download (DL-2).
 - **LOCK-4** Frozen mode (`mods install`, `run`): on by default iff env `CI` is non-empty;
   `--frozen-lockfile` / `--no-frozen-lockfile` override. The lock is never written; if the planned
-  lock differs from the file, it's an error before any download. `mods update` ignores frozen mode.
+  lock differs from the file, it's an error before any download. factorio-test entries (from
+  older CLI versions) in the file are ignored. `mods update` ignores frozen mode.
   > Implicit in CI so it can't be forgotten (G-1). `mods update` is explicit, e.g. a bot job
   > updating the lock.
 - **LOCK-5** The frozen-mode mismatch error shows the difference:

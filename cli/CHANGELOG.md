@@ -1,3 +1,9 @@
+## Unreleased
+
+### Changes
+
+- No lock file is created when a mod has no dependencies besides base-game mods.
+
 ## v3.7.0
 
 - Supports both Factorio 2.0 (with factorio-test mod 3.0.x) and 2.1 (mod 3.1.x).

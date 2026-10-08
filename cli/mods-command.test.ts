@@ -65,7 +65,7 @@ async function readLockFile(): Promise<Record<string, string>> {
 describe("mods install", () => {
   it("downloads mods and writes the lock, without enabling mods", async () => {
     expect(await mods("install")).toBe(0)
-    expect(await readLockFile()).toEqual({ "factorio-test": "3.1.1", flib: "0.16.0" })
+    expect(await readLockFile()).toEqual({ flib: "0.16.0" })
     const modsDir = path.join(tempDir, "data", "mods")
     expect((await fsp.readdir(modsDir)).sort()).toEqual(["factorio-test_3.1.1.zip", "flib_0.16.0.zip", "my-mod"])
     expect(stdout).toContain("Mods: factorio-test 3.1.1 (downloaded), flib 0.16.0 (downloaded)")
@@ -91,16 +91,22 @@ describe("mods update", () => {
     stdout.length = 0
   })
 
-  it("updates all mods, ignoring frozen mode", async () => {
+  it("updates all mods except the pinned factorio-test, ignoring frozen mode", async () => {
     vi.stubEnv("CI", "true")
     expect(await mods("update")).toBe(0)
-    expect(await readLockFile()).toEqual({ "factorio-test": "3.2.0", flib: "0.17.0" })
-    expect(stdout).toContain("factorio-test 3.1.1 → 3.2.0\nflib 0.16.0 → 0.17.0")
+    expect(await readLockFile()).toEqual({ flib: "0.17.0" })
+    expect(stdout).toContain("Mods: factorio-test 3.1.1, flib 0.17.0 (downloaded)")
+    expect(stdout.at(-1)).toBe("flib 0.16.0 → 0.17.0")
   })
 
   it("updates only the named mods", async () => {
     expect(await mods("update", "flib")).toBe(0)
-    expect(await readLockFile()).toEqual({ "factorio-test": "3.1.1", flib: "0.17.0" })
+    expect(await readLockFile()).toEqual({ flib: "0.17.0" })
+  })
+
+  it("rejects updating factorio-test", async () => {
+    expect(await mods("update", "factorio-test")).toBe(1)
+    expect(stderr.join("\n")).toContain("The factorio-test version is set by the CLI version.")
   })
 
   it("says when a config constraint holds a mod back", async () => {

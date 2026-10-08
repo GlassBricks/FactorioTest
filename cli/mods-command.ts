@@ -5,7 +5,7 @@ import { registerModSetupCliOptions, resolveConfig, type ResolvedConfig } from "
 import { autoDetectFactorioPath } from "./factorio-process.js"
 import { compareVersions, formatConstraint, majorMinor, satisfies } from "./mods/dependency.js"
 import { type InstalledMods, installMods, type ModSetupInput } from "./mods/install.js"
-import type { LockedMods } from "./mods/lock.js"
+import { FACTORIO_TEST, type LockedMods } from "./mods/lock.js"
 import { createModPortal, type ModPortal } from "./mods/portal.js"
 import { setVerbose } from "./process-utils.js"
 import { validateModSource } from "./run-plan.js"
@@ -41,6 +41,11 @@ async function installCommand(args: string[], cliOptions: Record<string, unknown
 }
 
 async function updateCommand(names: string[], cliOptions: Record<string, unknown>): Promise<void> {
+  if (names.includes(FACTORIO_TEST)) {
+    throw new CliError(
+      "The factorio-test version is set by the CLI version. To update it, update factorio-test-cli instead.",
+    )
+  }
   const config = resolveModSetupConfig(cliOptions)
   const portal = createModPortal()
   const update = names.length > 0 ? new Set(names) : "all"
@@ -72,6 +77,7 @@ async function formatHeldBack(
   const lines: string[] = []
   for (const candidate of resolution.enabled.values()) {
     if (candidate.origin === "builtin" || candidate.origin === "mut" || candidate.origin === "user-managed") continue
+    if (candidate.name === FACTORIO_TEST) continue
     if (update !== "all" && !update.has(candidate.name)) continue
     const releases = (await portal.getReleases(candidate.name)) ?? []
     const newest = releases
@@ -99,7 +105,7 @@ export function registerModsCommand(program: Command): void {
     .command("mods")
     .summary("Install or update the mods used by test runs.")
     .description(
-      `Install or update the mods used by test runs: the mod under test's dependencies, "mods" from the config, and factorio-test. Chosen versions are recorded in factorio-test.lock.json.`,
+      `Install or update the mods used by test runs: the mod under test's dependencies, "mods" from the config, and factorio-test. Chosen dependency versions are recorded in factorio-test.lock.json.`,
     )
 
   const install = modsCommand

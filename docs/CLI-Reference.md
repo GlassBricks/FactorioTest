@@ -102,9 +102,11 @@ All other mods will be disabled. Use config to enable additional mods.
 
 ### Mod versions and the lock file
 
-The first time when run, chosen mod versions are recorded in `factorio-test.lock.json`; next to the config file (or in the current directory, without one). Commit it, so collaborators and CI then use the same versions, even after newer ones are released.
+The CLI will attempt to automatically install all your mod's dependencies, plus any mods declared in the `mods` config option. Mod resolution will prefer to use already locked or installed versions first; before trying to download from the mod portal.
 
-Mod resolution will prefer to use already locked or installed versions first; before trying to download from the mod portal.
+Only if your mod has external dependencies, chosen mod versions will be recorded in `factorio-test.lock.json`. This file next to the config file (or in the current directory, without one). Commit it, so collaborators and CI then use the same versions, even after newer ones are released.
+
+If your mod or config does not depend on any mods besides base-game mods, no lock file is created or needed.
 
 ### Updating mod versions
 

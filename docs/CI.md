@@ -5,7 +5,7 @@ The [CLI](CLI-Reference.md) can run tests in CI with the Factorio headless serve
 ## Quick Start: GitHub Actions
 
 1. Add your Factorio username and token as [repository secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions) named `FACTORIO_USERNAME` and `FACTORIO_TOKEN` (see [Mod Portal Credentials](#mod-portal-credentials)).
-2. Run the tests locally once, and commit `factorio-test.lock.json` (see [Lock File](#lock-file)).
+2. Run the tests locally once, and commit `factorio-test.lock.json`, if created (see [Lock File](#lock-file)).
 3. Add `.github/workflows/test.yml`:
 
 ```yaml
@@ -87,6 +87,8 @@ Mod portal API keys (from your factorio.com profile) do not work for downloads.
 ### Lock File
 
 In CI (when the `CI` environment variable is set, as on most CI systems), the CLI uses exactly the mod versions in `factorio-test.lock.json`, and fails if it is missing or out of date. Run the tests (or `npx factorio-test mods install`) locally, then commit the lock file. Pass `--frozen-lockfile` or `--no-frozen-lockfile` to override.
+
+The lock file records only your mod's dependencies (and mods from `mods` config), not the mod under test, builtin/DLC mods, or `factorio-test` (whose version is set by the CLI version). If there is nothing to lock, no lock file is created, and CI passes without one.
 
 After changing `mods` in the config, or your mod's dependencies, run `install` again and commit the updated lock file. To move to newer mod versions, run `npx factorio-test mods update`.
 

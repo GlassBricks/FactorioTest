@@ -4,8 +4,16 @@ import * as path from "path"
 import { CliError } from "../cli-error.js"
 import { findExecutableRealPath, getFactorioVersion } from "../factorio-process.js"
 import { type Credentials, findCredentials, noCredentialsError, rejectedCredentialsError } from "./credentials.js"
-import { type Dependency, majorMinor, parseListedMod, type VersionConstraint } from "./dependency.js"
-import { checkFrozenLock, type LockedMods, lockFilePath, planLock, readLock, writeLockIfChanged } from "./lock.js"
+import { type Dependency, majorMinor, parseListedMod } from "./dependency.js"
+import {
+  checkFrozenLock,
+  FACTORIO_TEST,
+  type LockedMods,
+  lockFilePath,
+  planLock,
+  readLock,
+  syncLockFile,
+} from "./lock.js"
 import { buildModList, checkPinnedInstalled, writeModList } from "./mod-list.js"
 import { createModPortal, CredentialsRejectedError, type ModPortal, PortalUnreachableError } from "./portal.js"
 import {
@@ -18,15 +26,8 @@ import {
 } from "./resolve.js"
 import { type InstalledMod, ModCandidateSource, scanModsDir } from "./source.js"
 
-/** factorio-test versions this CLI works with: 3.0.x is for Factorio 2.0, 3.1.x+ for 2.1. */
-export function factorioTestConstraints(gameVersion: string): VersionConstraint[] {
-  if (majorMinor(gameVersion) === "2.0") {
-    return [
-      { op: ">=", version: "3.0.2" },
-      { op: "<", version: "3.1" },
-    ]
-  }
-  return [{ op: ">=", version: "3.1.1" }]
+function factorioTestVersion(gameVersion: string): string {
+  return majorMinor(gameVersion) === "2.0" ? "3.0.2" : "3.1.1"
 }
 
 const CLI_SOURCE = "factorio-test-cli"
@@ -84,22 +85,36 @@ export async function linkModUnderTest(modsDir: string, modPath: string): Promis
   return modName
 }
 
+/**
+ * Which factorio-test to use, in priority order
+ * - A version pinned explicitly in `mods`
+ * - User-managed factorio-test (e.g. a local build)
+ * - The CLI preferred version
+ */
+function factorioTestRequirements(gameVersion: string, listed: Dependency[], installed: InstalledMod[]): Requirement[] {
+  if (listed.some(({ name }) => name === FACTORIO_TEST)) return []
+  const version = factorioTestVersion(gameVersion)
+  const userManaged = installed.find(({ name, kind }) => name === FACTORIO_TEST && kind === "user-managed")
+  if (userManaged && userManaged.version !== version) {
+    console.warn(`Using user-managed ${FACTORIO_TEST} ${userManaged.version}; this CLI version uses ${version}.`)
+  }
+  const dependency: Dependency = userManaged
+    ? { kind: "required", name: FACTORIO_TEST }
+    : { kind: "required", name: FACTORIO_TEST, constraint: { op: "=", version } }
+  return [{ dependency, from: CLI_SOURCE }]
+}
+
 /** The mod under test's dependencies follow from choosing it. */
 function buildRequirements(
   modToTest: string,
   listed: Dependency[],
   modsSource: string,
   gameVersion: string,
+  installed: InstalledMod[],
 ): Requirement[] {
-  const factorioTest = factorioTestConstraints(gameVersion).map(
-    (constraint): Requirement => ({
-      dependency: { kind: "required", name: "factorio-test", constraint },
-      from: CLI_SOURCE,
-    }),
-  )
   return [
     { dependency: { kind: "required", name: "base" }, from: CLI_SOURCE },
-    ...factorioTest,
+    ...factorioTestRequirements(gameVersion, listed, installed),
     { dependency: { kind: "required", name: modToTest }, from: "mod under test" },
     ...listed.map((dependency) => ({ dependency, from: modsSource })),
   ]
@@ -176,7 +191,8 @@ export async function installMods(input: ModSetupInput): Promise<InstalledMods> 
     portal,
     update,
   })
-  const resolution = await resolve(buildRequirements(modToTest, listed, modsSource, game.version), source, game)
+  const requirements = buildRequirements(modToTest, listed, modsSource, game.version, installedBefore)
+  const resolution = await resolve(requirements, source, game)
   if (update instanceof Set) checkUpdatedModsUsed(update, resolution)
 
   const plannedLock = planLock(resolution.enabled.values())
@@ -188,9 +204,8 @@ export async function installMods(input: ModSetupInput): Promise<InstalledMods> 
     await downloadAll(portal, downloads, credentials, modsDir)
   }
 
-  if (!frozen && (await writeLockIfChanged(lockDir, locked, plannedLock))) {
-    console.log(`Updated ${lockFilePath(lockDir)}`)
-  }
+  const lockChange = frozen ? undefined : await syncLockFile(lockDir, locked, plannedLock)
+  if (lockChange) console.log(`${lockChange === "removed" ? "Removed" : "Updated"} ${lockFilePath(lockDir)}`)
   console.log(formatModsSummary(resolution.enabled))
   const installed = downloads.length > 0 ? await scanModsDir(modsDir) : installedBefore
   return { modToTest, game, resolution, installed, previousLock: locked, plannedLock }

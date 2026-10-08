@@ -7,9 +7,10 @@ import {
   diffLock,
   LOCK_FILE_NAME,
   type LockedMods,
+  type LockFileChange,
   planLock,
   readLock,
-  writeLockIfChanged,
+  syncLockFile,
 } from "./lock.js"
 import type { Candidate, CandidateOrigin } from "./resolve.js"
 
@@ -18,7 +19,7 @@ function candidate(name: string, version: string, origin: CandidateOrigin): Cand
 }
 
 describe("planLock", () => {
-  it("contains every enabled mod except the mod under test and builtins, sorted", () => {
+  it("contains every enabled mod except the mod under test, builtins and factorio-test, sorted", () => {
     const enabled = [
       candidate("base", "2.1.20", "builtin"),
       candidate("my-mod", "1.0.0", "mut"),
@@ -26,8 +27,8 @@ describe("planLock", () => {
       candidate("factorio-test", "3.1.1", "locked"),
       candidate("my-lib", "0.3.0", "user-managed"),
     ]
-    expect(planLock(enabled)).toEqual({ "factorio-test": "3.1.1", flib: "0.16.2", "my-lib": "0.3.0" })
-    expect(Object.keys(planLock(enabled))).toEqual(["factorio-test", "flib", "my-lib"])
+    expect(planLock(enabled)).toEqual({ flib: "0.16.2", "my-lib": "0.3.0" })
+    expect(Object.keys(planLock(enabled))).toEqual(["flib", "my-lib"])
   })
 })
 
@@ -66,6 +67,19 @@ describe("checkFrozenLock", () => {
   it("passes when equal", () => {
     expect(() => checkFrozenLock("/repo", { flib: "0.16.2" }, { flib: "0.16.2" })).not.toThrow()
   })
+
+  it.each<[LockedMods, LockedMods]>([
+    [{ "factorio-test": "3.1.1" }, {}],
+    [{ "factorio-test": "3.1.1", flib: "0.16.2" }, { flib: "0.16.2" }],
+  ])("ignores factorio-test from older lock files: %j -> %j", (existing, planned) => {
+    expect(() => checkFrozenLock("/repo", existing, planned)).not.toThrow()
+  })
+
+  it("treats a lock file with only factorio-test as missing", () => {
+    expect(() => checkFrozenLock("/repo", { "factorio-test": "3.1.1" }, { flib: "0.16.2" })).toThrow(
+      `No ${LOCK_FILE_NAME} found in /repo.`,
+    )
+  })
 })
 
 describe("lock file", () => {
@@ -81,19 +95,41 @@ describe("lock file", () => {
     expect(await readLock(dir)).toBeUndefined()
   })
 
+  const lockFile = (): string => path.join(dir, LOCK_FILE_NAME)
+  const writeLockFile = (mods: LockedMods): Promise<void> =>
+    fsp.writeFile(lockFile(), JSON.stringify({ lockVersion: 1, mods }))
+
+  it("is undefined when empty", async () => {
+    await writeLockFile({})
+    expect(await readLock(dir)).toBeUndefined()
+  })
+
   it("round trips, written only if changed", async () => {
     const mods = { flib: "0.16.2" }
-    expect(await writeLockIfChanged(dir, undefined, mods)).toBe(true)
-    expect(JSON.parse(await fsp.readFile(path.join(dir, LOCK_FILE_NAME), "utf8"))).toEqual({ lockVersion: 1, mods })
+    expect(await syncLockFile(dir, undefined, mods)).toBe("updated")
+    expect(JSON.parse(await fsp.readFile(lockFile(), "utf8"))).toEqual({ lockVersion: 1, mods })
     expect(await readLock(dir)).toEqual(mods)
-    expect(await writeLockIfChanged(dir, mods, { ...mods })).toBe(false)
-    expect(await writeLockIfChanged(dir, mods, { flib: "0.17.0" })).toBe(true)
+    expect(await syncLockFile(dir, mods, { ...mods })).toBeUndefined()
+    expect(await syncLockFile(dir, mods, { flib: "0.17.0" })).toBe("updated")
     expect(await readLock(dir)).toEqual({ flib: "0.17.0" })
   })
 
-  it("is not written when there is nothing to lock", async () => {
-    expect(await writeLockIfChanged(dir, undefined, {})).toBe(false)
-    expect(await readLock(dir)).toBeUndefined()
+  it("rewrites a lock file with factorio-test from an older CLI version", async () => {
+    const existing = { "factorio-test": "3.1.1", flib: "0.16.2" }
+    await writeLockFile(existing)
+    expect(await syncLockFile(dir, existing, { flib: "0.16.2" })).toBe("updated")
+    expect(await readLock(dir)).toEqual({ flib: "0.16.2" })
+  })
+
+  it.each<[string, LockedMods | undefined, LockFileChange | undefined]>([
+    ["no file", undefined, undefined],
+    ["a lock with dependencies", { flib: "0.16.2" }, "removed"],
+    ["a lock with only factorio-test", { "factorio-test": "3.1.1" }, "removed"],
+    ["an empty lock", {}, "removed"],
+  ])("with nothing to lock, %s: no file afterwards", async (_, existing, expected) => {
+    if (existing) await writeLockFile(existing)
+    expect(await syncLockFile(dir, await readLock(dir), {})).toBe(expected)
+    await expect(fsp.stat(lockFile())).rejects.toThrow()
   })
 
   it("rejects an invalid lock file", async () => {
