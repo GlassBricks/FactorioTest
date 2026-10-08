@@ -86,9 +86,9 @@ Mod portal API keys (from your factorio.com profile) do not work for downloads.
 
 ### Lock File
 
-In CI (when the `CI` environment variable is set, as on most CI systems), the CLI uses exactly the mod versions in `factorio-test.lock.json`, and fails if it is missing or out of date. Run the tests (or `npx factorio-test mods install`) locally, then commit the lock file. Pass `--frozen-lockfile` or `--no-frozen-lockfile` to override.
+In CI (when the `CI` environment variable is set, as on most CI systems), the CLI uses exactly the mod versions in `factorio-test.lock.json`, and fails if it is out of date. Run the tests (or `npx factorio-test mods install`) locally, then commit the lock file. Pass `--frozen-lockfile` or `--no-frozen-lockfile` to override.
 
-The lock file records only your mod's dependencies (and mods from `mods` config), not the mod under test, builtin/DLC mods, or `factorio-test` (whose version is set by the CLI version). If there is nothing to lock, no lock file is created, and CI passes without one.
+The lock file records only your mod's dependencies, and mods from `mods` config; not the mod under test, builtin/DLC mods, or `factorio-test`. If there is nothing to lock, no lock file is created or needed, and CI passes without one.
 
 After changing `mods` in the config, or your mod's dependencies, run `install` again and commit the updated lock file. To move to newer mod versions, run `npx factorio-test mods update`.
 
