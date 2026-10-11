@@ -1,4 +1,4 @@
-## Unreleased
+## v3.8.0
 
 ### Features
 
