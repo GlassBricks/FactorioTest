@@ -234,9 +234,18 @@ describe("factorio-test version", () => {
   )
 
   it("pins this repository's factorio-test version", async () => {
-    const infoJsonPath = path.join(import.meta.dirname, "..", "..", "mod", "info.json")
-    const info = JSON.parse(await fsp.readFile(infoJsonPath, "utf8")) as { version: string; factorio_version: string }
-    expect(factorioTestVersion(`${info.factorio_version}.0`)).toBe(info.version)
+    const modDir = path.join(import.meta.dirname, "..", "..", "mod")
+    const info = JSON.parse(await fsp.readFile(path.join(modDir, "info.json"), "utf8")) as {
+      version: string
+      factorio_version: string
+    }
+    // After a mod release, fmtk bumps info.json to the next (unreleased) version, whose changelog date is "????"
+    const changelog = await fsp.readFile(path.join(modDir, "changelog.txt"), "utf8")
+    const latestRelease = [...changelog.matchAll(/^Version: (\S+)\r?\nDate: (\S+)/gm)].find(
+      ([, , date]) => date !== "????",
+    )?.[1]
+    // Either releasing the mod together with the CLI, or pinning the latest release
+    expect([info.version, latestRelease]).toContain(factorioTestVersion(`${info.factorio_version}.0`))
   })
 
   it("uses a user-managed factorio-test at any version, with a warning", async () => {
