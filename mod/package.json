@@ -26,7 +26,6 @@
     "test:self": "cd .. && npm run cli --workspace=cli -- run --mod-path=../mod --data-directory=../factorio-test-data-dir-mod",
     "test": "npm run test:self",
     "lint": "eslint .",
-    "check": "npm run lint && npm run test",
-    "prepare-package": "npm run check && npm run build"
+    "check": "npm run lint && npm run test"
   }
 }

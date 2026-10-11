@@ -135,13 +135,13 @@ publish_cli() {
   echo "==> Publishing cli $CLI_VERSION..."
   if [ -n "$DRY_RUN" ]; then
     echo "    would release v$CLI_VERSION (changelog commit and tag $CLI_TAG)"
-    npm publish -w cli --dry-run
+    npm publish -w cli --dry-run --ignore-scripts
     return
   fi
 
   # Publish before committing, so a failed publish (e.g. a missing OTP) can simply be rerun.
   # The changelog is not part of the npm package.
-  npm publish -w cli || fail "npm publish failed"
+  npm publish -w cli --ignore-scripts || fail "npm publish failed"
   sed -i "s/^## Unreleased$/## v$CLI_VERSION/" cli/CHANGELOG.md
   git add cli/CHANGELOG.md
   git commit -m "Release CLI v$CLI_VERSION"
@@ -149,10 +149,31 @@ publish_cli() {
   echo "==> Push the release commit and tag: git push origin $BRANCH $CLI_TAG"
 }
 
-preflight
+# Builds and checks everything exactly once. Nothing is rebuilt after this: test commands and
+# `npm publish` run with --ignore-scripts (skipping pretest/prepublishOnly hooks, also in nested
+# npm calls), and mod/info.json defines no fmtk package scripts.
+build_and_check() {
+  echo "==> Lint..."
+  npm run lint
+  npm run prettier:check
 
-echo "==> Running checks (lint, test, integration)..."
-npm run check
+  echo "==> Building cli, mod (test build) and integration fixture mods..."
+  npm run build -w cli
+  npm run build:integration
+
+  echo "==> Unit tests and mod self tests..."
+  npm test --ignore-scripts
+
+  # Replaces only the test bundle (includes the self tests); the rest of the test build equals the release build
+  echo "==> Building mod release bundle..."
+  npm run build:factorio-test-release -w mod
+
+  echo "==> Integration tests (against the release build)..."
+  npm run test:integration --ignore-scripts
+}
+
+preflight
+build_and_check
 
 for pkg in "${PACKAGES[@]}"; do
   "publish_$pkg"
