@@ -1,27 +1,35 @@
-import type { AutoStartConfig } from "../../../types/config"
-import { Settings } from "../../constants"
+import type { TestRunPayload } from "../../../types/config"
+import { Misc, Settings } from "../../constants"
 
-function parseAutoStartConfig(): AutoStartConfig {
-  const json = settings.startup[Settings.AutoStartConfig]?.value as string | undefined
-  if (!json || json === "{}") return {}
-  return helpers.json_to_table(json) as AutoStartConfig
+function decodePayload(raw: string | undefined): TestRunPayload {
+  if (!raw?.startsWith(Misc.TestRunPayloadPrefix)) return {}
+  return helpers.json_to_table(raw.slice(Misc.TestRunPayloadPrefix.length)) as TestRunPayload
 }
 
-let cachedConfig: AutoStartConfig | undefined
+function readPayload(): TestRunPayload {
+  if (script.test_arg !== undefined) return decodePayload(script.test_arg)
+  return decodePayload(settings.startup[Settings.AutoStartConfig]?.value as string | undefined)
+}
 
-export function getAutoStartConfig(): AutoStartConfig {
-  return (cachedConfig ??= parseAutoStartConfig())
+let cachedPayload: TestRunPayload | undefined
+
+export function getTestRunPayload(): TestRunPayload {
+  return (cachedPayload ??= readPayload())
 }
 
 export function isHeadlessMode(): boolean {
-  return getAutoStartConfig().headless === true
+  return script.test_arg !== undefined
 }
 
 export function isAutoStartEnabled(): boolean {
-  const config = getAutoStartConfig()
-  return config.mod !== undefined && config.mod !== ""
+  const mod = getTestRunPayload().mod
+  return mod !== undefined && mod !== ""
 }
 
 export function getAutoStartMod(): string | undefined {
-  return getAutoStartConfig().mod
+  return getTestRunPayload().mod
+}
+
+export function finishHeadlessTest(passed: boolean): void {
+  if (isHeadlessMode()) script.finish_test(passed)
 }

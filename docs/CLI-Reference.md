@@ -18,7 +18,7 @@ Specify exactly one of these, as what is tested:
 Exception: `--mod-path` with `--scenario <mod>/<name>` tests that mod's scenario. The mod is enabled with its dependencies, but its own tests are not run.
 A scenario from another mod needs that mod enabled, e.g. with `--mods`.
 
-A scenario's tests run in a new game created from it (`--scenario2map`), so `--save` and `--start-scenario` can't be used with a scenario target.
+A scenario's tests run in a new game created from it, so `--save` and `--start-scenario` can't be used with a scenario target.
 
 ## Installation
 

@@ -5,6 +5,7 @@ import { CliError } from "./cli-error.js"
 import { registerAllCliOptions, resolveConfig, type ResolvedConfig, toModConfig } from "./config/index.js"
 import {
   buildLaunchSteps,
+  checkFactorioVersionSupported,
   FactorioTestResult,
   getHeadlessSavePath,
   type LaunchSteps,
@@ -13,14 +14,15 @@ import {
   runScenario2Map,
 } from "./factorio-process.js"
 import {
+  buildTestRunPayload,
+  encodeTestRunPayload,
   ensureConfigIni,
   ensureModSettingsDat,
-  resetAutorunSettings,
+  resetPayloadSetting,
   resolveWatchTarget,
   type RunMode,
   setModToTestSetting,
-  setSettingsForAutorun,
-  setTestConfigSetting,
+  setPayloadSetting,
 } from "./factorio-setup.js"
 import { watchDirectory, watchFile } from "./file-watcher.js"
 import { modSetupInput } from "./mods-command.js"
@@ -117,6 +119,7 @@ async function setupTestRun(patterns: string[], cliOptions: Record<string, unkno
   const dataDir = config.dataDirectory
   await prepareScenarioTarget(plan.target, dataDir)
   const installedMods = await installMods(modSetup)
+  checkFactorioVersionSupported(installedMods.game.version)
   checkScenarioModEnabled(plan, installedMods.resolution.enabled)
   await enableMods(modsDir, installedMods)
   await ensureConfigIni(dataDir)
@@ -124,7 +127,7 @@ async function setupTestRun(patterns: string[], cliOptions: Record<string, unkno
   const mode = config.graphics ? "graphics" : "headless"
   const launch = buildLaunchSteps(plan, mode, {
     dataDir,
-    bundledSave: getHeadlessSavePath(installedMods.game.version),
+    bundledSave: getHeadlessSavePath(),
     factorioArgs: config.factorioArgs ?? [],
     testArgs: config.watch && config.graphics ? [`--enable-lua-udp=${config.udpPort}`] : [],
   })
@@ -133,7 +136,7 @@ async function setupTestRun(patterns: string[], cliOptions: Record<string, unkno
   return { config, plan, factorioPath, dataDir, modsDir, installedMods, testId, mode, launch }
 }
 
-/** Links or checks the scenario under test (TGT-2, TGT-5, TGT-6). */
+/** Links or checks the scenario under test. */
 async function prepareScenarioTarget(target: TestTarget, dataDir: string): Promise<void> {
   if (target.kind !== "scenario") return
   if (target.scenarioPath !== undefined) {
@@ -145,7 +148,6 @@ async function prepareScenarioTarget(target: TestTarget, dataDir: string): Promi
   }
 }
 
-/** DES-2: the save is created without factorio-test, which is enabled again for the test launch. */
 async function createScenarioSave(ctx: TestRunContext): Promise<void> {
   const { factorioPath, modsDir, installedMods, launch, config } = ctx
   if (!launch.scenario2map) return
@@ -171,31 +173,26 @@ async function executeTestRun(ctx: TestRunContext, execOptions?: ExecuteOptions)
 
   const lastFailedTests =
     config.reorderFailedFirst && config.outputFile ? await readPreviousFailedTests(config.outputFile) : []
-
-  await setSettingsForAutorun(factorioPath, dataDir, modsDir, testId, mode, {
-    verbose: config.verbose,
-    lastFailedTests,
-  })
-  await setTestConfigSetting(modsDir, toModConfig(config))
+  const payload = buildTestRunPayload(testId, toModConfig(config), lastFailedTests)
 
   let result: FactorioTestResult
-  try {
-    result =
-      mode === "headless"
-        ? await runFactorioTestsHeadless(factorioPath, dataDir, launch.test.args, {
-            verbose: config.verbose,
-            quiet: config.quiet,
-            signal,
-            outputTimeout: config.outputTimeout,
-          })
-        : await runFactorioTestsGraphics(factorioPath, dataDir, launch.test.args, {
-            verbose: config.verbose,
-            quiet: config.quiet,
-            resolveOnResult,
-          })
-  } finally {
-    if (!skipResetAutorun) {
-      await resetAutorunSettings(modsDir, config.verbose)
+  if (mode === "headless") {
+    result = await runFactorioTestsHeadless(
+      factorioPath,
+      dataDir,
+      [...launch.test.args, "--test-arg", encodeTestRunPayload(payload)],
+      { verbose: config.verbose, quiet: config.quiet, signal, outputTimeout: config.outputTimeout },
+    )
+  } else {
+    await setPayloadSetting(factorioPath, dataDir, modsDir, payload, config.verbose)
+    try {
+      result = await runFactorioTestsGraphics(factorioPath, dataDir, launch.test.args, {
+        verbose: config.verbose,
+        quiet: config.quiet,
+        resolveOnResult,
+      })
+    } finally {
+      if (!skipResetAutorun) await resetPayloadSetting(modsDir, config.verbose)
     }
   }
 
@@ -285,7 +282,13 @@ async function launchWithoutAutoStart(ctx: TestRunContext): Promise<void> {
   await createScenarioSave(ctx)
   await ensureModSettingsDat(factorioPath, dataDir, modsDir, config.verbose)
   await setModToTestSetting(modsDir, testId)
-  await setTestConfigSetting(modsDir, toModConfig(config))
+  await setPayloadSetting(
+    factorioPath,
+    dataDir,
+    modsDir,
+    buildTestRunPayload(undefined, toModConfig(config)),
+    config.verbose,
+  )
 
   await runFactorioTestsGraphics(factorioPath, dataDir, launch.test.args, {
     verbose: config.verbose,

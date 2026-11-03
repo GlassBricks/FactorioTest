@@ -5,7 +5,7 @@ import { CliError } from "../cli-error.js"
 import { linkIntoDir } from "../link.js"
 import { findExecutableRealPath, getFactorioVersion } from "../factorio-process.js"
 import { type Credentials, findCredentials, noCredentialsError, rejectedCredentialsError } from "./credentials.js"
-import { type Dependency, majorMinor, parseListedMod } from "./dependency.js"
+import { type Dependency, parseListedMod } from "./dependency.js"
 import {
   checkFrozenLock,
   FACTORIO_TEST,
@@ -27,10 +27,8 @@ import {
 } from "./resolve.js"
 import { type InstalledMod, ModCandidateSource, scanModsDir } from "./source.js"
 
-/** The factorio-test mod version this CLI uses, per Factorio version. */
-export function factorioTestVersion(gameVersion: string): string {
-  return majorMinor(gameVersion) === "2.0" ? "3.0.3" : "3.1.2"
-}
+/** The factorio-test mod version this CLI uses. */
+export const FACTORIO_TEST_VERSION = "3.2.0"
 
 const CLI_SOURCE = "factorio-test-cli"
 
@@ -92,9 +90,9 @@ export async function linkModUnderTest(modsDir: string, modPath: string): Promis
  * - User-managed factorio-test (e.g. a local build)
  * - The CLI preferred version
  */
-function factorioTestRequirements(gameVersion: string, listed: Dependency[], installed: InstalledMod[]): Requirement[] {
+function factorioTestRequirements(listed: Dependency[], installed: InstalledMod[]): Requirement[] {
   if (listed.some(({ name }) => name === FACTORIO_TEST)) return []
-  const version = factorioTestVersion(gameVersion)
+  const version = FACTORIO_TEST_VERSION
   const userManaged = installed.find(({ name, kind }) => name === FACTORIO_TEST && kind === "user-managed")
   if (userManaged && userManaged.version !== version) {
     console.warn(`Using user-managed ${FACTORIO_TEST} ${userManaged.version}; this CLI version uses ${version}.`)
@@ -117,7 +115,7 @@ function buildRequirements(
     modToTest === undefined ? [] : [{ dependency: { kind: "required", name: modToTest }, from: "mod under test" }]
   return [
     { dependency: { kind: "required", name: "base" }, from: CLI_SOURCE },
-    ...factorioTestRequirements(gameVersion, listed, installed),
+    ...factorioTestRequirements(listed, installed),
     ...modUnderTest,
     ...listed.map((dependency) => ({ dependency, from: modsSource })),
   ]
@@ -223,10 +221,10 @@ function checkUpdatedModsUsed(names: ReadonlySet<string>, { enabled }: Resolutio
 /** Enables exactly the enabled set, pinned to the chosen versions, except `disabled`. */
 export async function enableMods(
   modsDir: string,
-  { resolution, installed, game }: InstalledMods,
+  { resolution, installed }: InstalledMods,
   disabled: readonly string[] = [],
 ): Promise<void> {
-  const entries = buildModList(resolution.enabled, installed, game.version).map((entry) =>
+  const entries = buildModList(resolution.enabled, installed).map((entry) =>
     disabled.includes(entry.name) ? { name: entry.name, enabled: false } : entry,
   )
   checkPinnedInstalled(entries, installed, modsDir)

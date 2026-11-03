@@ -2,8 +2,7 @@ import * as fsp from "fs/promises"
 import * as os from "os"
 import * as path from "path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { majorMinor } from "./dependency.js"
-import { enableMods, factorioTestVersion, installMods, linkModUnderTest, type ModSetupInput } from "./install.js"
+import { enableMods, FACTORIO_TEST_VERSION, installMods, linkModUnderTest, type ModSetupInput } from "./install.js"
 import { LOCK_FILE_NAME } from "./lock.js"
 import { ModPortal } from "./portal.js"
 import { FAKE_TOKEN, FAKE_USERNAME, FakePortal, writeModDir, writeModZip } from "./test-helpers.js"
@@ -13,7 +12,7 @@ let modsDir: string
 let fake: FakePortal
 let output: string[]
 
-const pinned = factorioTestVersion("2.1.20")
+const pinned = FACTORIO_TEST_VERSION
 
 const credentialsEnv = { FACTORIO_USERNAME: FAKE_USERNAME, FACTORIO_TOKEN: FAKE_TOKEN }
 
@@ -204,48 +203,30 @@ describe("factorio-test version", () => {
   })
 
   async function addFactorioTestReleases(): Promise<void> {
-    // the pinned versions, and an unpinned one per Factorio version
-    for (const [version, factorioVersion] of [
-      [factorioTestVersion("2.0.0"), "2.0"],
-      ["3.0.0", "2.0"],
-      [pinned, "2.1"],
-      ["3.1.0", "2.1"],
-    ] as const) {
-      await fake.addRelease({ name: "factorio-test", version, factorio_version: factorioVersion })
+    for (const version of [pinned, "3.1.0"]) {
+      await fake.addRelease({ name: "factorio-test", version, factorio_version: "2.1" })
     }
   }
 
-  it.each(["2.0.77", "2.1.20"])(
-    "Factorio %s uses the pinned factorio-test, and needs no lock file",
-    async (gameVersion) => {
-      await writeFakeFactorio(gameVersion)
-      await writeModDir(path.join(tempDir, "my-mod"), {
-        name: "my-mod",
-        version: "1.0.0",
-        factorio_version: majorMinor(gameVersion),
-      })
-      await addFactorioTestReleases()
+  it("uses the pinned factorio-test, and needs no lock file", async () => {
+    await addFactorioTestReleases()
 
-      const result = await installMods(input())
+    const result = await installMods(input())
 
-      expect(result.resolution.enabled.get("factorio-test")?.version).toBe(factorioTestVersion(gameVersion))
-      await expect(fsp.stat(path.join(tempDir, LOCK_FILE_NAME))).rejects.toThrow()
-    },
-  )
+    expect(result.resolution.enabled.get("factorio-test")?.version).toBe(pinned)
+    await expect(fsp.stat(path.join(tempDir, LOCK_FILE_NAME))).rejects.toThrow()
+  })
 
   it("pins this repository's factorio-test version", async () => {
     const modDir = path.join(import.meta.dirname, "..", "..", "mod")
-    const info = JSON.parse(await fsp.readFile(path.join(modDir, "info.json"), "utf8")) as {
-      version: string
-      factorio_version: string
-    }
+    const info = JSON.parse(await fsp.readFile(path.join(modDir, "info.json"), "utf8")) as { version: string }
     // After a mod release, fmtk bumps info.json to the next (unreleased) version, whose changelog date is "????"
     const changelog = await fsp.readFile(path.join(modDir, "changelog.txt"), "utf8")
     const latestRelease = [...changelog.matchAll(/^Version: (\S+)\r?\nDate: (\S+)/gm)].find(
       ([, , date]) => date !== "????",
     )?.[1]
     // Either releasing the mod together with the CLI, or pinning the latest release
-    expect([info.version, latestRelease]).toContain(factorioTestVersion(`${info.factorio_version}.0`))
+    expect([info.version, latestRelease]).toContain(pinned)
   })
 
   it("uses a user-managed factorio-test at any version, with a warning", async () => {

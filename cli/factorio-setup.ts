@@ -3,7 +3,7 @@ import * as fs from "fs"
 import * as os from "os"
 import * as path from "path"
 import { runFmtk, runProcess } from "./process-utils.js"
-import type { AutoStartConfig } from "../types/config.js"
+import type { TestRunPayload } from "../types/config.js"
 import { CliError } from "./cli-error.js"
 import type { ModConfig } from "./config/index.js"
 import { type RunPlan, scenarioRefMod } from "./run-plan.js"
@@ -39,19 +39,28 @@ locale=
 
 export type RunMode = "headless" | "graphics"
 
-export function buildAutoStartConfig(modToTest: string, mode: RunMode, lastFailedTests?: string[]): AutoStartConfig {
+const TEST_RUN_PAYLOAD_PREFIX = "FACTORIO_TEST:"
+
+export function buildTestRunPayload(
+  modToTest: string | undefined,
+  config: ModConfig,
+  lastFailedTests?: string[],
+): TestRunPayload {
   return {
-    mod: modToTest,
-    headless: mode === "headless",
+    ...(modToTest !== undefined && { mod: modToTest }),
+    ...(Object.keys(config).length > 0 && { config }),
     ...(lastFailedTests?.length && { last_failed_tests: lastFailedTests }),
   }
+}
+
+export function encodeTestRunPayload(payload: TestRunPayload): string {
+  return TEST_RUN_PAYLOAD_PREFIX + JSON.stringify(payload)
 }
 
 type SettingScope = "startup" | "runtime-global"
 
 const AUTO_START_CONFIG_SETTING = "factorio-test-auto-start-config"
 const AUTO_START_SETTING = "factorio-test-auto-start"
-const TEST_CONFIG_SETTING = "factorio-test-config"
 const MOD_TO_TEST_SETTING = "factorio-test-mod-to-test"
 
 function setModSetting(modsDir: string, scope: SettingScope, name: string, value: string): Promise<void> {
@@ -60,11 +69,6 @@ function setModSetting(modsDir: string, scope: SettingScope, name: string, value
 
 function unsetModSetting(modsDir: string, scope: SettingScope, name: string): Promise<void> {
   return runFmtk("settings", "unset", scope, name, "--modsPath", modsDir)
-}
-
-export async function setTestConfigSetting(modsDir: string, testConfig: ModConfig): Promise<void> {
-  if (Object.keys(testConfig).length === 0) return
-  await setModSetting(modsDir, "runtime-global", TEST_CONFIG_SETTING, JSON.stringify(testConfig))
 }
 
 export function setModToTestSetting(modsDir: string, modToTest: string): Promise<void> {
@@ -98,30 +102,23 @@ export async function ensureModSettingsDat(
   }
 }
 
-export interface AutorunOptions {
-  verbose?: boolean
-  lastFailedTests?: string[]
-}
-
-export async function setSettingsForAutorun(
+/** Graphics mode has no `--test-arg`, so the payload goes through a startup setting instead. */
+export async function setPayloadSetting(
   factorioPath: string,
   dataDir: string,
   modsDir: string,
-  modToTest: string,
-  mode: RunMode,
-  options?: AutorunOptions,
+  payload: TestRunPayload,
+  verbose?: boolean,
 ): Promise<void> {
-  await ensureModSettingsDat(factorioPath, dataDir, modsDir, options?.verbose)
-  if (options?.verbose) console.log("Setting autorun settings")
-  const autoStartConfig = buildAutoStartConfig(modToTest, mode, options?.lastFailedTests)
-  await setModSetting(modsDir, "startup", AUTO_START_CONFIG_SETTING, JSON.stringify(autoStartConfig))
+  await ensureModSettingsDat(factorioPath, dataDir, modsDir, verbose)
+  if (verbose) console.log("Setting autorun settings")
+  await setModSetting(modsDir, "startup", AUTO_START_CONFIG_SETTING, encodeTestRunPayload(payload))
   await unsetModSetting(modsDir, "startup", AUTO_START_SETTING)
 }
 
-export async function resetAutorunSettings(modsDir: string, verbose?: boolean): Promise<void> {
+export async function resetPayloadSetting(modsDir: string, verbose?: boolean): Promise<void> {
   if (verbose) console.log("Disabling auto-start settings")
-  await setModSetting(modsDir, "startup", AUTO_START_CONFIG_SETTING, "{}")
-  await setModSetting(modsDir, "runtime-global", TEST_CONFIG_SETTING, "{}")
+  await unsetModSetting(modsDir, "startup", AUTO_START_CONFIG_SETTING)
 }
 
 export interface WatchTarget {

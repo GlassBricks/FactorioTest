@@ -15,10 +15,9 @@ function installedMod(name: string, version: string): InstalledMod {
 }
 
 describe("buildModList", () => {
-  it.each<[string, string[]]>([
-    ["2.1.20", ["recycler", "elevated-rails", "quality"]],
-    ["2.0.77", ["elevated-rails", "quality"]],
-  ])("lists every installed and builtin mod of Factorio %s; pins enabled non-builtins", (gameVersion, disabled) => {
+  it("lists every installed and builtin mod; pins enabled non-builtins", () => {
+    const gameVersion = "2.1.24"
+    const disabled = ["recycler", "elevated-rails", "quality"]
     const enabled = new Map(
       [
         candidate("base", gameVersion, "builtin"),
@@ -28,7 +27,7 @@ describe("buildModList", () => {
       ].map((c) => [c.name, c]),
     )
     const installed = [installedMod("flib", "0.16.0"), installedMod("flib", "0.17.0"), installedMod("unused", "1.0.0")]
-    expect(buildModList(enabled, installed, gameVersion)).toEqual([
+    expect(buildModList(enabled, installed)).toEqual([
       { name: "base", enabled: true },
       ...disabled.map((name) => ({ name, enabled: false })),
       { name: "space-age", enabled: true },

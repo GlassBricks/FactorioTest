@@ -2,16 +2,17 @@ import * as fsp from "fs/promises"
 import * as os from "os"
 import * as path from "path"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { buildAutoStartConfig, readDataPath, resolveWatchTarget } from "./factorio-setup.js"
+import { buildTestRunPayload, readDataPath, resolveWatchTarget } from "./factorio-setup.js"
 import type { TestTarget } from "./run-plan.js"
 
-describe("buildAutoStartConfig", () => {
-  it.each([
-    ["headless", undefined, { mod: "my-mod", headless: true }],
-    ["graphics", [], { mod: "my-mod", headless: false }],
-    ["headless", ["a > b"], { mod: "my-mod", headless: true, last_failed_tests: ["a > b"] }],
-  ] as const)("mode=%s lastFailedTests=%j", (mode, lastFailedTests, expected) => {
-    expect(buildAutoStartConfig("my-mod", mode, lastFailedTests && [...lastFailedTests])).toEqual(expected)
+describe("buildTestRunPayload", () => {
+  it.each<[string | undefined, object, string[] | undefined, object]>([
+    ["my-mod", {}, undefined, { mod: "my-mod" }],
+    ["my-mod", {}, [], { mod: "my-mod" }],
+    ["my-mod", { bail: 1 }, ["a > b"], { mod: "my-mod", config: { bail: 1 }, last_failed_tests: ["a > b"] }],
+    [undefined, { bail: 1 }, undefined, { config: { bail: 1 } }],
+  ])("mod=%s config=%j lastFailedTests=%j", (mod, config, lastFailedTests, expected) => {
+    expect(buildTestRunPayload(mod, config, lastFailedTests)).toEqual(expected)
   })
 })
 

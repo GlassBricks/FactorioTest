@@ -2,7 +2,7 @@ import { Protocol, Settings } from "../constants"
 
 const deprecatedAutoStart = settings.startup[Settings.DeprecatedAutoStart]?.value as boolean | undefined
 
-if (deprecatedAutoStart) {
+if (deprecatedAutoStart && script.test_arg === undefined) {
   const message = `
 ================================================================================
   INCOMPATIBLE CLI VERSION
@@ -24,5 +24,5 @@ if (deprecatedAutoStart) {
   log(message)
   print(Protocol.MessageEnd)
   print(Protocol.Result + "incompatible cli version")
-  error(Protocol.Exit)
+  error("factorio-test: incompatible factorio-test-cli version")
 }

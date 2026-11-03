@@ -1,9 +1,20 @@
+## Unreleased
+
+### Breaking changes
+
+- Requires Factorio 2.1.24 or newer. Factorio 2.0 is no longer supported.
+
+### Changes
+
+- Headless runs now use Factorio's native test mode (`--test-save`/`--test-scenario`/`--test-arg`), and is now slightly faster to startup.
+- Headless scenario runs no longer creates a fake save with `--scenario2map` first.
+
 ## v3.8.0
 
 ### Features
 
-- Test scenarios: `--scenario-path <dir>` (standalone scenario) or `--scenario [mod/]name`; tests run in a new game created from the scenario. `--mod-path` with `--scenario <that mod>/<name>` tests a scenario shipped in a mod. Requires factorio-test mod v3.1.2 (Factorio 2.1) or v3.0.3 (Factorio 2.0).
-- `--start-scenario [mod/]name`: run a mod's tests in a new game from a scenario (e.g. `base/freeplay`), instead of the bundled save.
+- Scenario testing: run tests defined in the _scenario's script_. Use `--scenario-path <dir>` (standalone scenario) or `--scenario [mod/]name`; tests run in a new game created from the scenario. `--mod-path` with `--scenario <that mod>/<name>` tests a scenario shipped in a mod.
+- `--start-scenario [mod/]name`: run a _mod's_ tests from a scenario (e.g. `base/freeplay`), instead of the bundled save.
 - `mods install` / `mods update` no longer require `--mod-path` or `--mod-name`.
 
 ### Changes

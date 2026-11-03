@@ -30,6 +30,8 @@ npx factorio-test run -p ./my-mod
 
 To test a scenario, use `--scenario-path` or `--scenario` instead; see [CLI Reference](CLI-Reference.md#test-target).
 
+Requires Factorio 2.1.24 or newer.
+
 The CLI auto-detects your Factorio installation, sets up an isolated data directory (mods, saves, config), downloads mods if needed, then runs tests in headless mode.
 By default it uses a bundled save: an empty lab-tile world with one player named `""` (empty string).
 The CLI exits with code 0 only if all tests pass.

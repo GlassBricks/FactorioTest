@@ -1,10 +1,11 @@
 {
   "name": "factorio-test",
-  "version": "3.1.3",
+  "version": "3.2.0",
   "title": "Factorio Test",
   "description": "Mod testing framework for factorio.",
   "author": "GlassBricks",
   "factorio_version": "2.1",
+  "dependencies": ["base >= 2.1.24"],
   "package": {
     "git_publish_branch": "main",
     "ignore": ["node_modules/**", "**/tsconfig*.json", "**/package*.json", "**/*.ts", "**/*.xcf"],

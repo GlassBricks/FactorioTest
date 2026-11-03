@@ -27,7 +27,9 @@ Verified on Factorio 2.1.20 unless noted; 2.0 assumed the same.
   - `--scenario2map [MOD/]NAME`: writes `<write-data>/saves/[MOD/]NAME.zip` after running the
     level's and mods' `on_init`, then exits. The save works with `--benchmark` and `--load-game`.
   - `--load-scenario` (graphics only; untested), `--start-server-load-scenario` (server: needs
-    server settings, runs until killed). No singleplayer headless scenario launch.
+    server settings, runs until killed).
+  - Since 2.1.24: `--test-scenario [MOD/]NAME` / `--test-save FILE` run headless with a player
+    until `script.finish_test(passed)`; exit code 0 if passed, 1 if failed or on error.
   - No runtime API to switch to another scenario.
 
 ## Goals
@@ -116,12 +118,13 @@ Verified on Factorio 2.1.20 unless noted; 2.0 assumed the same.
 
 ### Launching
 
-- **LAUNCH-1** A scenario world (WORLD-1 `--start-scenario`, WORLD-2) is created on every launch
-  with `--scenario2map <ref>`, then loaded as a save (headless `--benchmark`, graphics
-  `--load-game`). Headless watch relaunches redo both.
-- **LAUNCH-2** `--scenario2map` failing (non-zero exit) fails the run before tests, printing its
-  output:
-  `Error: Creating a game from scenario "biter_battles" failed (exit code 1):` + output.
+- **LAUNCH-1** A scenario world (WORLD-1 `--start-scenario`, WORLD-2) is a new game on every launch:
+  headless `--test-scenario <ref>`; graphics `--scenario2map <ref>`, then `--load-game` of that save.
+  Headless watch relaunches redo it.
+- **LAUNCH-2** The scenario failing to load (e.g. its `on_init` errors) fails the run before tests,
+  printing Factorio's error. Graphics: `Error: Creating a game from scenario "biter_battles" failed
+  (exit code 1):` + output. Headless: `Factorio exited with code 1, ..., no result received:` + the
+  error.
 
 ### Watch
 
@@ -237,7 +240,7 @@ User:
 
   The id passed to the mod (auto-start config, mod-to-test) is the mod name, or `"level"`.
 
-- **DES-2** `--scenario2map` runs with factorio-test **disabled** in `mod-list.json` (rest of the
+- **DES-2** (graphics only) `--scenario2map` runs with factorio-test **disabled** in `mod-list.json` (rest of the
   enabled set as is), then factorio-test is enabled for the test launch.
   > The generated save then contains the level/MUT state without factorio-test, like a `--save` of
   > the MUT today: the level's guarded `init` is skipped in the scenario2map process, and runs on

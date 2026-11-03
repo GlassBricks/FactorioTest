@@ -1,7 +1,10 @@
 ---------------------------------------------------------------------------------------------------
-Version: 3.1.3
+Version: 3.2.0
 Date: ????
   Changes:
+    - Requires Factorio 2.1.24 or newer, and factorio-test-cli 4.0 or newer.
+    - Headless test runs use Factorio's native test mode (`--test-save`/`--test-scenario`, `script.test_arg`, `script.finish_test`) instead of benchmark mode and erroring to exit.
+    - The CLI's test config and auto-start options are passed as one payload, through `--test-arg` (headless) or a startup setting (graphics). Removed the `factorio-test-config` setting.
 ---------------------------------------------------------------------------------------------------
 Version: 3.1.2
 Date: 2026-10-11

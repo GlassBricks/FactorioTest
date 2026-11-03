@@ -1,5 +1,10 @@
 import { Protocol, Remote } from "../constants"
-import { getAutoStartConfig, isAutoStartEnabled, isHeadlessMode } from "../factorio-test/shared/auto-start-config"
+import {
+  finishHeadlessTest,
+  getAutoStartMod,
+  isAutoStartEnabled,
+  isHeadlessMode,
+} from "../factorio-test/shared/auto-start-config"
 import { LocalisedString } from "factorio:runtime"
 import { hasAutoStarted, markAutoStarted, startTests } from "./start-tests"
 
@@ -8,7 +13,7 @@ function armAutoStart() {
   if (hasAutoStarted()) return
 
   const headless = isHeadlessMode()
-  const modToTest = getAutoStartConfig().mod!
+  const modToTest = getAutoStartMod()!
 
   script.on_event(defines.events.on_tick, () => {
     script.on_event(defines.events.on_tick, undefined)
@@ -20,7 +25,7 @@ function armAutoStart() {
       log(message)
       print(Protocol.MessageEnd)
       print(Protocol.Result + "could not auto start")
-      if (headless) error(Protocol.Exit)
+      finishHeadlessTest(false)
     }
 
     if (modToTest === "level") {

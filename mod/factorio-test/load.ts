@@ -7,7 +7,7 @@ import { disableStepIfHeadless, resolveConfig } from "./config"
 import { createLogListener, debugAdapterLogger, logLogger, MessageHandler } from "./output"
 import { TestRunner } from "./runner"
 import { createTestApi } from "./setup-globals"
-import { getAutoStartConfig, getAutoStartMod, isHeadlessMode } from "./shared/auto-start-config"
+import { getAutoStartMod, getTestRunPayload, isHeadlessMode } from "./shared/auto-start-config"
 import { debugAdapterEnabled } from "./shared/util"
 import { RunStore, TestContext } from "./state"
 import { testStorage } from "./storage"
@@ -98,7 +98,6 @@ function createMessageHandlers(headless: boolean): MessageHandler[] {
 function createTestListeners(headless: boolean): TestEventListener[] {
   const listeners: TestEventListener[] = []
   if (headless) listeners.push(cliEventEmitter)
-  // resultListener ends the headless process, so what follows it only runs in-game.
   listeners.push(gameEnvironmentListener, resultListener)
   listeners.push(createLogListener(createMessageHandlers(headless)))
   if (!headless) listeners.push(progressGuiListener)
@@ -109,7 +108,7 @@ function initializeFailedTestsFromConfig(): void {
   const storage = testStorage()
   if (storage.lastFailedTests !== undefined) return
 
-  const fromConfig = getAutoStartConfig().last_failed_tests
+  const fromConfig = getTestRunPayload().last_failed_tests
   if (fromConfig && fromConfig.length > 0) {
     storage.lastFailedTests = util.list_to_map(fromConfig)
   }

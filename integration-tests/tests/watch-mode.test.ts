@@ -3,7 +3,7 @@ import { once } from "events"
 import * as fs from "fs"
 import * as path from "path"
 import { setTimeout as delay } from "timers/promises"
-import { expect } from "vitest"
+import type { ExpectStatic } from "vitest"
 import { test } from "../test-fixture.js"
 import { fixturePath, root, type RunCliOptions, spawnCli } from "../test-utils.js"
 
@@ -46,7 +46,7 @@ async function stopChild(child: child_process.ChildProcess): Promise<void> {
   clearTimeout(forceKill)
 }
 
-async function expectRerunOnTouch(options: RunCliOptions, fileToTouch: string): Promise<void> {
+async function expectRerunOnTouch(expect: ExpectStatic, options: RunCliOptions, fileToTouch: string): Promise<void> {
   const { child, output, clearOutput } = spawnWatchCli(options)
 
   try {
@@ -64,14 +64,15 @@ async function expectRerunOnTouch(options: RunCliOptions, fileToTouch: string): 
   }
 }
 
-test("Watch mode reruns on file change", async ({ dirs }) => {
+test("Watch mode reruns on file change", async ({ dirs, expect }) => {
   const modDir = await copyModToDir(dirs.tempDir)
-  await expectRerunOnTouch({ modPath: modDir, dataDir: dirs.dataDir }, path.join(modDir, "test1.lua"))
+  await expectRerunOnTouch(expect, { modPath: modDir, dataDir: dirs.dataDir }, path.join(modDir, "test1.lua"))
 })
 
-test("Watch mode reruns a scenario on file change", async ({ dirs }) => {
+test("Watch mode reruns a scenario on file change", async ({ dirs, expect }) => {
   const scenarioDir = await copyScenarioToDir(dirs.tempDir)
   await expectRerunOnTouch(
+    expect,
     { modPath: null, dataDir: dirs.dataDir, extraArgs: ["--scenario-path", scenarioDir] },
     path.join(scenarioDir, "tests", "scenario-test.lua"),
   )

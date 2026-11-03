@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { FactorioOutputHandler } from "./factorio-output-parser.js"
 import {
   buildLaunchSteps,
+  checkFactorioVersionSupported,
   type HeadlessSuperviseOptions,
   type LaunchSteps,
   parseFactorioVersion,
@@ -44,7 +45,7 @@ describe("buildLaunchSteps", () => {
   const dataDir = path.resolve("/data")
   const common = ["--mod-directory", path.join(dataDir, "mods"), "-c", path.join(dataDir, "config.ini"), "--x"]
   const options = { dataDir, bundledSave: "/bundled.zip", factorioArgs: ["--x"], testArgs: ["--udp"] }
-  const headless = (save: string) => ["--benchmark", save, "--benchmark-ticks", "1000000000", ...common, "--udp"]
+  const headless = (save: string) => ["--test-save", save, ...common, "--udp"]
   const graphics = (save: string) => ["--load-game", save, ...common, "--udp"]
   const scenarioSave = path.join(dataDir, "saves", "my-mod", "s1.zip")
   const scenario2map = {
@@ -84,7 +85,7 @@ describe("buildLaunchSteps", () => {
       "scenario, headless",
       { target: scenarioTarget, world: { kind: "scenario", ref: "my-mod/s1" } },
       "headless",
-      { scenario2map, test: { args: headless(scenarioSave) } },
+      { test: { args: ["--test-scenario", "my-mod/s1", ...common, "--udp"] } },
     ],
     [
       "scenario, graphics",
@@ -94,6 +95,15 @@ describe("buildLaunchSteps", () => {
     ],
   ])("%s", (_, plan, mode, expected) => {
     expect(buildLaunchSteps(plan, mode, options)).toEqual(expected)
+  })
+})
+
+describe("checkFactorioVersionSupported", () => {
+  it.each(["2.1.24", "2.1.30", "2.2.0"])("accepts %s", (version) => {
+    expect(() => checkFactorioVersionSupported(version)).not.toThrow()
+  })
+  it.each(["2.1.23", "2.0.77"])("rejects %s", (version) => {
+    expect(() => checkFactorioVersionSupported(version)).toThrow("requires Factorio 2.1.24 or newer")
   })
 })
 
@@ -175,7 +185,11 @@ describe("BufferLineSplitter", () => {
 class FakeProcess extends EventEmitter {
   stdout = new PassThrough()
   stderr = new PassThrough()
-  kill = vi.fn(() => this.exit(null, "SIGTERM"))
+  ignoresSigterm = false
+  kill = vi.fn((signal: NodeJS.Signals = "SIGTERM") => {
+    if (signal === "SIGTERM" && this.ignoresSigterm) return
+    this.exit(null, signal)
+  })
 
   writeLine(line: string, stream: "stdout" | "stderr" = "stdout"): void {
     this[stream].write(line + "\n")
@@ -243,6 +257,16 @@ describe("superviseHeadlessRun", () => {
     await expect(run).rejects.toThrow(logHint)
   })
 
+  it("force-kills the process if it ignores SIGTERM", async () => {
+    proc.ignoresSigterm = true
+    const { run } = await startedRun({ outputTimeout: 3 })
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(proc.kill).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(proc.kill).toHaveBeenLastCalledWith("SIGKILL")
+    await expect(run).rejects.toThrow("no output received for 3 seconds")
+  })
+
   it("resets the output watchdog on each line", async () => {
     const { run } = await startedRun({ outputTimeout: 3 })
     for (let i = 0; i < 3; i++) {
@@ -289,6 +313,22 @@ describe("superviseHeadlessRun", () => {
     proc.exit(1)
     await expect(run).rejects.toThrow(`Factorio exited with code 1, signal null, no result received`)
     await expect(run).rejects.toThrow(logHint)
+  })
+
+  it("includes Factorio's last error in the no-result error", async () => {
+    const { run } = await startedRun()
+    for (const line of [
+      "   0.900 Error RunTest.cpp:67: Error loading scenario",
+      "__level__/control.lua:2: on_init failed",
+      "   0.951 Goodbye",
+    ]) {
+      proc.writeLine(line)
+    }
+    await flushStreams()
+    proc.exit(1)
+    await expect(run).rejects.toThrow(
+      "no result received:\n0.900 Error RunTest.cpp:67: Error loading scenario\n__level__/control.lua:2: on_init failed",
+    )
   })
 })
 

@@ -1,12 +1,10 @@
 import { Protocol } from "../constants"
 import { TestEventContext, TestEventListener } from "./test-events"
-import { isHeadlessMode } from "./shared/auto-start-config"
+import { finishHeadlessTest } from "./shared/auto-start-config"
 
 function emitResult(status: string) {
   print(Protocol.Result + status)
-  if (isHeadlessMode()) {
-    error(Protocol.Exit)
-  }
+  finishHeadlessTest(status === "passed")
 }
 
 export const gameEnvironmentListener: TestEventListener = (event, state) => {
@@ -50,7 +48,6 @@ function endRun(state: TestEventContext, status: string): void {
   emitResult(status)
 }
 
-/** emitResult aborts the process in headless mode, so nothing after this runs there. */
 export const resultListener: TestEventListener = (event, state) => {
   switch (event.type) {
     case "testRunFinished": {

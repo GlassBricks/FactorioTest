@@ -16,8 +16,7 @@
   },
   "files": [
     "**/*.js",
-    "headless-save.zip",
-    "headless-save-2.0.zip"
+    "headless-save.zip"
   ],
   "dependencies": {
     "chalk": "^5.6.2",

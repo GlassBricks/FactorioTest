@@ -21,7 +21,6 @@ test("Standalone scenario via --scenario-path", async ({ dirs }) => {
     extraArgs: ["--scenario-path", fixturePath("test-scenario")],
   })
 
-  expect(stdout).toContain('Creating a game from scenario "test-scenario"')
   expect(stdout).toContain("Tests: 1 failed, 1 passed (2 total)")
   expect(code).toBe(1)
 
@@ -61,7 +60,6 @@ test("--scenario from another mod than --mod-path is an error", async ({ dirs })
 test("Mod tests in a new game from --start-scenario", async ({ dirs }) => {
   const { stdout } = await runCli({ dataDir: dirs.dataDir, extraArgs: ["--start-scenario", "base/freeplay"] })
 
-  expect(stdout).toContain('Creating a game from scenario "base/freeplay"')
   expect(stdout).toContain("CONFIG:level_name=freeplay")
   expect(stdout).toContain("Usage test mod result: passed")
 })
@@ -73,8 +71,8 @@ test("Scenario failing on_init fails the run before tests", async ({ dirs }) => 
     extraArgs: ["--scenario-path", fixturePath("error-scenario")],
   })
 
-  expect(stderr).toContain('Creating a game from scenario "error-scenario" failed (exit code')
+  expect(stderr).toContain("no result received")
   expect(stderr).toContain("error-scenario on_init failed")
-  expect(stdout).not.toContain("Running tests")
+  expect(stdout).not.toContain("Tests:")
   expect(code).toBe(1)
 })

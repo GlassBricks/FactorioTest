@@ -1,11 +1,5 @@
 import Config = FactorioTest.Config
-import { Settings } from "../constants"
-
-function getSettingsConfig(): Partial<Config> {
-  const json = settings.global[Settings.Config]?.value as string | undefined
-  if (!json || json === "{}") return {}
-  return helpers.json_to_table(json) as Partial<Config>
-}
+import { getTestRunPayload } from "./shared/auto-start-config"
 
 const defaultConfig: Config = {
   default_timeout: 60 * 60,
@@ -31,7 +25,7 @@ export function disableStepIfHeadless(config: Config, headless: boolean): { conf
   }
 }
 
-/** Settings (set by the CLI) override the config the mod under test passed in. */
+/** The CLI's config overrides the config the mod under test passed in. */
 export function resolveConfig(modConfig: Partial<Config>): Config {
-  return withDefaultConfig({ ...modConfig, ...getSettingsConfig() })
+  return withDefaultConfig({ ...modConfig, ...(getTestRunPayload().config as Partial<Config> | undefined) })
 }

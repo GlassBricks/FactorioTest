@@ -6,8 +6,6 @@ export const enum Protocol {
   Result = "FACTORIO-TEST-RESULT:",
   MessageStart = "FACTORIO-TEST-MESSAGE-START",
   MessageEnd = "FACTORIO-TEST-MESSAGE-END",
-  /** Never parsed. Just the error message thrown to force headless. */
-  Exit = "Factorio Test: intentionally erroring to exit the process",
 }
 
 export const enum Remote {
@@ -23,7 +21,6 @@ export const enum Prototypes {
 export const enum Settings {
   ModToTest = "factorio-test-mod-to-test",
   AutoStartConfig = "factorio-test-auto-start-config",
-  Config = "factorio-test-config",
   DeprecatedAutoStart = "factorio-test-auto-start",
 }
 
@@ -82,4 +79,5 @@ export const enum Misc {
   RunTests = "start-tests",
   StepAction = "step-action",
   TestGui = "factorio-test-test-gui",
+  TestRunPayloadPrefix = "FACTORIO_TEST:",
 }

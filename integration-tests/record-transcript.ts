@@ -11,7 +11,7 @@ import { spawn } from "child_process"
 import { appendFileSync } from "fs"
 
 const args = process.argv.slice(2)
-const record = args.includes("--benchmark")
+const record = args.includes("--test-save") || args.includes("--test-scenario")
 const child = spawn(${JSON.stringify(factorioPath)}, args, { stdio: ["inherit", "pipe", "pipe"] })
 for (const [source, target] of [[child.stdout, process.stdout], [child.stderr, process.stderr]]) {
   source.on("data", (chunk) => {

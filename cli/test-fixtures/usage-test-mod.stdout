@@ -17,7 +17,6 @@ FACTORIO-TEST-EVENT:{"type":"stepStarted","test":{"path":"test1 > Steps","source
 FACTORIO-TEST-EVENT:{"type":"testPassed","test":{"path":"test1 > Steps","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":16}}}
 FACTORIO-TEST-EVENT:{"type":"testStarted","test":{"path":"test1 > Multi-tick steps","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":28}}}
 FACTORIO-TEST-EVENT:{"type":"stepStarted","test":{"path":"test1 > Multi-tick steps","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":28}},"step":"on_tick"}
-Running update 100
 FACTORIO-TEST-EVENT:{"type":"stepStarted","test":{"path":"test1 > Multi-tick steps","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":28}},"step":"async and done"}
 FACTORIO-TEST-EVENT:{"type":"stepStarted","test":{"path":"test1 > Multi-tick steps","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":28}},"step":"step 3"}
 FACTORIO-TEST-EVENT:{"type":"testPassed","test":{"path":"test1 > Multi-tick steps","source":{"file":"____factorio-usage-test-mod__/test1.ts","line":28}}}
@@ -30,17 +29,17 @@ FACTORIO-TEST-EVENT:{"type":"describeBlockFailed","block":{"path":"test1 > Faili
 FACTORIO-TEST-EVENT:{"type":"describeBlockFinished","block":{"path":"test1","source":{"file":"load.ts","line":81}}}
 FACTORIO-TEST-EVENT:{"type":"describeBlockEntered","block":{"path":"folder/test2","source":{"file":"load.ts","line":81}}}
 FACTORIO-TEST-EVENT:{"type":"testStarted","test":{"path":"folder/test2 > Reload","source":{"file":"____factorio-usage-test-mod__/folder/test2.ts","line":2}}}
-   0.334 Checksum for script __factorio-test__/control.lua: 3254525026
-   0.348 Checksum for script ____factorio-usage-test-mod__/control.lua: 3259443735
+   0.313 Checksum for script __factorio-test__/control.lua: 2294316953
+   0.327 Checksum for script ____factorio-usage-test-mod__/control.lua: 2635408195
 FACTORIO-TEST-EVENT:{"type":"testPassed","test":{"path":"folder/test2 > Reload","source":{"file":"____factorio-usage-test-mod__/folder/test2.ts","line":2}}}
 FACTORIO-TEST-EVENT:{"type":"testSkipped","test":{"path":"folder/test2 > Skip due to tag","source":{"file":"____factorio-usage-test-mod__/folder/test2.ts","line":9}}}
 FACTORIO-TEST-EVENT:{"type":"describeBlockFinished","block":{"path":"folder/test2","source":{"file":"load.ts","line":81}}}
 FACTORIO-TEST-EVENT:{"type":"describeBlockFinished","block":{"path":""}}
 FACTORIO-TEST-EVENT:{"type":"testRunFinished","results":{"failed":1,"passed":7,"ran":8,"skipped":2,"todo":1,"describeBlockErrors":2,"status":"failed"}}
 FACTORIO-TEST-MESSAGE-START
-   0.349 Script @____factorio-usage-test-mod__/control.lua:16: CONFIG:game_speed=1000
-   0.349 Script @____factorio-usage-test-mod__/control.lua:17: CONFIG:default_timeout=3600
-   0.349 Script @____factorio-usage-test-mod__/control.lua:18: CONFIG:level_name=Test
-   0.349 Script @____factorio-usage-test-mod__/control.lua:38: Usage test mod result: passed
+   0.327 Script @____factorio-usage-test-mod__/control.lua:16: CONFIG:game_speed=1000
+   0.327 Script @____factorio-usage-test-mod__/control.lua:17: CONFIG:default_timeout=3600
+   0.327 Script @____factorio-usage-test-mod__/control.lua:18: CONFIG:level_name=Test
+   0.327 Script @____factorio-usage-test-mod__/control.lua:38: Usage test mod result: passed
 FACTORIO-TEST-MESSAGE-END
 FACTORIO-TEST-RESULT:failed

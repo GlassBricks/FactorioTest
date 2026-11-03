@@ -9,7 +9,7 @@ import { promisify } from "util"
 import { CliError } from "./cli-error.js"
 import { BAILED_PREFIX, FactorioOutputHandler, FOCUSED_SUFFIX } from "./factorio-output-parser.js"
 import type { RunMode } from "./factorio-setup.js"
-import { majorMinor } from "./mods/dependency.js"
+import { compareVersions } from "./mods/dependency.js"
 import type { RunPlan, World } from "./run-plan.js"
 import { OutputPrinter, ProgressRenderer } from "./test-output.js"
 import { TestRunCollector, TestRunData } from "./test-results.js"
@@ -129,7 +129,7 @@ export interface Scenario2MapStep {
 }
 
 export interface LaunchSteps {
-  /** Creates the save for a scenario world, before every test launch (LAUNCH-1). */
+  /** Creates the save for a scenario world in graphics mode, before every test launch. */
   scenario2map?: Scenario2MapStep
   test: { args: string[] }
 }
@@ -159,10 +159,13 @@ export function buildLaunchSteps({ world }: RunPlan, mode: RunMode, options: Lau
     path.join(dataDir, "config.ini"),
     ...factorioArgs,
   ]
+  if (mode === "headless") {
+    const load =
+      world.kind === "scenario" ? ["--test-scenario", world.ref] : ["--test-save", worldSavePath(world, options)]
+    return { test: { args: [...load, ...common, ...testArgs] } }
+  }
   const savePath = worldSavePath(world, options)
-  const load =
-    mode === "headless" ? ["--benchmark", savePath, "--benchmark-ticks", "1000000000"] : ["--load-game", savePath]
-  const test = { args: [...load, ...common, ...testArgs] }
+  const test = { args: ["--load-game", savePath, ...common, ...testArgs] }
   if (world.kind !== "scenario") return { test }
   return { scenario2map: { ref: world.ref, args: ["--scenario2map", world.ref, ...common], savePath }, test }
 }
@@ -197,10 +200,19 @@ export interface FactorioTestResult {
   data?: TestRunData
 }
 
-/** Saves can't be loaded by an older Factorio, so there's one per supported version. */
-export function getHeadlessSavePath(gameVersion: string): string {
-  const fileName = majorMinor(gameVersion) === "2.0" ? "headless-save-2.0.zip" : "headless-save.zip"
-  return path.join(__dirname, fileName)
+export function getHeadlessSavePath(): string {
+  return path.join(__dirname, "headless-save.zip")
+}
+
+export const MIN_FACTORIO_VERSION = "2.1.24"
+
+/** The CLI relies on `--test-save`/`--test-scenario`, added in Factorio 2.1.24. */
+export function checkFactorioVersionSupported(version: string): void {
+  if (compareVersions(version, MIN_FACTORIO_VERSION) >= 0) return
+  throw new CliError(
+    `factorio-test requires Factorio ${MIN_FACTORIO_VERSION} or newer (found ${version}).\n` +
+      "Downgrade factorio-test-cli to v3.8.0 to use earlier factorio versions.",
+  )
 }
 
 export function parseResultMessage(message: string): Pick<FactorioTestResult, "status" | "hasFocusedTests"> {
@@ -275,7 +287,7 @@ export function createOutputComponents(options: FactorioTestOptions): OutputComp
 export interface SupervisedProcess {
   stdout: Readable
   stderr?: Readable | null
-  kill(): void
+  kill(signal?: NodeJS.Signals): void
   once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown
 }
 
@@ -287,6 +299,32 @@ export interface HeadlessSuperviseOptions {
 }
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 10_000
+/** In test mode, Factorio ignores SIGTERM while a tick is stuck in Lua. */
+const FORCE_KILL_DELAY_MS = 3_000
+
+const LOG_LINE = /^\s*\d+\.\d{3} /
+const ERROR_LOG_LINE = /^\s*\d+\.\d{3} Error /
+
+/** Keeps Factorio's last `Error` log entry, with its continuation lines. */
+export class LastErrorCollector {
+  private lines: string[] = []
+  private capturing = false
+
+  add(line: string): void {
+    if (ERROR_LOG_LINE.test(line)) {
+      this.lines = [line.trim()]
+      this.capturing = true
+    } else if (LOG_LINE.test(line) || line.startsWith("FACTORIO-TEST-")) {
+      this.capturing = false
+    } else if (this.capturing) {
+      this.lines.push(line)
+    }
+  }
+
+  get(): string | undefined {
+    return this.lines.length > 0 ? this.lines.join("\n").trimEnd() : undefined
+  }
+}
 
 function forEachLine(proc: SupervisedProcess, onLine: (line: string) => void): void {
   new BufferLineSplitter(proc.stdout).on("line", onLine)
@@ -305,10 +343,16 @@ export function superviseHeadlessRun(
   let wasCancelled = false
   let outputTimedOut = false
 
+  let forceKill: ReturnType<typeof setTimeout> | undefined
+  function terminate(): void {
+    proc.kill()
+    forceKill ??= setTimeout(() => proc.kill("SIGKILL"), FORCE_KILL_DELAY_MS)
+  }
+
   const startupTimeout = setTimeout(() => {
     if (testRunStarted) return
     startupTimedOut = true
-    proc.kill()
+    terminate()
   }, startupTimeoutMs)
 
   handler.on("event", (event) => {
@@ -323,19 +367,21 @@ export function superviseHeadlessRun(
     clearTimeout(outputWatchdog)
     outputWatchdog = setTimeout(() => {
       outputTimedOut = true
-      proc.kill()
+      terminate()
     }, outputTimeout * 1000)
   }
   resetOutputWatchdog()
 
   const abortHandler = () => {
     wasCancelled = true
-    proc.kill()
+    terminate()
   }
   signal?.addEventListener("abort", abortHandler)
 
+  const lastError = new LastErrorCollector()
   forEachLine(proc, (line) => {
     resetOutputWatchdog()
+    lastError.add(line)
     handler.handleLine(line)
   })
 
@@ -343,6 +389,7 @@ export function superviseHeadlessRun(
     proc.once("exit", (code, exitSignal) => {
       clearTimeout(startupTimeout)
       clearTimeout(outputWatchdog)
+      clearTimeout(forceKill)
       signal?.removeEventListener("abort", abortHandler)
       if (wasCancelled) {
         resolve("cancelled")
@@ -363,7 +410,9 @@ export function superviseHeadlessRun(
       } else {
         reject(
           new CliError(
-            `Factorio exited with code ${code}, signal ${exitSignal}, no result received${factorioLogHint(dataDir)}`,
+            `Factorio exited with code ${code}, signal ${exitSignal}, no result received` +
+              (lastError.get() ? `:\n${lastError.get()}` : "") +
+              factorioLogHint(dataDir),
           ),
         )
       }

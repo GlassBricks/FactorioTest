@@ -3,7 +3,7 @@ import * as os from "os"
 import * as path from "path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { main } from "./main.js"
-import { factorioTestVersion } from "./mods/install.js"
+import { FACTORIO_TEST_VERSION } from "./mods/install.js"
 import { LOCK_FILE_NAME } from "./mods/lock.js"
 import { FAKE_TOKEN, FAKE_USERNAME, FakePortal, writeModDir } from "./mods/test-helpers.js"
 
@@ -12,7 +12,7 @@ let fake: FakePortal
 let stdout: string[]
 let stderr: string[]
 
-const pinned = factorioTestVersion("2.1.20")
+const pinned = FACTORIO_TEST_VERSION
 
 beforeEach(async () => {
   tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), "factorio-test-mods-command-"))
@@ -107,7 +107,7 @@ describe("mods update", () => {
   beforeEach(async () => {
     expect(await mods("install")).toBe(0)
     await fake.addRelease({ name: "flib", version: "0.17.0" })
-    await fake.addRelease({ name: "factorio-test", version: "3.2.0" })
+    await fake.addRelease({ name: "factorio-test", version: "99.0.0" })
     stdout.length = 0
   })
 

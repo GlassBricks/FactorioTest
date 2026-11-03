@@ -34,6 +34,11 @@ Compiles Typescript code to Lua, for Factorio runtime. Only used in `mod/`.
 
 The CLI spawns Factorio, and parses messages from the mod from stdout (lua `print` calls), messages are marked with `FACTORIO-TEST-*:`.
 
+CLI → mod: one payload, `FACTORIO_TEST:<json>` (`TestRunPayload` in `types/config.d.ts`: mod, test config, last failed tests).
+
+- Headless: Factorio's test mode, `--test-save`/`--test-scenario` + `--test-arg <payload>`. The mod reads `script.test_arg` and ends the run with `script.finish_test(passed)`.
+- Graphics: no test mode, so the payload goes in the `factorio-test-auto-start-config` startup setting. Ignored when `script.test_arg` is set.
+
 Uses the `fmtk` bin (from npm package `factoriomod-debug`) for mod settings management (`mod-settings.dat`).
 
 ## Notes
@@ -44,6 +49,6 @@ Uses the `fmtk` bin (from npm package `factoriomod-debug`) for mod settings mana
 
 ## Factorio versions
 
-- `main`: Factorio 2.1, factorio-test mod 3.1.x. The CLI (published from `main`) supports both 2.0 and 2.1: the required mod version, builtin mods and default save are chosen by the Factorio version found (`factorioTestConstraints()`, `builtinMods()`, `getHeadlessSavePath()`).
-- `backport-2.0`: `main` plus one commit with only the mod changes for Factorio 2.0 (mod 3.0.x, published from that branch). Rebase it onto `main` to backport. Its integration tests and CI run on Factorio 2.0, covering the CLI against 2.0.
+- Factorio 2.1.24+ only (needs Factorio's test mode), factorio-test mod 3.2.x. The CLI pins the mod version (`FACTORIO_TEST_VERSION`) and rejects older Factorio (`checkFactorioVersionSupported()`).
+- `backport-2.0` is no longer maintained.
 - CLI unit tests cover both versions with fakes; integration tests run on the branch's Factorio version only.
