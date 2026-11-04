@@ -33,12 +33,12 @@ async function main() {
   const isScenario = !fs.existsSync(path.join(fixturePath, "info.json"))
   const targetArgs = isScenario ? ["--scenario-path", fixturePath] : []
 
-  console.log(`Running fixture ${fixture} with graphics, data directory ${dataDir}`)
+  console.log(`Running fixture ${fixture}, data directory ${dataDir}`)
   const child = spawnCli(
     {
       modPath: isScenario ? null : fixturePath,
       dataDir,
-      extraArgs: [...targetArgs, "--graphics", ...extraArgs],
+      extraArgs: [...targetArgs, ...extraArgs],
     },
     "inherit",
   )
